@@ -1,0 +1,22 @@
+# Local copyrighted inputs and extracted files
+/game-data/
+/private-data/
+/fixtures/private/
+*.iso
+*.bin
+*.cue
+*.img
+*.chd
+*.pbp
+*.7z
+*.rar
+*.zip
+# Tool outputs
+/target/
+/node_modules/
+/dist/
+/test-results/
+/playwright-report/
+.env
+.env.*
+!.env.example

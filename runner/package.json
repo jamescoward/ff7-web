@@ -1,0 +1,11 @@
+{
+  "name": "ff7-web-runner",
+  "private": true,
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "./build.sh",
+    "test": "node --test 'test/**/*.test.js'"
+  }
+}

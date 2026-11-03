@@ -11,6 +11,11 @@ The architecture is decided (see `docs/ARCHITECTURE_SURVEY.md`):
 
 Read `docs/PHASE0.md` for milestones and `docs/AUTOMATION.md` for how work flows.
 
+## Start of every session
+Sessions can be cut off at any moment (quota, timeouts). **Before anything else, read `STATUS.md` and follow the session-start protocol in `docs/CONTINUITY.md`**: finish in-flight PRs first, then resume abandoned claims, then take the next ready issue.
+
+While working, push and update the PR's **Handoff** section at every checkpoint, so a fresh agent can continue from GitHub alone. Never leave state only in chat, the scratchpad, or uncommitted files.
+
 ## Operating mode
 - Work from GitHub issues. Each issue is a task contract: outcome, allowed paths, acceptance scenarios, attempt budget. Stay within it; propose scope changes as new issues.
 - Prove behaviour with tests. Use Tier 1 (public) and Tier 2 (private eval) scenarios, and add a scenario for every behaviour you claim.
@@ -47,7 +52,7 @@ Read `docs/PHASE0.md` for milestones and `docs/AUTOMATION.md` for how work flows
 6. Next smallest step and stop condition
 
 ## Autonomy boundary
-- **PRs auto-merge when the required checks pass:** Tier 1, Tier 2, the reviewer agent, and Tier 3 where it applies. Never merge directly, approve your own PR, or bypass checks.
+- **You may merge your own PR** (squash) when every required check passes (Tier 1, Tier 2, the reviewer agent, and Tier 3 where it applies), the PR touches no protected path, it is not `[WIP]`, and the PR report is complete. The full rules are in `docs/CONTINUITY.md`. Never bypass or override checks.
 - **Protected paths need the owner's review:**
   - `.github/`
   - `CLAUDE.md`

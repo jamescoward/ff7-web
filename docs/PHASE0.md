@@ -19,7 +19,7 @@ Harness deliverables in the same milestone (see `docs/AUTOMATION.md`): Tier 1 he
 *Stop condition:* cannot sustain full speed with headroom on the target iPhone → evaluate a faster CPU core before anything else.
 
 ### M1.5 — Private eval and agent loop
-Tier 2 private eval (private storage + OIDC + network-less sandbox + schema-validated results), CODEOWNERS and branch protection for protected paths, reviewer agent, auto-merge on required checks, scheduled planner/implementer sessions. One-off owner setup: storage bucket, cloud role, repo settings.
+Tier 2 private eval (private storage + OIDC + network-less sandbox + schema-validated results), CODEOWNERS and branch protection for protected paths, reviewer agent, agent merge gated on required checks, scheduled sessions running the continuity protocol. One-off owner setup: storage bucket, cloud role, repo settings.
 *Stop condition:* the sandbox cannot be shown to block network egress and credential access in an adversarial test scenario.
 
 ### M2 — Game-state layer
@@ -39,5 +39,6 @@ A continuous run from new game through the first reactor mission and back — fi
 - Use verified evidence; mark unknowns as unknown. A test not run is not verified.
 - Repository contains only original code, synthetic/homebrew fixtures and documentation. No game data, BIOS, screenshots, save states or code derived from the game executable — see `docs/SECURITY.md`.
 - Tests that need the owner's disc run only in the Tier 2 private eval sandbox; results are schema-validated summaries without game-derived artefacts.
-- Work flows through issues → agent PRs → automated checks → auto-merge; owner reviews milestones and protected paths only (`docs/AUTOMATION.md`).
+- Work flows through issues → agent PRs → automated checks → agent merge; owner reviews milestones and protected paths only (`docs/AUTOMATION.md`).
+- Any agent can resume from the repo and GitHub alone (`STATUS.md`, `docs/CONTINUITY.md`).
 - Gameplay coverage is measured by what can be played end to end, not by screens rendered.

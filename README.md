@@ -4,15 +4,17 @@ A hobby project to play the original **Final Fantasy VII (USA, PS1)** on an iPho
 
 **Status:** Phase 0 research done; nothing built yet. Next is Experiment 01, an iPhone performance baseline using homebrew test programs.
 
-**Process:** agent-led and automated — agents plan, implement, test against the real game in a network-isolated sandbox and review; PRs auto-merge on green checks. See `docs/AUTOMATION.md`.
+**Process:** agent-led and automated — agents plan, implement, test against the real game in a network-isolated sandbox and review; agents merge their own PRs on green checks. Work survives sessions being cut off mid-task. See `docs/AUTOMATION.md`.
 
 **Approach in one line:** the PCSX ReARMed PS1 emulator in WebAssembly, plus a layer that reads the game's state from memory and turns taps into controller input, plus a touch UI built around the original picture.
 
 ## Read next
+- `STATUS.md`: where the project is right now.
 - `docs/PHASE0.md`: the plan and milestones.
 - `docs/ARCHITECTURE_SURVEY.md`: options compared, with sources and commit hashes.
 - `docs/EXPERIMENT_01_IPHONE_BASELINE.md`: the first experiment.
 - `docs/AUTOMATION.md`: agent roles, test tiers, private eval sandbox and merge policy.
+- `docs/CONTINUITY.md`: how any agent picks up where the last one stopped.
 - `docs/SECURITY.md`: rules for game data.
 - `CLAUDE.md`: rules for coding agents.
 

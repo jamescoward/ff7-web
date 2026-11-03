@@ -22,7 +22,7 @@ The constraint that shapes everything: agents must be able to test against the o
                      └─────────────────────────────────────────┘
                                               │ all required checks green
                                               ▼
-                              GitHub auto-merge (no human)
+                                agent merges (squash)  
                      — except PRs touching protected paths → owner review
 ```
 
@@ -76,12 +76,15 @@ The value of what could leak is low, and the owner accepts this risk for a perso
 | Role | Trigger | Output |
 |---|---|---|
 | Planner | Milestone start, or the issue queue running low | Issues with task contracts: outcome, allowed paths, acceptance scenarios, attempt budget |
-| Implementer | Scheduled session picks the next ready issue | Branch, PR, fixes from CI and review feedback |
+| Implementer | Scheduled session runs the session-start protocol in `docs/CONTINUITY.md` | Branch, PR, fixes from CI and review feedback |
 | Reviewer | PR opened or updated | A review against the `CLAUDE.md` rules; blocks on unverified claims, scope creep or protected-path edits |
 | Investigator | Tier 2 address search tasks | Candidate addresses confirmed through scenarios |
 
+## Continuity
+Sessions can stop at any time, for example when subscription quota runs out. All state lives in the repo and GitHub: `STATUS.md`, issue labels, and the PR Handoff sections. See `docs/CONTINUITY.md`.
+
 ## Merge policy
-- **Auto-merge** when Tier 1, Tier 2 and the reviewer agent's checks all pass, and Tier 3 too where it applies. Agents never merge directly; GitHub merges once the required checks pass.
+- **Agents merge their own PRs** (squash) once Tier 1, Tier 2 and the reviewer agent's checks all pass, Tier 3 too where it applies, and the PR is not `[WIP]`. The full conditions are in `docs/CONTINUITY.md`.
 - **Owner review is required** for protected paths, enforced by CODEOWNERS and branch protection:
   - `.github/`
   - `CLAUDE.md`

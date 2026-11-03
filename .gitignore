@@ -11,6 +11,17 @@
 *.7z
 *.rar
 *.zip
+*.ecm
+*.mds
+*.mdf
+# Memory cards, save states and BIOS dumps
+*.mcr
+*.mcd
+*.srm
+*.state
+*.state[0-9]*
+*.sav
+scph*.bin
 # Tool outputs
 /target/
 /node_modules/

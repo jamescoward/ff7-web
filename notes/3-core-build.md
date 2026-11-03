@@ -16,4 +16,6 @@ Measured on a Linux cloud container (4 vCPU), 2026-11-03.
 - `.exe` (PS-X EXE) is a valid content type, so homebrew test programs can be loaded directly without a disc image (#5).
 - `frontend/libpicofe` (a submodule) is not needed for the libretro build.
 - The GPU is `gpu_neon`'s `psx_gpu`, built with `-msimd128`. **iOS Safari has supported Wasm SIMD since 16.4.** That is a source claim, not yet checked on the owner's device; #7 and #8 need to confirm it.
-- emsdk 4.0.23 is a 356 MB download.
+- emsdk 4.0.23 is a 356 MB download. A full `core/build.sh` (fetch and build) took about 1 minute.
+- Once, a `git fetch` through the agent proxy stalled with no bytes received for more than 2 minutes, and the proxy reported no relay failures. A plain retry succeeded. If this recurs, add a timeout and retry to `fetch`.
+- The archive hash is the same from two different checkout paths (`80971bdb…2b61`).

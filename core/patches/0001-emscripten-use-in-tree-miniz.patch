@@ -1,0 +1,23 @@
+ff7-web patch for libretro/pcsx_rearmed @ 7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e (GPL-2.0).
+Why: the emscripten platform requests the emscripten zlib port (-sUSE_ZLIB=1),
+which downloads zlib at build time. Use the in-tree miniz (upstream default,
+USE_MINIZ ?= 1) instead so the build is offline after core/build.sh fetch.
+
+diff --git a/Makefile.libretro b/Makefile.libretro
+index cd53109..e77a144 100644
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -601,11 +601,8 @@ else ifeq ($(platform), emscripten)
+    TARGET  := $(TARGET_NAME)_libretro_$(platform).bc
+    fpic    := -fPIC
+    NO_MMAP = 1
+-   # use emscripten's built-in zlib port instead of miniz, it has to be requested
+-   # explicitly with -sUSE_ZLIB=1 (just like RetroArch's Makefile.emscripten does)
+-   USE_MINIZ = 0
+-   CFLAGS += -sUSE_ZLIB=1
+-   EXTRA_LDFLAGS += -sUSE_ZLIB=1
++   # ff7-web: keep the in-tree miniz (USE_MINIZ ?= 1) so the build needs no
++   # network access for the emscripten zlib port.
+    CFLAGS_OPT = -O2
+    CFLAGS += -DNO_DYLIB -DNO_SOCKET
+    CFLAGS += -msimd128 -ftree-vectorize

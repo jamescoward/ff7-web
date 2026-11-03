@@ -31,3 +31,6 @@ scph*.bin
 .env
 .env.*
 !.env.example
+# Wasm core build (core/build.sh)
+/core/.src/
+/core/dist/

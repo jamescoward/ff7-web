@@ -17,7 +17,7 @@ The constraint that shapes everything: agents must be able to test against the o
                      ┌──────────── CI on the PR ───────────────┐
                      │ Tier 1  public checks (no game data)    │
                      │ Tier 2  private eval (FF7, sandboxed)   │
-                     │ Tier 3  real-iPhone perf (device cloud) │
+                     │ Tier 3  owner's iPhone check (async)    │
                      │ Reviewer agent                          │
                      └─────────────────────────────────────────┘
                                               │ all required checks green
@@ -65,11 +65,34 @@ The value of what could leak is low, and the owner accepts this risk for a perso
 
 **Save-state fixtures:** these contain game RAM, so they live in private storage alongside the disc and are referenced by ID. Agents create new ones by submitting a "record" scenario; the trusted job stores the resulting state privately and returns only its ID.
 
-### Tier 3: real-iPhone performance (nightly and on PRs touching the core or renderer)
-- A device-cloud service runs Safari on real iPhones, driven by the homebrew benchmark from Experiment 01. **No game data is sent to the device cloud.**
-- Results are compared against stored thresholds.
-- Options: BrowserStack or Sauce Labs (pricing and any open-source plans unverified). Alternatively, the owner's Mac as a self-hosted runner with a tethered iPhone through `safaridriver`. That needs a one-off setup but no ongoing attention.
-- Touch *feel* remains a human judgement, sampled at milestone reviews.
+### Tier 3: owner's iPhone check (asynchronous, human in the loop)
+This is the one deliberate human step. It is kept to a few taps, and agents never sit idle waiting for it.
+
+**When it's needed:**
+- PRs that change the emulator core, renderer, audio or input path;
+- touch-UX PRs, which need a feel check;
+- each milestone review.
+
+Everything else merges without it.
+
+**How it works:**
+1. CI deploys a **preview build** of the PR to a static host, at a per-PR URL.
+   - The preview contains only original code and licence-checked homebrew test programs, never game data.
+   - FF7 checks use the owner's own disc file, opened from the Files app on the phone and loaded locally.
+2. The agent labels the PR `needs-owner-device` and posts **one comment mentioning the owner**, which reaches the phone through GitHub notifications. The comment contains:
+   - the preview link;
+   - a short checklist (≤5 items, about 2 minutes), for example "run the benchmark", "does tap-to-walk feel responsive?";
+   - what changed since the last check.
+3. **The benchmark page measures on its own.** When it finishes, it shows a **"Report results"** button.
+   - The button opens a pre-filled GitHub comment containing the JSON results and pass/fail against the thresholds.
+   - The owner adds a 👍 / 👎 and an optional note for the feel items.
+4. **The agent doesn't wait.** It moves on to other issues. The next session to run the start-up protocol picks up the reply, then merges or fixes.
+
+**Keeping requests rare:**
+- Agents batch device checks, so at most one request is open at a time. A request can cover several PRs, or a combined preview of stacked changes.
+- Performance numbers are recorded in `notes/perf-history.md`, so regressions show as trends.
+
+**Later option to remove the human step for performance:** a device-cloud service running real iPhones (BrowserStack, Sauce Labs; cost unverified), or the owner's Mac with a tethered iPhone via `safaridriver`. Feel checks stay human either way.
 
 ## Agent roles
 
@@ -104,13 +127,14 @@ To show the process works, and for the project's own steering:
 
 ## Build order
 1. **M1:** Tier 1 headless runner and asset guard, built alongside Experiment 01.
-2. **M1:** Tier 3 device-cloud benchmark, or the Mac runner.
+2. **M1:** a per-PR preview deployment, the benchmark page with its "Report results" button, and the `needs-owner-device` flow.
 3. **Before M2:** Tier 2 private eval (the storage bucket and OIDC role are a one-off setup by the owner), CODEOWNERS and branch protection, and the reviewer agent.
 4. **M2 onward:** planner and implementer on a schedule.
 
 ## Unverified
 - Whether a GitHub App review satisfies the required-approval rules in branch protection, or whether the reviewer's verdict should be a required status check instead.
-- Device-cloud iPhone Safari automation for Wasm workloads, and its cost.
+- Preview hosting: GitHub Pages can't set custom headers. That's fine while the core is single-threaded, but threads need COOP/COEP, which means Cloudflare Pages (via a `_headers` file, with PR previews built in) or a service-worker workaround.
+- Whether a pre-filled GitHub URL can carry a full JSON result. URL length limits may force a compact encoding.
 - How far a free GitHub plan stretches in runner minutes for Tier 2. The disc download is about 700 MB per run.
   - Never cache the disc with the GitHub Actions cache or artifacts. Caches created on `main` can be read by PR workflows.
   - If downloads are too slow, upload only the files the scenarios need, in private storage.

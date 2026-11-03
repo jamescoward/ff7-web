@@ -8,9 +8,10 @@ This decides whether the emulator foundation is viable as-is, or whether a faste
 - **Core:** `libretro/pcsx_rearmed`, pinned to an exact commit (survey baseline `7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e`). Emscripten target from `Makefile.libretro`, with no dynarec and threads off.
 - **Toolchain:** Emscripten SDK pinned to an exact version and recorded in the repo.
 - **Wrapper:** a minimal custom libretro frontend in JS/Wasm. It handles video to a canvas, audio via AudioWorklet, pad input, and loading files from `<input type=file>`. No EmulatorJS.
-- **Hosting:** a static site. COOP/COEP headers are not required while threads are off.
+- **Hosting:** a per-PR static preview, on GitHub Pages to start. COOP/COEP headers are not required while threads are off.
 - **Test programs:** freely distributable PS1 homebrew only. Candidates are PS1 hardware test suites and PSYQo/PCSX-Redux example programs. **Each candidate's licence is verified before it is committed**; if a licence is unclear, the file is fetched at test time rather than committed.
 - **Device:** the owner's iPhone, with its model and iOS version recorded. Safari tab and home-screen app are tested separately.
+- **How it's run:** the owner opens the PR's preview link on the iPhone when an agent asks (Tier 3 in `docs/AUTOMATION.md`). The page runs the measurements on its own and reports back through its "Report results" button. The device model and iOS version are taken from the user agent where possible, otherwise entered once.
 
 ## Measurements
 Each run outputs a JSON report that can be downloaded or copied from the page, with no game-derived content.

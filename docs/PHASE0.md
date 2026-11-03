@@ -15,7 +15,7 @@ Each milestone has a stop condition; failing one is reported, not worked around.
 
 ### M1 — iPhone emulator baseline (`docs/EXPERIMENT_01_IPHONE_BASELINE.md`)
 Build PCSX ReARMed for the browser, run freely distributable homebrew PS1 test programs, measure frame pacing, audio and memory on the owner's iPhone. Then, privately, boot the owner's FF7 disc and play the opening.
-Harness deliverables in the same milestone (see `docs/AUTOMATION.md`): Tier 1 headless Node runner and scenario format, asset-guard check, Tier 3 real-iPhone benchmark (device cloud or the owner's Mac).
+Harness deliverables in the same milestone (see `docs/AUTOMATION.md`): Tier 1 headless Node runner and scenario format, asset-guard check, per-PR preview deployment and the Tier 3 owner's-iPhone check flow.
 *Stop condition:* cannot sustain full speed with headroom on the target iPhone → evaluate a faster CPU core before anything else.
 
 ### M1.5 — Private eval and agent loop

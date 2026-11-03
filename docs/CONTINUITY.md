@@ -18,11 +18,12 @@ Never rely on the scratchpad, `/tmp`, local-only branches, or uncommitted files.
 - `status:ready`: a task contract is complete; anyone may start it.
 - `status:in-progress`: claimed. The claim is the linked PR, or a claim comment if there is no PR yet.
 - `status:blocked`: the reason and what would unblock it are in the latest comment.
-- `needs-owner`: needs the owner (protected paths, account setup, an iPhone feel check).
+- `needs-owner`: needs the owner (protected paths, account setup).
+- `needs-owner-device`: waiting for the owner's iPhone check (Tier 3, `docs/AUTOMATION.md`). Don't wait on it; take other work.
 
 ## Session-start protocol (every new agent, in order)
 1. Read `CLAUDE.md`, `STATUS.md` and this file.
-2. **Finish in-flight work before starting anything new.** List open PRs. For each one not labelled `needs-owner`, read its Handoff section, check out the branch and continue from **Next step**. If its Handoff says it's complete and checks are green, merge it (see Merge rules).
+2. **Finish in-flight work before starting anything new.** List open PRs. For `needs-owner-device` PRs, check whether the owner has replied: act on the result (fix, or remove the label and merge), and otherwise leave them alone. For each other PR not labelled `needs-owner`, read its Handoff section, check out the branch and continue from **Next step**. If its Handoff says it's complete and checks are green, merge it (see Merge rules).
 3. Otherwise, look for `status:in-progress` issues with no push or comment for more than 6 hours. These are abandoned claims: take them over, comment that you're resuming, and continue on the existing branch. Don't start again from scratch.
 4. Otherwise, take the oldest `status:ready` issue in the current milestone. Comment a claim, relabel it `status:in-progress`, and create the branch `issue-<n>-<slug>`.
 5. If there are no ready issues, act as planner: break the next milestone step into issues using the task template, then take the first one.
@@ -50,7 +51,7 @@ Keep tasks small enough that a typical one finishes in a single session. If an i
 ## Merge rules
 Agents may merge their own PRs when **all** of these hold:
 
-- every required check passes: Tier 1, Tier 2 where configured, the reviewer agent, and Tier 3 when the core or renderer changed;
+- every required check passes: Tier 1, Tier 2 where configured, the reviewer agent, and the owner's Tier 3 iPhone check when the PR changes the core, renderer, audio, input or touch UX;
 - the PR doesn't touch protected paths (`.github/`, `CLAUDE.md`, `docs/SECURITY.md`, `harness/private-eval/`, `harness/baselines/`);
 - the title has no `[WIP]` and the PR report is complete;
 - no test was skipped, weakened or deleted, and no baseline was edited, to get green.

@@ -16,9 +16,10 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
    6. the iPhone benchmark page.
 2. Then implement them in order.
 
+**Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
+
 **Blocked / needs owner:**
 - Merge PR #2. It touches protected paths.
 - Before M1.5:
   - set up the private storage bucket and the OIDC cloud role;
   - set up branch protection and CODEOWNERS;
-  - choose between a device cloud and the Mac for Tier 3.

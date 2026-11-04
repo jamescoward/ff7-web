@@ -23,6 +23,7 @@ export function createAudio({ sourceRate = 44100 } = {}) {
   let ctx = null;
   let node = null;
   let starting = null;
+  let unlocking = Promise.resolve();
   let muted = false;
 
   async function setup() {
@@ -53,7 +54,12 @@ export function createAudio({ sourceRate = 44100 } = {}) {
       });
       // resume() must be called inside the gesture on iOS, before any await.
       ctx?.resume?.();
-      return starting.then(() => ctx?.resume());
+      unlocking = starting.then(() => ctx?.resume());
+      return unlocking;
+    },
+    /** Settles when the latest unlock() has finished, including its resume after start-up (#50). */
+    get unlocking() {
+      return unlocking;
     },
     push(samples) {
       if (node && !muted) node.port.postMessage({ samples }, [samples.buffer]);

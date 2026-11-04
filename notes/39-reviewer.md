@@ -14,7 +14,7 @@
 - The owner can do the same on any PR.
 
 ## How the merge rule reads it
-Latest PR comment starting with `<!-- ff7-web-reviewer `: needs `verdict=PASS` and `sha=` equal to the head commit being merged. A later push needs a new review.
+Latest PR comment starting with `<!-- ff7-web-reviewer `, posted by the account agent sessions use (currently the owner's; on a public repo anyone can paste a marker, so other authors don't count): needs `verdict=PASS` and `sha=` equal to the head commit being merged. A later push needs a new review.
 
 ## Future option
 A workflow on `main` that turns the marked comment into a `reviewer` commit status, so branch protection can require it. It lives under `.github/` (protected), so it needs its own PR and the owner's review.

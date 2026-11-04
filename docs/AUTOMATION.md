@@ -100,14 +100,14 @@ Everything else merges without it.
 |---|---|---|
 | Planner | Milestone start, or the issue queue running low | Issues with task contracts: outcome, allowed paths, acceptance scenarios, attempt budget |
 | Implementer | Scheduled session runs the session-start protocol in `docs/CONTINUITY.md` | Branch, PR, fixes from CI and review feedback |
-| Reviewer | PR opened or updated | A review against the `CLAUDE.md` rules; blocks on unverified claims, scope creep or protected-path edits |
+| Reviewer (`.claude/agents/reviewer.md`) | The implementing session starts it before merging; the owner can start it on any PR | A review against the `CLAUDE.md` rules, posted as a PR comment with a `<!-- ff7-web-reviewer verdict=PASS|FAIL sha=<head> -->` marker; FAIL on unverified claims, scope creep or protected-path edits |
 | Investigator | Tier 2 address search tasks | Candidate addresses confirmed through scenarios |
 
 ## Continuity
 Sessions can stop at any time, for example when subscription quota runs out. All state lives in the repo and GitHub: `STATUS.md`, issue labels, and the PR Handoff sections. See `docs/CONTINUITY.md`.
 
 ## Merge policy
-- **Agents merge their own PRs** (squash) once Tier 1, Tier 2 and the reviewer agent's checks all pass, Tier 3 too where it applies, and the PR is not `[WIP]`. The full conditions are in `docs/CONTINUITY.md`.
+- **Agents merge their own PRs** (squash) once Tier 1, Tier 2 and the reviewer agent's checks all pass (the reviewer's latest marked comment says `verdict=PASS` for the head commit being merged; see `.claude/agents/reviewer.md`), Tier 3 too where it applies, and the PR is not `[WIP]`. The full conditions are in `docs/CONTINUITY.md`.
 - **Owner review is required** for protected paths, enforced by CODEOWNERS and branch protection:
   - `.github/`
   - `CLAUDE.md`
@@ -132,6 +132,7 @@ To show the process works, and for the project's own steering:
 4. **M2 onward:** planner and implementer on a schedule.
 
 ## Unverified
+- The reviewer's verdict is a PR comment, not a commit status or required check, because agent sessions can't set statuses. The merge rule in `docs/CONTINUITY.md` reads the marked comment. Future option: a workflow on `main` that turns the marked comment into a `reviewer` status (a protected-path change, so a separate PR).
 - Whether a GitHub App review satisfies the required-approval rules in branch protection, or whether the reviewer's verdict should be a required status check instead.
 - Preview hosting: GitHub Pages can't set custom headers. That's fine while the core is single-threaded, but threads need COOP/COEP, which means Cloudflare Pages (via a `_headers` file, with PR previews built in) or a service-worker workaround.
 - Whether a pre-filled GitHub URL can carry a full JSON result. URL length limits may force a compact encoding.

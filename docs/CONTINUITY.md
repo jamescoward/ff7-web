@@ -60,7 +60,7 @@ The session's own model (Opus) owns every issue: it claims it, reviews the work,
 
    It can't see this conversation, so the brief must stand on its own.
 2. **Check.** When it reports back, the Opus session reads the diff and re-runs the acceptance commands itself. A subagent's "tests pass" is a claim, not evidence.
-3. **Review.** Start the reviewer subagent on Opus with fresh context (see `docs/AUTOMATION.md`). Fix its blocking findings: in the same Sonnet subagent if it's still running, otherwise yourself. Then run the review again.
+3. **Review.** Start the reviewer subagent (`.claude/agents/reviewer.md`) on Opus with fresh context (see `docs/AUTOMATION.md`). It posts its verdict as a marked PR comment. Fix its blocking findings: in the same Sonnet subagent if it's still running, otherwise yourself. Then run the review again.
 4. **Report.** The PR report names the model that implemented the work. The Opus session owns the PR, the Handoff, the merge, and every claim in the report.
 5. **Record.** Add a row to `notes/model-delegation.md`:
    - the issue;
@@ -85,6 +85,11 @@ Subagents use the same subscription quota as the session. Delegation saves cost 
 Agents may merge their own PRs when **all** of these hold:
 
 - every required check passes: Tier 1, Tier 2 where configured, the reviewer agent, and the owner's Tier 3 iPhone check when the PR changes the core, renderer, audio, input or touch UX;
+- the reviewer agent's verdict is PASS for the commit being merged:
+  - find the latest PR comment whose first line starts with `<!-- ff7-web-reviewer `;
+  - it must say `verdict=PASS`, and its `sha=` must equal the PR's current head commit;
+  - any push after the review needs a new review;
+  - a verdict is a comment, not a commit status (see `notes/39-reviewer.md`);
 - the PR doesn't touch protected paths (`.github/`, `CLAUDE.md`, `docs/SECURITY.md`, `harness/private-eval/`, `harness/baselines/`);
 - the title has no `[WIP]` and the PR report is complete;
 - no test was skipped, weakened or deleted, and no baseline was edited, to get green.

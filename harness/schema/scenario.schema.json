@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jamescoward/ff7-web/harness/schema/scenario.schema.json",
+  "title": "ff7-web test scenario, format 1",
+  "description": "A boot point, an input script, and assertions on named memory addresses and frame hashes. See harness/README.md. Validated by runner/schema.js, which supports only the keywords used here.",
+  "type": "object",
+  "required": ["format", "name", "tier", "boot", "frames"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": 1 },
+    "name": {
+      "description": "Unique scenario name; also the baseline file name (harness/baselines/<name>.json).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "description": { "type": "string" },
+    "tier": {
+      "description": "1: public, homebrew only. 2: private eval (game data, run only by the trusted job).",
+      "enum": [1, 2]
+    },
+    "boot": {
+      "description": "Where the scenario starts. Format 1 supports booting a program from power-on; save-state boot points are reserved for Tier 2.",
+      "type": "object",
+      "required": ["fixture"],
+      "additionalProperties": false,
+      "properties": {
+        "fixture": {
+          "description": "A program listed in harness/fixtures/fixtures.json.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        }
+      }
+    },
+    "frames": {
+      "description": "Emulated frames to run, counted from 1.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 216000
+    },
+    "coreOptions": {
+      "description": "libretro core options.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "memory": {
+      "description": "Named main-RAM locations that assertions refer to.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/memoryLocation" }
+    },
+    "input": {
+      "description": "Pad input script. Buttons are held during frames from..to (inclusive); overlapping steps on a port are OR-ed. Frames with no step hold nothing.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/inputStep" }
+    },
+    "assert": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/assertion" }
+    },
+    "checkpoints": {
+      "description": "Frames whose hashes are compared with harness/baselines/<name>.json when that file exists, and recorded by --record.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/frame" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "frame": { "type": "integer", "minimum": 1 },
+    "address": {
+      "description": "PS1 main-RAM address (KUSEG, KSEG0 or KSEG1), as a hex string.",
+      "type": "string",
+      "pattern": "^0x[0-9a-fA-F]{1,8}$"
+    },
+    "memoryLocation": {
+      "type": "object",
+      "required": ["addr", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "addr": { "$ref": "#/$defs/address" },
+        "type": { "enum": ["u8", "u16", "u32", "bytes"] },
+        "len": {
+          "description": "Length for type bytes.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "button": {
+      "enum": ["cross", "square", "select", "start", "up", "down", "left", "right", "circle", "triangle", "l1", "r1", "l2", "r2", "l3", "r3"]
+    },
+    "inputStep": {
+      "type": "object",
+      "required": ["from", "buttons"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/frame" },
+        "to": { "$ref": "#/$defs/frame" },
+        "port": { "enum": [0, 1] },
+        "buttons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/button" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "value": {
+      "description": "An integer, a hex string (u8/u16/u32), or a hex byte string in memory order (bytes).",
+      "type": ["integer", "string"],
+      "pattern": "^(0x[0-9a-fA-F]{1,8}|([0-9a-fA-F]{2})+)$",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "assertion": {
+      "oneOf": [
+        {
+          "description": "A named memory location equals a value at the end of a frame.",
+          "type": "object",
+          "required": ["at", "mem", "equals"],
+          "additionalProperties": false,
+          "properties": {
+            "at": { "$ref": "#/$defs/frame" },
+            "mem": { "type": "string" },
+            "equals": { "$ref": "#/$defs/value" },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "description": "A frame's hash equals or differs from another frame's hash in the same run.",
+          "type": "object",
+          "required": ["at", "frameHash"],
+          "additionalProperties": false,
+          "properties": {
+            "at": { "$ref": "#/$defs/frame" },
+            "frameHash": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 1,
+              "additionalProperties": false,
+              "properties": {
+                "sameAs": { "$ref": "#/$defs/frame" },
+                "differsFrom": { "$ref": "#/$defs/frame" }
+              }
+            },
+            "note": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

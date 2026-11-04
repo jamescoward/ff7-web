@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "fixtures": {
+    "pad-echo": {
+      "description": "Reads the port 1 pad through SIO0 once per VBLANK, stores the reply bytes in RAM and fills the screen with a colour made from the pressed buttons.",
+      "kind": "generator",
+      "module": "pad-echo.js",
+      "export": "build",
+      "sha256": "d21f8b0f14190e971f83836b227db0791e2a1e8536c4855d75e659930e41e870",
+      "licence": "GPL-2.0-or-later",
+      "origin": "Original project code written for this repository. Built from source at test time by runner/synth/mips.js; no game, BIOS or SDK code.",
+      "redistributable": true
+    }
+  }
+}

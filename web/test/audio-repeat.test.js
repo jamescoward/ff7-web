@@ -1,6 +1,6 @@
 // TEMPORARY (#50): runs the "later tap resumes a suspended context" steps
 // 50 times per browser to measure the WebKit failure rate in CI. Removed
-// before the #50 PR merges. Mirrors browser.test.js exactly.
+// before the #50 PR merges. Mirrors browser.test.js exactly (with the fix).
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { BROWSERS, launch, loadPlaywright, serveWeb, until } from './helpers.js';
@@ -29,6 +29,13 @@ for (const name of BROWSERS) {
         const context = await browser.newContext();
         await context.addInitScript(() => {
           Object.defineProperty(navigator, 'audioSession', { value: { type: 'auto' }, configurable: true });
+          window.__resumes = 0;
+          window.__settled = 0;
+          const orig = AudioContext.prototype.resume;
+          AudioContext.prototype.resume = function () {
+            window.__resumes++;
+            return orig.call(this).finally(() => { window.__settled++; });
+          };
         });
         const page = await context.newPage();
         try {
@@ -36,16 +43,11 @@ for (const name of BROWSERS) {
           await page.evaluate(() => window.ff7web.ready);
           await page.click('#mute-btn');
           await page.click('#mute-btn');
-          await until(() => page.evaluate(() => window.ff7web.audio.context !== null), { what: 'an AudioContext' });
+          await until(() => page.evaluate(() => window.__resumes >= 1 && window.__settled === window.__resumes),
+            { what: 'the start-up resume to settle' });
           const resumed = await page.evaluate(async () => {
-            const ctx = window.ff7web.audio.context;
-            await ctx.suspend();
+            await window.ff7web.audio.context.suspend();
             window.__resumes = 0;
-            const orig = ctx.resume.bind(ctx);
-            ctx.resume = () => {
-              window.__resumes++;
-              return orig();
-            };
             return window.ff7web.audio.needsResume;
           });
           assert.ok(resumed, 'a suspended context reports needsResume');

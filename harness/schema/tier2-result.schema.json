@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jamescoward/ff7-web/harness/schema/tier2-result.schema.json",
+  "title": "ff7-web Tier 2 result, format 1",
+  "description": "What a Tier 2 run writes to /out/results.json inside the sandbox. The trusted validator (harness/private-eval/validate/validate.js) enforces these rules in its own code, plus rules a schema can't express: the file is at most 64 KiB, nesting depth is at most 6, every scenario name and metric key is listed in the run's --expect file (built from the PR's scenario files before the run), scenario names are unique, and a non-integer metric has at most 3 decimal places and lies within +-1e6. Anything else rejects the whole output. Documentation only: the validator never loads this file.",
+  "type": "object",
+  "required": ["format", "scenarios"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": 1 },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+          "status": { "enum": ["pass", "fail", "error"] },
+          "metrics": {
+            "description": "Numbers only: counts, timings, addresses, coordinates. Integers within +-2^32.",
+            "type": "object",
+            "maxProperties": 8,
+            "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+            "additionalProperties": { "type": "number", "minimum": -4294967296, "maximum": 4294967296 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Current milestone:** M1, the iPhone emulator baseline and Tier 1 harness (`docs/PHASE0.md`).
 
-**State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes.
+**State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 
 **Next:** implement the M1 issues in order:
 1. ~~#3 pin the toolchain and build PCSX ReARMed for Wasm~~ (done);
@@ -12,12 +12,14 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 3. ~~#5 the scenario format and the first homebrew test~~ (done; its baseline was merged in #13);
 4. ~~#6 the asset-guard check~~ (done; CI wiring is a separate `needs-owner` PR);
 5. ~~#14 per-PR preview deployment on GitHub Pages~~ (merged in #16);
-6. #7 the browser wrapper with file import (in progress: `web/`, `core/web/`; see `notes/7-browser-wrapper.md`). Its preview and WebKit tests need a `needs-owner` workflow PR that builds the core in the preview job and runs `web/test` in CI;
-7. #8 the iPhone benchmark page.
+6. ~~#7 the browser wrapper with file import~~ (done in #21; the preview builds the core and CI runs `web/test` since #20);
+7. #8 the iPhone benchmark page (next; builds on `web/`, e.g. `window.ff7web` and the audio underrun counters).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
-**Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18). The owner still needs to make `unit` and `tier1` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
+**Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18), core in previews + CI `web` on Chromium and WebKit (#20). The owner still needs to make `unit`, `tier1` and `web` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
+
+**Ideas raised, not yet filed:** in portrait the picture is small for tap-to-walk; drag-to-walk in the lower half plus context buttons, with snapping tap-to-walk as secondary, was suggested for M3 (owner to decide).
 
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 

@@ -1,0 +1,13 @@
+# Protected paths (CLAUDE.md, docs/SECURITY.md): changes need the owner's review.
+#
+# Note: agent PRs are currently opened under the owner's own account, and
+# GitHub doesn't let an author approve their own PR. So don't turn on
+# "Require review from Code Owners" until agents have a separate identity
+# (bot account or GitHub App); until then this file documents ownership and
+# requests the owner's review.
+
+/.github/                 @jamescoward
+/CLAUDE.md                @jamescoward
+/docs/SECURITY.md         @jamescoward
+/harness/private-eval/    @jamescoward
+/harness/baselines/       @jamescoward

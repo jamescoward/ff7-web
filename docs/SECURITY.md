@@ -4,12 +4,21 @@ Personal hobby project with public source. The owner's legally obtained FF7 (USA
 
 ## Never in the repository, issues, PRs, logs or artifacts
 - Disc images, extracted game files, BIOS images.
-- Memory cards, save states, RAM dumps.
+- Memory cards, save states, RAM dumps. This includes cards *generated* from a save description (see below): they are produced at test time and never committed.
 - Screenshots, video or audio captured from the game.
 - Code generated or decompiled from the game's executables.
 - Credentials of any kind.
 
 The `.gitignore` and the asset-guard CI check are defence in depth, not proof of absence. If game data ever lands in Git history, a later delete is not enough: purge the history and rotate any exposed credentials.
+
+## Generated save boot points
+Test scenarios may start from a memory card that the harness **generates at test time** from a short, human-readable save description (field, position, party, story progress, and so on). The descriptions and the generator may be committed, because they contain no bytes taken from the game:
+
+- **Allowed in the repo:** save descriptions written as JSON, the generator, and its tests. Field IDs, coordinates, flags and other values are plain numbers that the author chose.
+- **Never in the repo:** generated card files, and any card or save block made by the game itself, including the owner's own saves. Real cards may be used only by the owner on their own devices.
+- **Original bytes only:** the generator must not embed the game's save icon, its location-name text, or any other content copied from the game or a real save. It writes original placeholders, such as a blank icon and an ASCII label.
+- **Layout and checksum are facts:** take them from public documentation, cited in `notes/`. Copy no code from save editors or decompilations, whatever their licence.
+- Writing a generated card into the emulator's card slot counts as input, not as a write to game memory.
 
 ## Where private data lives
 - **Private object storage** (S3-compatible, encrypted at rest):

@@ -15,7 +15,9 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 6. ~~#7 the browser wrapper with file import~~ (done in #21; the preview builds the core and CI runs `web/test` since #20);
 7. ~~#8 the iPhone benchmark page~~ (done in #27; iPhone 14 Pro full run passed every Experiment 01 threshold: 5.89× unthrottled, p99 7 ms, 0 underruns, 64 MB; `notes/perf-history.md`).
 
-**M1 is complete.** Next: M1.5 (private eval). The owner's direction (session of 2026-11-04; the policy part is PR #29): tests start from generated save files instead of save states, review is done by a reviewer subagent, and sessions are run ad hoc. The issues are being drafted.
+**M1 is complete.** M1.5 (private eval) is filed as #31–#40. The reasoning and the owner's decisions of 2026-11-04 are in `notes/m1.5-issue-drafts.md`: tests start from generated saves read against a baseline taken from the disc, review is done by a reviewer subagent, Tier 2 runs for same-repo branches only, and sessions are run ad hoc.
+- **Ready now:** #31 (runner card slot + snapshots), #32 (save generator), #39 (reviewer subagent). #33, #34 and #40 are also ready, but they touch protected paths, so their PRs need the owner (`needs-owner`).
+- **Blocked:** #35 (workflows), on #33, #34 and the owner's R2 secrets; then #36, then #37, then #38.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
@@ -27,7 +29,7 @@ Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/base
 
 **Blocked / needs owner:**
 - Before M1.5:
-  - set up the private storage bucket and the OIDC cloud role;
+  - ~~private storage~~: done. The R2 bucket `ff7-web-assets` holds `disc-1.bin` to `disc-3.bin`. Still to do: the read-only token as secrets in a `main`-only environment (names proposed in #35);
   - a `main` ruleset (PR required with 0 approvals, no force push or deletion, linear history, required checks once #17 merges). The repo is now public, so this is available on the free plan;
   - a separate GitHub identity for agents (bot account or App), so code-owner review can be enforced.
-- Agent sessions' egress proxy blocks github.com archive (codeload) downloads; `git` over HTTPS works. The core build avoids archive downloads (see `notes/3-core-build.md`). The proxy also blocks `*.github.io`, so agents can't load previews themselves; they check the `gh-pages` branch instead.
+- Agent sessions' egress proxy blocks github.com archive (codeload) downloads; `git` over HTTPS works. The core build avoids archive downloads (see `notes/3-core-build.md`). The proxy also blocks `*.github.io`, so agents can't load previews themselves; they check the `gh-pages` branch instead. The exceptions are `ff7-mods.github.io` and `sithlord48.github.io`, which are allowed for save-format research, but only in sessions started after 2026-11-04.

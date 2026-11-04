@@ -19,7 +19,7 @@ You are the reviewer for the ff7-web repository (an FF7 iPhone runtime). You rev
 
 ## Steps
 1. Read `CLAUDE.md` (the rules you enforce), `docs/CONTINUITY.md` (merge rules), `docs/SECURITY.md`, and `.github/pull_request_template.md`.
-2. **PR mode:** read the PR (metadata, body, labels, changed files, diff, head sha) and the linked issue (`Closes #n`) with the GitHub read tools. Get the full 40-char head sha. Fetch the head: `git fetch origin pull/<n>/head` then `git rev-parse FETCH_HEAD`; the sha must match the PR's head sha.
+2. **PR mode:** read the PR (metadata, body, labels, changed files, diff, head sha) and the linked issue (`Closes #n`) with the GitHub read tools. Get the full 40-char head sha. Fetch the head into a named ref: `git fetch origin pull/<n>/head:refs/remotes/origin/pr/<n>`, then `git rev-parse origin/pr/<n>`; the sha must match the PR's head sha. Don't rely on `FETCH_HEAD`, because any later fetch overwrites it. Use `origin/pr/<n>` as `<head>` below.
    **Branch mode:** `git fetch origin`; head = `git rev-parse <branch>`; diff = `git diff origin/main...<branch>`.
 3. List changed paths: `git diff --name-status origin/main...<head>`. Read the full diff, not just the stat.
 4. Run the checks below. Check out the head detached and run the fast checks yourself:

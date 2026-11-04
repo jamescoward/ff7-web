@@ -20,6 +20,13 @@ Latest PR comment starting with `<!-- ff7-web-reviewer `, posted by the account 
 A workflow on `main` that turns the marked comment into a `reviewer` commit status, so branch protection can require it. It lives under `.github/` (protected), so it needs its own PR and the owner's review.
 
 ## Dry runs (2026-11-04)
+Verdict marker lines, verbatim:
+- Dry run 1: `<!-- ff7-web-reviewer verdict=FAIL sha=638b38469a2a1b243d67a09a4d3ec9b60c0efc4c -->`
+- Dry run 2: `<!-- ff7-web-reviewer verdict=FAIL sha=e76361ae43030ac7aec18603268abc74f6687128 -->`
+- Dry run 3: `<!-- ff7-web-reviewer verdict=PASS sha=5afd74a9f856a816288a38de08b839e829692586 -->`
+
+The first PR-mode review, of this issue's own PR #45 at `63e6ca6`, returned PASS. It also found that the `FETCH_HEAD` step in the agent file was fragile, which is now fixed.
+
 The Opus session ran these in branch mode. Each used a general-purpose Opus subagent given this file's body, a dry-run issue contract and a PR-report text. Each branch was a throwaway local branch from `main` @ `adfbadb`, checked out in its own worktree. The branches and worktrees were deleted afterwards, and nothing was pushed or posted.
 
 | Dry run | Branch (head) | What the branch did | Expected | Actual | Finding named |

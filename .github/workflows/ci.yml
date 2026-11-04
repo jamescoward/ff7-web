@@ -7,7 +7,8 @@
 #   runs the Tier 1 tests, and runs every scenario twice and compares the
 #   outputs byte for byte.
 # - web: builds the core and the browser link, then runs the browser
-#   wrapper's tests (web/test) on Chromium and WebKit through Playwright.
+#   wrapper's tests (web/test) and the benchmark page's tests (web/bench/test)
+#   on Chromium and WebKit through Playwright.
 #   A missing browser fails the job (WEB_REQUIRE_BROWSERS=1).
 #
 # Read-only token, no secrets. Nothing from the game is involved: Tier 1
@@ -112,9 +113,9 @@ jobs:
           npm install --global --no-fund --no-audit playwright@1.63.0
           playwright install --with-deps chromium webkit
           echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
-      - name: Browser wrapper tests (Chromium, WebKit)
+      - name: Browser wrapper and benchmark page tests (Chromium, WebKit)
         if: steps.has.outputs.web == 'true'
         env:
           WEB_BROWSERS: chromium,webkit
           WEB_REQUIRE_BROWSERS: '1'
-        run: node --test 'web/test/*.test.js'
+        run: node --test 'web/test/*.test.js' 'web/bench/test/*.test.js'

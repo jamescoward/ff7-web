@@ -1,0 +1,40 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 1,
+  "name": "pad-echo-buttons",
+  "description": "Pad input injected through setPad reaches a PS1 program's own SIO0 read of port 1, on the frame it is set, and the picture follows the held buttons.",
+  "tier": 1,
+  "boot": { "fixture": "pad-echo" },
+  "frames": 60,
+  "memory": {
+    "frames": { "addr": "0x800f0000", "type": "u32", "description": "VBLANKs seen by the program" },
+    "marker": { "addr": "0x800f0004", "type": "bytes", "len": 4, "description": "\"PADE\" once the program has started" },
+    "buttons": { "addr": "0x800f0008", "type": "u16", "description": "pad button word, active low" },
+    "reply": { "addr": "0x800f000c", "type": "bytes", "len": 3, "description": "first reply byte, pad ID, 0x5A" }
+  },
+  "input": [
+    { "from": 10, "to": 20, "buttons": ["cross"] },
+    { "from": 15, "to": 20, "buttons": ["start"] },
+    { "from": 30, "to": 30, "buttons": ["up", "circle"] }
+  ],
+  "assert": [
+    { "at": 5, "mem": "marker", "equals": "50414445" },
+    { "at": 5, "mem": "frames", "equals": 5, "note": "one program frame per emulated frame" },
+    { "at": 5, "mem": "reply", "equals": "ff415a", "note": "a digital pad answers on port 1" },
+    { "at": 9, "mem": "buttons", "equals": "0xffff", "note": "nothing held" },
+    { "at": 10, "mem": "buttons", "equals": "0xbfff", "note": "cross is seen on the frame it is first held" },
+    { "at": 14, "mem": "buttons", "equals": "0xbfff" },
+    { "at": 15, "mem": "buttons", "equals": "0xbff7", "note": "cross and start" },
+    { "at": 20, "mem": "buttons", "equals": "0xbff7" },
+    { "at": 21, "mem": "buttons", "equals": "0xffff", "note": "released on the frame after the step ends" },
+    { "at": 30, "mem": "buttons", "equals": "0xdfef", "note": "up and circle, one frame only" },
+    { "at": 31, "mem": "buttons", "equals": "0xffff" },
+    { "at": 60, "mem": "frames", "equals": 60 },
+    { "at": 20, "frameHash": { "sameAs": 15 }, "note": "same buttons, same picture" },
+    { "at": 9, "frameHash": { "sameAs": 60 }, "note": "nothing held at either frame" },
+    { "at": 10, "frameHash": { "differsFrom": 9 }, "note": "the picture follows the input" },
+    { "at": 15, "frameHash": { "differsFrom": 14 } },
+    { "at": 30, "frameHash": { "differsFrom": 31 } }
+  ],
+  "checkpoints": [10, 15, 30, 60]
+}

@@ -69,12 +69,12 @@ body {
 
 .menu { position: relative; }
 .menu-body {
-  position: absolute;
+  /* Placed against the viewport, not the Card button: anchoring to the
+     button ran off one edge or the other depending on font metrics. */
+  position: fixed;
   z-index: 10;
-  top: 52px;
-  /* Anchored to the Card button's right edge, so it opens leftwards and
-     stays on screen (left: 0 ran off the right edge of a 390 px phone). */
-  right: 0;
+  top: calc(env(safe-area-inset-top) + 60px);
+  left: calc(env(safe-area-inset-left) + 12px);
   width: min(280px, calc(100vw - 24px));
   display: grid;
   gap: 8px;

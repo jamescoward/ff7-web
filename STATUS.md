@@ -16,7 +16,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 7. ~~#8 the iPhone benchmark page~~ (done in #27; iPhone 14 Pro full run passed every Experiment 01 threshold: 5.89× unthrottled, p99 7 ms, 0 underruns, 64 MB; `notes/perf-history.md`).
 
 **M1 is complete.** M1.5 (private eval) is filed as #31–#40. The reasoning and the owner's decisions of 2026-11-04 are in `notes/m1.5-issue-drafts.md`: tests start from generated saves read against a baseline taken from the disc, review is done by a reviewer subagent, Tier 2 runs for same-repo branches only, and sessions are run ad hoc.
-- **Ready now:** #31 (runner card slot + snapshots), #32 (save generator), #39 (reviewer subagent). #33, #34 and #40 are also ready, but they touch protected paths, so their PRs need the owner (`needs-owner`).
+- **Done:** #31 (runner card slot + in-memory snapshots, PR #42; `notes/31-card-and-snapshots.md`). It changed `core.wasm`, so the pad-echo baseline passes but reports `unverified` until #43 (`needs-owner`) re-records it.
+- **Ready now:** #32 (save generator), #39 (reviewer subagent). #33, #34 and #40 are also ready, but they touch protected paths, so their PRs need the owner (`needs-owner`).
 - **Blocked:** #35 (workflows), on #33, #34 and the owner's R2 secrets; then #36, then #37, then #38.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.

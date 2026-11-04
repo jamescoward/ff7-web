@@ -13,7 +13,9 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 4. ~~#6 the asset-guard check~~ (done; CI wiring is a separate `needs-owner` PR);
 5. ~~#14 per-PR preview deployment on GitHub Pages~~ (merged in #16);
 6. ~~#7 the browser wrapper with file import~~ (done in #21; the preview builds the core and CI runs `web/test` since #20);
-7. #8 the iPhone benchmark page (next; builds on `web/`, e.g. `window.ff7web` and the audio underrun counters).
+7. ~~#8 the iPhone benchmark page~~ (done in #27; iPhone 14 Pro full run passed every Experiment 01 threshold: 5.89× unthrottled, p99 7 ms, 0 underruns, 64 MB; `notes/perf-history.md`).
+
+**M1 is complete.** Next: M1.5 (private eval). The owner's direction (session of 2026-11-04; the policy part is PR #29): tests start from generated save files instead of save states, review is done by a reviewer subagent, and sessions are run ad hoc. The issues are being drafted.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

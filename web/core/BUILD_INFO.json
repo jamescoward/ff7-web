@@ -1,0 +1,6 @@
+{
+  "pcsx_rearmed_commit": "7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e",
+  "emsdk_version": "4.0.23",
+  "core_archive_sha256": "80971bdb51afcd16a6743278cb08c26c01964f8073987b12f4092cc27dd52b61",
+  "wasm_sha256": "33987635ec116f23362f51a39162e4806228ccdf65e6ac1ed237e98bfb938c7e"
+}

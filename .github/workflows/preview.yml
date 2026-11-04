@@ -71,6 +71,17 @@ jobs:
           package-manager-cache: false
       - name: Asset guard (repository)
         run: node tools/asset-guard/check.js
+      # The browser wrapper (#7) needs the Wasm core in web/core/. Built from
+      # the pinned sources with no cache, as in ci.yml. Skipped until
+      # core/web/link.sh exists on the previewed commit.
+      - name: Build core and browser link
+        run: |
+          if [ ! -x core/web/link.sh ]; then
+            echo "core/web/link.sh not present: no core in this preview"
+            exit 0
+          fi
+          core/build.sh
+          core/web/link.sh
       - name: Assemble site
         env:
           SLOT: ${{ steps.meta.outputs.slot }}

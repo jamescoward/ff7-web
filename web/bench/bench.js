@@ -282,7 +282,10 @@ async function run() {
 
   state.phase = 'realtime';
   markRunning('realtime', { elapsed: round((performance.now() - runStart) / 1000, 0) });
-  const rt = await call({ type: 'realtime', seconds: params.seconds }, 'realtime');
+  // Stopped or hidden during the unthrottled phase: don't spend the real-time run.
+  const rt = interrupted
+    ? { ms: 0, frames: 0, expected: 0, late: 0, frameMs: [], atMs: [], heap: 0 }
+    : await call({ type: 'realtime', seconds: params.seconds }, 'realtime');
   clearTimeout(windowTimer);
   const after = audioOk ? await audio.stats() : null;
   if (audioOk && !atWindow && rt.ms >= params.audio * 1000 - 50) atWindow = after;

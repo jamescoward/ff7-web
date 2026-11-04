@@ -124,6 +124,8 @@ describe('statistics', () => {
     assert.equal(s.params.audio, 4, 'audio window fits in the run');
     assert.equal(s.params.window, 2, 'thermal windows are at most half the run');
     assert.equal(parseParams('?frames=1').params.frames, 10);
+    assert.equal(parseParams('?tris=1').short, true, 'a lighter program is a short run');
+    assert.equal(parseParams('?tris=2000').short, false);
     assert.equal(parseParams('?frames=abc').params.frames, DEFAULT_PARAMS.frames);
   });
 

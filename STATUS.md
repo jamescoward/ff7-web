@@ -15,7 +15,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 6. ~~#7 the browser wrapper with file import~~ (done in #21; the preview builds the core and CI runs `web/test` since #20);
 7. ~~#8 the iPhone benchmark page~~ (done in #27; iPhone 14 Pro full run passed every Experiment 01 threshold: 5.89× unthrottled, p99 7 ms, 0 underruns, 64 MB; `notes/perf-history.md`).
 
-**M1 is complete.** Next: M1.5 (private eval). The plan, agreed with the owner on 2026-11-04, starts tests from generated save files instead of save states, uses a reviewer subagent, and runs sessions ad hoc. Issues are being drafted.
+**M1 is complete.** Next: M1.5 (private eval). The owner's direction (session of 2026-11-04; the policy part is PR #29): tests start from generated save files instead of save states, review is done by a reviewer subagent, and sessions are run ad hoc. The issues are being drafted.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

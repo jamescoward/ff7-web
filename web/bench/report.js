@@ -41,7 +41,8 @@ export function parseParams(search = '') {
   }
   p.audio = Math.min(p.audio, p.seconds);
   p.window = Math.min(p.window, Math.floor(p.seconds / 2) || 1);
-  const short = ['frames', 'seconds', 'audio', 'window'].some((k) => p[k] < DEFAULT_PARAMS[k]);
+  // A lighter program counts as short too: it would make passing easier.
+  const short = ['frames', 'seconds', 'audio', 'window', 'tris'].some((k) => p[k] < DEFAULT_PARAMS[k]);
   return { params: p, short, auto: q.get('auto') === '1' };
 }
 

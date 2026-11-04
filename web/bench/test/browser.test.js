@@ -89,6 +89,25 @@ for (const name of BROWSERS) {
       }
     });
 
+    test('Stop during the unthrottled phase ends the run without the real-time phase', { skip: NEEDS_CORE, timeout: 60_000 }, async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page } = await openBench(browser, 'bench/?frames=100000&seconds=600&audio=2&window=1');
+      try {
+        await page.click('#start');
+        await page.waitForFunction(() => window.ff7bench.state.phase === 'unthrottled', null, { timeout: 10_000 });
+        await page.click('#stop');
+        const report = await page.evaluate(() => window.ff7bench.done);
+        assert.deepEqual(validate(SCHEMA, report), [], JSON.stringify(report));
+        assert.equal(report.status, 'interrupted');
+        assert.equal(report.note, 'stopped');
+        assert.ok(report.unthrottled.frames < 100000);
+        assert.equal(report.realtime.frames, 0, 'the 10-minute real-time phase was skipped');
+        assert.equal(report.verdict === 'pass' || report.verdict === 'pass-short', false);
+      } finally {
+        await context.close();
+      }
+    });
+
     test('a run cut off by a reload is reported as lost', { skip: NEEDS_CORE, timeout: 60_000 }, async (t) => {
       if (skip) return t.skip(skip);
       const { context, page } = await openBench(browser, `${SHORT.replace('seconds=4', 'seconds=60')}`);

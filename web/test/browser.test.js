@@ -270,20 +270,27 @@ for (const name of BROWSERS) {
     // Owner's iPhone check: sound played only after toggling it off and on
     // (the context stayed suspended after the file picker), and only on
     // headphones (the silent switch mutes "ambient" Web Audio).
-    test('audio: asks for a playback session, and a later tap resumes a suspended context', async (t) => {
+    // workletDelay: 0, and 150 ms to force the slow start-up path (#50):
+    // there, unlock()'s second resume() comes after the worklet loads.
+    for (const workletDelay of [0, 150]) test(`audio: asks for a playback session, and a later tap resumes a suspended context (worklet +${workletDelay} ms)`, async (t) => {
       if (skip) return t.skip(skip);
       const context = await browser.newContext();
+      if (workletDelay) {
+        await context.route('**/audio-worklet.js', async (route) => {
+          await new Promise((r) => setTimeout(r, workletDelay));
+          await route.continue();
+        });
+      }
       await context.addInitScript(() => {
         // The Audio Session API exists only in Safari 16.4+: stub it so the
         // request is observable in every browser.
         Object.defineProperty(navigator, 'audioSession', { value: { type: 'auto' }, configurable: true });
-        // Count every resume() from page start, and how many have settled.
+        // Count every resume(), from page start.
         window.__resumes = 0;
-        window.__settled = 0;
         const orig = AudioContext.prototype.resume;
         AudioContext.prototype.resume = function () {
           window.__resumes++;
-          return orig.call(this).finally(() => { window.__settled++; });
+          return orig.call(this);
         };
       });
       const page = await context.newPage();
@@ -294,12 +301,11 @@ for (const name of BROWSERS) {
         // Sound off, then on: the second tap unlocks audio.
         await page.click('#mute-btn');
         await page.click('#mute-btn');
-        // Wait for start-up to finish: the worklet loads, then unlock() calls
-        // resume(). If that resume lands after the simulated suspend below,
-        // the context runs again, the tap sees no need to resume, and the
-        // test times out (#50, WebKit).
-        await until(() => page.evaluate(() => window.__resumes >= 1 && window.__settled === window.__resumes),
-          { what: 'the start-up resume to settle' });
+        // Wait for the whole unlock: unlock() resumes once in the tap and
+        // again after the worklet loads. If that second resume lands after
+        // the simulated suspend below, the context runs again and the tap
+        // has nothing to resume (#50, WebKit).
+        await page.evaluate(() => window.ff7web.audio.unlocking);
         assert.ok(await page.evaluate(() => window.ff7web.audio.context !== null), 'an AudioContext');
         assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
 
@@ -310,6 +316,11 @@ for (const name of BROWSERS) {
           return window.ff7web.audio.needsResume;
         });
         assert.ok(resumed, 'a suspended context reports needsResume');
+        // Nothing left over from start-up may resume the context before the
+        // tap: wait past the worklet delay and check it is still suspended.
+        await page.waitForTimeout(workletDelay + 150);
+        assert.deepEqual(await page.evaluate(() => [window.__resumes, window.ff7web.audio.context.state]), [0, 'suspended'],
+          'no resume before the tap');
         await page.click('#screen');
         await until(() => page.evaluate(() => window.__resumes > 0), { what: 'a resume on tap' });
 

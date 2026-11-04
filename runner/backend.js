@@ -22,6 +22,7 @@ const PIXEL_FORMATS = {
   2: { name: 'rgb565', bytes: 2 },
 };
 
+export const CARD_SIZE = 131072;
 const HOST_MOUNT = '/host';
 
 /**
@@ -32,6 +33,9 @@ const HOST_MOUNT = '/host';
  * @param {string} [opts.dist]   directory holding core.mjs (runner/build.sh)
  * @param {boolean} [opts.allowMemoryWrite]  enable writeMem (off by default:
  *   the project injects input only, unless an issue explicitly allows writes)
+ * @param {boolean} [opts.memoryCard]  put a (blank, until setCard) memory
+ *   card in slot 1: sets core option pcsx_rearmed_memcard1=libretro, so the
+ *   card lives in core memory and never touches a file
  * @param {boolean} [opts.verbose]  forward core info logs to stderr
  * @param {Record<string,string>} [opts.coreOptions]  libretro core options
  */
@@ -59,7 +63,17 @@ export async function createBackend(opts = {}) {
     }
   };
 
-  for (const [k, v] of Object.entries(opts.coreOptions ?? {})) {
+  const coreOptions = { ...(opts.coreOptions ?? {}) };
+  if (opts.memoryCard) {
+    if (coreOptions.pcsx_rearmed_memcard1 !== undefined) {
+      throw new Error('memoryCard sets pcsx_rearmed_memcard1 itself; do not pass it in coreOptions');
+    }
+    coreOptions.pcsx_rearmed_memcard1 = 'libretro';
+  }
+  const cardEnabled = Boolean(opts.memoryCard);
+  let pendingCard = null; // setCard before loadProgram
+
+  for (const [k, v] of Object.entries(coreOptions)) {
     if (!withCString(k, (kp) => withCString(String(v), (vp) => m._fe_set_option(kp, vp)))) {
       throw new Error(`could not set core option ${k}`);
     }
@@ -78,6 +92,18 @@ export async function createBackend(opts = {}) {
     if (!ptr || size !== RAM_SIZE) throw new Error('core RAM is not available (no program loaded?)');
     // HEAPU8 is re-read every time: memory growth replaces the buffer.
     return m.HEAPU8.subarray(ptr, ptr + size);
+  }
+
+  function cardView() {
+    const ptr = m._fe_card_ptr();
+    const size = m._fe_card_size();
+    if (!ptr || size !== CARD_SIZE) throw new Error('core memory card is not available');
+    return m.HEAPU8.subarray(ptr, ptr + size);
+  }
+
+  function checkSlot(slot) {
+    if (!cardEnabled) throw new Error('no memory card: create the backend with memoryCard: true');
+    if (slot !== 0) throw new RangeError(`only memory card slot 0 (slot 1) is supported, got ${slot}`);
   }
 
   const backend = {
@@ -103,6 +129,71 @@ export async function createBackend(opts = {}) {
       const ok = withCString(`${HOST_MOUNT}/${path.basename(abs)}`, (p) => m._fe_load_game(p));
       if (!ok) throw new Error(`core rejected ${path.basename(abs)}`);
       loaded = true;
+      if (pendingCard) {
+        cardView().set(pendingCard);
+        pendingCard = null;
+      }
+    },
+
+    /**
+     * Put a 131072-byte raw memory card image in slot 1 (`slot` 0). Allowed
+     * before or after loadProgram, but programs read the card as they run, so
+     * call it before the first frame. Bytes are copied into core memory; no
+     * file is involved. Save states do NOT contain the card (see
+     * notes/31-card-and-snapshots.md).
+     */
+    setCard(bytes, slot = 0) {
+      checkSlot(slot);
+      if (!(bytes instanceof Uint8Array) || bytes.length !== CARD_SIZE) {
+        throw new RangeError(`memory card image must be a Uint8Array of ${CARD_SIZE} bytes`);
+      }
+      if (loaded) cardView().set(bytes);
+      else pendingCard = Uint8Array.from(bytes);
+    },
+
+    /** Copy of the slot 1 card as the core holds it now (needs a loaded program). */
+    getCard(slot = 0) {
+      checkSlot(slot);
+      if (!loaded) {
+        if (pendingCard) return Uint8Array.from(pendingCard);
+        throw new Error('card contents are not available before loadProgram or setCard');
+      }
+      return Uint8Array.from(cardView());
+    },
+
+    /**
+     * Snapshot the whole emulator (retro_serialize) as bytes in memory. Never
+     * touches a file. `frame` and the last-frame buffer are host-side and are
+     * not part of the snapshot.
+     */
+    saveState() {
+      if (!loaded) throw new Error('no program loaded');
+      const size = m._fe_state_size();
+      const ptr = m._malloc(size);
+      if (!ptr) throw new Error(`could not allocate ${size} bytes for a state`);
+      try {
+        if (!m._fe_state_save(ptr, size)) throw new Error('core refused to save state');
+        return Uint8Array.from(m.HEAPU8.subarray(ptr, ptr + size));
+      } finally {
+        m._free(ptr);
+      }
+    },
+
+    /** Restore bytes from saveState() (same core build) via retro_unserialize. */
+    loadState(bytes) {
+      if (!loaded) throw new Error('no program loaded');
+      const size = m._fe_state_size();
+      if (!(bytes instanceof Uint8Array) || bytes.length !== size) {
+        throw new RangeError(`state must be a Uint8Array of ${size} bytes`);
+      }
+      const ptr = m._malloc(size);
+      if (!ptr) throw new Error(`could not allocate ${size} bytes for a state`);
+      try {
+        m.HEAPU8.set(bytes, ptr);
+        if (!m._fe_state_load(ptr, size)) throw new Error('core rejected the state');
+      } finally {
+        m._free(ptr);
+      }
     },
 
     get frame() {
@@ -208,6 +299,11 @@ export async function createBackend(opts = {}) {
         }
       }
       return h.digest('hex');
+    },
+
+    /** Current Wasm heap size in bytes (growth shows up here; for tests). */
+    heapBytes() {
+      return m.HEAPU8.length;
     },
 
     stats() {

@@ -219,6 +219,17 @@ KEEP int fe_fb_dupes(void) { return fb_dupes; }
 KEEP void *fe_ram_ptr(void) { return retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM); }
 KEEP unsigned fe_ram_size(void) { return (unsigned)retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM); }
 
+/* Slot 1 memory card (raw 128 KiB). The core exposes it only when the option
+ * pcsx_rearmed_memcard1 is "libretro" and a program is loaded; otherwise
+ * these return NULL / 0. */
+KEEP void *fe_card_ptr(void) { return retro_get_memory_data(RETRO_MEMORY_SAVE_RAM); }
+KEEP unsigned fe_card_size(void) { return (unsigned)retro_get_memory_size(RETRO_MEMORY_SAVE_RAM); }
+
+/* Whole-emulator state, in caller-provided memory only (never a file). */
+KEEP unsigned fe_state_size(void) { return (unsigned)retro_serialize_size(); }
+KEEP int fe_state_save(void *buf, unsigned size) { return retro_serialize(buf, size) ? 1 : 0; }
+KEEP int fe_state_load(const void *buf, unsigned size) { return retro_unserialize(buf, size) ? 1 : 0; }
+
 KEEP uint32_t fe_audio_frames(void) { return audio_frames; }
 KEEP uint32_t fe_input_polls(void) { return input_polls; }
 

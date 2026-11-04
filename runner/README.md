@@ -44,6 +44,8 @@ Runs a JSON test scenario: a boot fixture, an input script, and assertions on na
 | `writeMem(addr, bytes)` | **off by default**; needs `allowMemoryWrite: true` (CLAUDE.md: input injection only, unless an issue allows writes) |
 | `setPad(state, port = 0)` | a 16-bit mask, an array of names, or `"start,cross"`; bit order is libretro's joypad IDs (`pad.js`) |
 | `onFrameEnd(fn)` | returns an unsubscribe function |
+| `setCard(bytes, slot = 0)`, `getCard(slot = 0)` | slot 1 memory card, 131072 bytes, in core memory (never a file). Needs `createBackend({ memoryCard: true })`. `setCard` works before or after `loadProgram` but must precede the first frame. Only slot 0 exists |
+| `saveState()` → `Uint8Array`, `loadState(bytes)` | whole-emulator snapshot via `retro_serialize` / `retro_unserialize` (4,456,448 bytes). Bytes in memory only, no path parameter, nothing written to disk. Same core build only. Does **not** contain the card; `frame` and the last-frame buffer are host-side and not rewound |
 | `frameInfo()`, `frameHash()` | the last frame's geometry and SHA-256 (format and size are hashed with the visible pixels) |
 
 The frontend (`frontend.c`) answers the core's environment queries: no frame duping, an empty system directory (so the HLE BIOS is used), input bitmasks, and core options from `opts.coreOptions`. It discards audio and does no rendering.
@@ -55,7 +57,7 @@ node --test 'runner/test/**/*.test.js'
 ```
 
 - `test/unit/`: the address map, the pad bitmask, CLI parsing, the synthetic EXE, the schema validator, the scenario loader and the fixture registry. These need no build.
-- `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js`, an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. It contains no game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
+- `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js` (and `synth/card-read.js`, which reads the slot 1 card through SIO0, with `synth/blank-card.js` generating a formatted blank card in code), an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. It contains no game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
 
 ## Licence
 

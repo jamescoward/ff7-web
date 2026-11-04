@@ -34,7 +34,8 @@ EXPORTS=(
   fe_init fe_set_option fe_load_game fe_run_frame fe_reset fe_unload fe_deinit
   fe_set_pad fe_input_state
   fe_fb_data fe_fb_width fe_fb_height fe_fb_pitch fe_fb_format fe_fb_dupes
-  fe_ram_ptr fe_ram_size fe_audio_frames fe_input_polls fe_fps
+  fe_ram_ptr fe_ram_size fe_card_ptr fe_card_size
+  fe_state_size fe_state_save fe_state_load fe_audio_frames fe_input_polls fe_fps
   malloc free
 )
 exports="$(printf '"_%s",' "${EXPORTS[@]}")"

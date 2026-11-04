@@ -63,11 +63,14 @@ test('a wrong frame-hash relation fails', () => {
 });
 
 test('checkpoints are compared with a baseline when one exists', () => {
-  const rec = run(EXAMPLE, '--record');
-  assert.equal(rec.code, 0, rec.stderr);
-  assert.deepEqual(rec.json.unverified, ['no baseline file for "pad-echo-buttons": checkpoint hashes recorded, not compared']);
+  // Use a private baselines dir, so the test doesn't depend on whether
+  // harness/baselines/ holds a baseline for the example.
   const baselines = path.join(dir, 'baselines');
   mkdirSync(baselines);
+  const rec = run(EXAMPLE, '--record', '--baselines', baselines);
+  assert.equal(rec.code, 0, rec.stderr);
+  assert.ok(rec.json.checkpoints.every((c) => c.baseline === 'absent'));
+  assert.deepEqual(rec.json.unverified, ['no baseline file for "pad-echo-buttons": checkpoint hashes recorded, not compared']);
   const file = path.join(baselines, 'pad-echo-buttons.json');
   writeFileSync(file, JSON.stringify(rec.json.record));
 

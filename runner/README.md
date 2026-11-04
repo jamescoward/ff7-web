@@ -24,6 +24,14 @@ node runner/cli.js --frames N [--hash-every K] [--peek ADDR[:LEN]]... \
 
 stdout holds only deterministic data, so two runs with the same program, flags and core build are byte-identical. Logs go to stderr.
 
+## Scenarios
+
+```sh
+node runner/scenario.js [--record] [--baselines DIR] [--fixtures DIR] <scenario.json>
+```
+
+Runs a JSON test scenario: a boot fixture, an input script, and assertions on named memory and frame hashes. The format, fixtures and baselines are described in `harness/README.md`. `schema.js` is the dependency-free validator for the scenario schema.
+
 ## Backend interface (`backend.js`)
 
 `createBackend(opts)` returns:
@@ -46,8 +54,8 @@ The frontend (`frontend.c`) answers the core's environment queries: no frame dup
 node --test 'runner/test/**/*.test.js'
 ```
 
-- `test/unit/`: the address map, the pad bitmask, CLI parsing and the synthetic EXE. These need no build.
-- `test/tier1/`: the backend interface and CLI determinism against the real core. These need both build steps. They use `synth/vblank-counter.js`, an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. It contains no game, BIOS or SDK code.
+- `test/unit/`: the address map, the pad bitmask, CLI parsing, the synthetic EXE, the schema validator, the scenario loader and the fixture registry. These need no build.
+- `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js`, an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. It contains no game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
 
 ## Licence
 

@@ -7,7 +7,7 @@ Measured on the same Linux container as #4, 2026-11-04. Pinned core (pcsx_rearme
 - `runner/backend.js`: `createBackend({ memoryCard: true })`, `setCard`, `getCard`, `saveState`, `loadState`, and `heapBytes` (test aid).
 - `runner/synth/blank-card.js`: formats a blank 128 KiB card in code (header "MC", 15 free directory frames, 20 broken-sector frames, XOR checksums). Not derived from any real save.
 - `runner/synth/card-read.js`: original homebrew that reads one card frame through SIO0 (`81 52 ...` exchange) and stores the reply bytes in RAM.
-- `runner/test/tier1/card-and-state.test.js`: 14 tests.
+- `runner/test/tier1/card-and-state.test.js`: 12 tests.
 
 First approach worked; no budget spent on dead ends (1 of 3 attempts).
 

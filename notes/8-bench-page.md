@@ -55,7 +55,7 @@ The assembler is a subset of `runner/synth/mips.js`, plus the COP2 instructions.
 600 unthrottled frames: 2.79×. Real-time p99 was 10.5 ms (p50 6.4). There were 0 underruns, and the heap stayed at 64 MB. The first frame came 100 ms after page load.
 
 ## Not verified
-- **The iPhone run (Tier 3).**
+- ~~The iPhone run (Tier 3).~~ Done: full pass on iPhone 14 Pro, issue #28, `notes/perf-history.md`.
 - Whether the GitHub iOS app, if installed, keeps the pre-filled body when it intercepts the link.
 - Wake Lock on iOS.
 - Whether a jetsam kill really leaves the marker readable after the reload.

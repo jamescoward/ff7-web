@@ -11,7 +11,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 2. ~~#4 a minimal headless Node runner~~ (done);
 3. ~~#5 the scenario format and the first homebrew test~~ (done; its baseline was merged in #13);
 4. ~~#6 the asset-guard check~~ (done; CI wiring is a separate `needs-owner` PR);
-5. #14 per-PR preview deployment (`needs-owner`: workflow under `.github/`, plus enabling Pages); needed before #7 and #8 can get their Tier 3 checks;
+5. #14 per-PR preview deployment on GitHub Pages (owner-approved approach; the PR is `needs-owner`; the owner then enables Pages from `gh-pages`); needed before #7 and #8 can get their Tier 3 checks;
 6. #7 the browser wrapper with file import;
 7. #8 the iPhone benchmark page.
 

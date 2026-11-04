@@ -24,12 +24,16 @@ A temporary `web/test/audio-repeat.test.js` ran the test's steps 50 times per br
 | Commit | Test logic | Chromium | WebKit |
 |---|---|---|---|
 | `2bdd418` | before the fix | 0/50 failed | **1/50 failed** (run 0, the first page in a freshly launched browser: `timed out waiting for a resume on tap`) |
-| fix | after the fix | see PR #53 | see PR #53 |
+| `707068f` | after the fix | 0/50 failed | **0/50 failed** (run 0, the cold start that failed before, passed) |
 
 **Local (Chromium only):**
 - holding the worklet and releasing it 0–40 ms before the suspend: 48/48 passed;
 - 50-run loop: 50/50 before and after the fix.
 
 The race did not reproduce on Chromium.
+
+**How strong this is:** 0/50 after a 1/50 rate before is weak evidence on its own (at a 2% failure rate, 50 clean runs happen about a third of the time). The fix rests mainly on the mechanism. The test can no longer read `needsResume` while a start-up resume is still pending, whatever the timing. If the test flakes again, reopen #50 with the CI job link.
+
+The temporary loop was removed before merge. Its last version is in commit `707068f`.
 
 WebKit can't be installed in agent sessions (environment rule: no `playwright install`), so WebKit numbers come from CI only.

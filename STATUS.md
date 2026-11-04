@@ -19,7 +19,7 @@ Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/base
 
 **Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18), core in previews + CI `web` on Chromium and WebKit (#20). The owner still needs to make `unit`, `tier1` and `web` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
 
-**Ideas raised, not yet filed:** in portrait the picture is small for tap-to-walk; drag-to-walk in the lower half plus context buttons, with snapping tap-to-walk as secondary, was suggested for M3 (owner to decide).
+**Touch plan (owner decision, 2026-11-04):** field controls are drag-to-walk plus Interact/Menu buttons (#23, ready), border cropping (#24, ready), and context-aware actions once M2 exists (#25, blocked). Tap-to-walk is a stretch goal (`docs/PHASE0.md`, M3).
 
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 

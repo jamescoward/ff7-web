@@ -27,7 +27,8 @@ Detect mode (field / battle / menu / world map / minigame / movie), read player 
 *Stop condition:* mode detection is not reliable across a scripted set of private save states.
 
 ### M3 — Touch UX tier 1–2
-Context-aware controls; tap-to-select in menus and battle commands; tap-to-walk on one field, then generalised. Input injection only, no memory writes.
+Field controls: drag-to-walk (an invisible floating joystick under the picture) with large Interact and Menu buttons (#23), then context-aware actions and automatic switching between control modes (#25). Reclaim black borders so the picture is as large as possible (#24). Tap-to-select in menus and battle commands. Input injection only, no memory writes.
+*Stretch goal:* tap-to-walk on the picture, with or without snapping to points of interest. Deferred (owner decision, 2026-11-04): the portrait picture is small for precise taps, and drag-to-walk with context actions avoids the walkmesh and pathfinding work tap-to-walk needs.
 
 ### M4 — Native screens and polish
 Battle command panel with cropped scene; native menu screens starting with Materia/Equip; speed toggle, suspend, save export/import; optional native shell.

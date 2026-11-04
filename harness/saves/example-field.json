@@ -1,0 +1,11 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web example",
+  "slot": 1,
+  "field": { "id": 116, "x": 0, "y": 0, "triangle": 0, "direction": 128 },
+  "party": [0, 255, 255],
+  "progress": 0,
+  "gil": 0,
+  "seconds": 0
+}

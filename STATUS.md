@@ -11,16 +11,13 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 2. ~~#4 a minimal headless Node runner~~ (done);
 3. ~~#5 the scenario format and the first homebrew test~~ (done; its baseline was merged in #13);
 4. ~~#6 the asset-guard check~~ (done; CI wiring is a separate `needs-owner` PR);
-5. #14 per-PR preview deployment on GitHub Pages (owner-approved approach; the PR is `needs-owner`; the owner then enables Pages from `gh-pages`); needed before #7 and #8 can get their Tier 3 checks;
-6. #7 the browser wrapper with file import;
+5. ~~#14 per-PR preview deployment on GitHub Pages~~ (merged in #16);
+6. #7 the browser wrapper with file import (in progress: `web/`, `core/web/`; see `notes/7-browser-wrapper.md`). Its preview and WebKit tests need a `needs-owner` workflow PR that builds the core in the preview job and runs `web/test` in CI;
 7. #8 the iPhone benchmark page.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
-**Waiting on the owner (protected paths, `needs-owner`):**
-- PR #16 (#14): per-PR preview deploys on GitHub Pages. Its first run deployed `gh-pages`; the owner enables Pages (Settings → Pages → `gh-pages`, root) and merges.
-- PR #17: CI (`unit` + `tier1`). Passing, with the core reproduced bit for bit on GitHub's runners. After merge, make both required checks.
-- PR #18: CODEOWNERS for the protected paths. Code-owner review stays off until agents have their own GitHub identity, because agent PRs are opened under the owner's account.
+**Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18). The owner still needs to make `unit` and `tier1` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
 
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 

@@ -1,0 +1,217 @@
+/* ff7-web browser wrapper. Portrait: picture on top, pad below.
+   Landscape: picture in the middle, pad halves at the sides.
+   Every touch target is at least 44 px (CLAUDE.md). */
+
+:root {
+  --bg: #0b0d12;
+  --panel: #161a22;
+  --fg: #e7e9ee;
+  --muted: #9aa3b2;
+  --btn: #232937;
+  --btn-on: #4a6cf7;
+  --error: #ff8a80;
+  --gap: 12px;
+  --face: 60px;
+  --dpad: 156px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overscroll-behavior: none;
+  /* No double-tap zoom anywhere (Safari ignores user-scalable=no). */
+  touch-action: manipulation;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Top bar */
+.bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px var(--gap);
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--btn);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+.btn::-webkit-details-marker { display: none; }
+.btn.primary { background: var(--btn-on); }
+
+.menu { position: relative; }
+.menu-body {
+  /* Placed against the viewport, not the Card button: anchoring to the
+     button ran off one edge or the other depending on font metrics. */
+  position: fixed;
+  z-index: 10;
+  top: calc(env(safe-area-inset-top) + 60px);
+  left: calc(env(safe-area-inset-left) + 12px);
+  width: min(280px, calc(100vw - 24px));
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px #0008;
+}
+.hint { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* Stage */
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 60dvh;
+  margin: 0 auto;
+  background: #000;
+}
+#screen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  touch-action: none;
+}
+.status {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #000c;
+  color: var(--fg);
+}
+.status[data-kind="error"] { color: var(--error); }
+
+/* Virtual gamepad */
+.pad {
+  flex: 1;
+  position: relative;
+  min-height: 300px;
+  touch-action: none;
+}
+
+.vpad {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "shl shr"
+    "dpad face"
+    "center center";
+  align-items: center;
+  justify-items: center;
+  padding: var(--gap);
+  gap: var(--gap);
+}
+
+.vp-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: var(--btn);
+  color: var(--fg);
+  font: 600 14px/1 inherit;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.vp-btn.vp-on, .vp-arrow.vp-on { background: var(--btn-on); }
+
+.vp-shoulder { display: flex; gap: 8px; }
+.vp-shl { grid-area: shl; justify-self: start; }
+.vp-shr { grid-area: shr; justify-self: end; }
+.vp-sh { width: 64px; height: 44px; border-radius: 10px; }
+
+.vp-dpad {
+  grid-area: dpad;
+  position: relative;
+  width: var(--dpad);
+  height: var(--dpad);
+  border-radius: 50%;
+  background: var(--panel);
+  touch-action: none;
+}
+.vp-arrow {
+  position: absolute;
+  width: 34%;
+  height: 34%;
+  background: var(--btn);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.vp-up { left: 33%; top: 4%; }
+.vp-down { left: 33%; bottom: 4%; }
+.vp-dpad .vp-left { top: 33%; left: 4%; }
+.vp-dpad .vp-right { top: 33%; right: 4%; }
+
+.vp-face {
+  grid-area: face;
+  display: grid;
+  grid-template-columns: repeat(3, var(--face));
+  grid-template-rows: repeat(3, var(--face));
+}
+.vp-round { width: var(--face); height: var(--face); border-radius: 50%; font-size: 22px; }
+.vp-triangle { grid-column: 2; grid-row: 1; color: #6fe0b5; }
+.vp-square { grid-column: 1; grid-row: 2; color: #f59ad4; }
+.vp-circle { grid-column: 3; grid-row: 2; color: #ff8a80; }
+.vp-cross { grid-column: 2; grid-row: 3; color: #8fb4ff; }
+
+.vp-center { grid-area: center; display: flex; gap: 12px; }
+.vp-pill { width: 84px; height: 44px; border-radius: 22px; font-size: 12px; letter-spacing: 0.05em; }
+
+/* Landscape phones: picture centred, pad halves overlay the sides. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .bar { position: absolute; z-index: 5; top: env(safe-area-inset-top); left: env(safe-area-inset-left); padding: 6px; }
+  .stage { flex-direction: row; }
+  .screen { height: 100dvh; max-height: none; width: auto; }
+  .pad { position: absolute; inset: 0; min-height: 0; pointer-events: none; }
+  .vpad {
+    height: 100%;
+    grid-template-columns: 1fr minmax(0, 133dvh) 1fr;
+    grid-template-areas:
+      "shl . shr"
+      "dpad . face"
+      ". center .";
+  }
+  .vpad > * { pointer-events: auto; }
+  .vp-shl { margin-top: 56px; }
+  .vp-btn, .vp-dpad .vp-arrow { opacity: 0.8; }
+  .vp-dpad { background: #161a22cc; }
+}

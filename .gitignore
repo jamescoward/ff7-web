@@ -34,3 +34,5 @@ scph*.bin
 # Wasm core build (core/build.sh)
 /core/.src/
 /core/dist/
+# Browser core link output (core/web/link.sh)
+/web/core/

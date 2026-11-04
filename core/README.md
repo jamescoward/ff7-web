@@ -20,6 +20,15 @@ Outputs in `core/dist/`:
 - `BUILD_INFO.json`: the pins, the `emcc` version, the patches applied and the archive's SHA-256;
 - `COPYING.pcsx_rearmed`: the upstream GPL-2.0 licence text.
 
+## Browser link (`web/`)
+
+`core/web/link.sh` links the archive with `core/web/frontend.c` (the browser's libretro frontend: audio samples, the slot 1 memory card) into a module-Worker build in `web/core/` (not committed): `core.mjs`, `core.wasm`, `BUILD_INFO.json` and the GPL text. It lives here rather than in `web/` because `web/` is published as-is and may hold only site files. See `notes/7-browser-wrapper.md`.
+
+```sh
+core/build.sh && core/web/link.sh
+node --test 'web/test/*.test.js'   # Playwright: Chromium and WebKit
+```
+
 ## Pins (`pins.env`)
 
 | What | Pin |

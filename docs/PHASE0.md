@@ -19,7 +19,7 @@ Harness deliverables in the same milestone (see `docs/AUTOMATION.md`): Tier 1 he
 *Stop condition:* cannot sustain full speed with headroom on the target iPhone → evaluate a faster CPU core before anything else.
 
 ### M1.5 — Private eval and agent loop
-Tier 2 private eval (private storage, a read-only token in a `main`-only environment, network-less sandbox, schema-validated results), CODEOWNERS and branch protection for protected paths, reviewer agent, agent merge gated on required checks. Sessions are run ad hoc rather than on a schedule. One-off owner setup: storage bucket, secrets, repo settings.
+Tier 2 private eval (private storage + OIDC + network-less sandbox + schema-validated results), CODEOWNERS and branch protection for protected paths, reviewer agent, agent merge gated on required checks, scheduled sessions running the continuity protocol. One-off owner setup: storage bucket, cloud role, repo settings.
 *Done when:* the disc boot smoke test (#36) passes in Tier 2. Booting from scripted input and from generated saves moved to M2 (owner, 2026-11-04; `notes/m1.5-rescope.md`).
 *Stop condition:* the sandbox cannot be shown to block network egress and credential access in an adversarial test scenario.
 

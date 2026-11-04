@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "scenario": "pad-echo-buttons",
+  "core": {
+    "pcsx_rearmed_commit": "7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e",
+    "emsdk_version": "4.0.23",
+    "wasm_sha256": "1b4f66b4b24d8993907e3a6b71b000e072649ba228391cb7b48c2e9410e65306"
+  },
+  "fixture": {
+    "name": "pad-echo",
+    "sha256": "d21f8b0f14190e971f83836b227db0791e2a1e8536c4855d75e659930e41e870"
+  },
+  "checkpoints": {
+    "10": "c198c86f655882a9cba95fe9b82fe006164a39a89c9a593270bb3933555c51d7",
+    "15": "ce7bc3b28e1a001dd088273db92bb933647f3406e973305123852bcc21fe7842",
+    "30": "f161162eee397fce7223958ad3854233af45a65925c233de27a44c175facc827",
+    "60": "f8237ed278dc4bd5ba75e524de4d9e9c466300695aea63cb9fd589c775d08d5e"
+  }
+}

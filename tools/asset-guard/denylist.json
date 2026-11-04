@@ -1,0 +1,5 @@
+{
+  "format": 1,
+  "description": "SHA-256 hashes of known game files that must never be committed. Kept empty in the public repo: computing them needs game data, which agents never handle. Private lists are added via ASSET_GUARD_DENYLIST (see README.md).",
+  "sha256": []
+}

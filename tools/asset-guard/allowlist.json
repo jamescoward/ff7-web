@@ -1,0 +1,5 @@
+{
+  "format": 1,
+  "description": "Files allowed despite the size or content rules. Each entry pins the file's SHA-256, so any change needs a new review. Forbidden extensions and deny-listed hashes cannot be allow-listed.",
+  "files": []
+}

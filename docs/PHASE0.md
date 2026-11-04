@@ -20,10 +20,11 @@ Harness deliverables in the same milestone (see `docs/AUTOMATION.md`): Tier 1 he
 
 ### M1.5 — Private eval and agent loop
 Tier 2 private eval (private storage + OIDC + network-less sandbox + schema-validated results), CODEOWNERS and branch protection for protected paths, reviewer agent, agent merge gated on required checks, scheduled sessions running the continuity protocol. One-off owner setup: storage bucket, cloud role, repo settings.
+*Done when:* the disc boot smoke test (#36) passes in Tier 2. Booting from scripted input and from generated saves moved to M2 (owner, 2026-11-04; `notes/m1.5-rescope.md`).
 *Stop condition:* the sandbox cannot be shown to block network egress and credential access in an adversarial test scenario.
 
 ### M2 — Game-state layer
-Detect mode (field / battle / menu / world map / minigame / movie), read player position, field ID, menu cursor and party data. Debug overlay showing live values. Addresses recorded with provenance and verified against the USA executable hash.
+First the harness it runs on: Tier 2 scenarios that boot the disc to a title snapshot and drive the game by input script, waiting on memory conditions (#37). Then: detect mode (field / battle / menu / world map / minigame / movie), read player position, field ID, menu cursor and party data. Debug overlay showing live values. Addresses recorded with provenance and verified against the USA executable hash. Once the title, mode and field addresses are confirmed, scenarios can also boot from generated saves (#38).
 *Stop condition:* mode detection is not reliable across a scripted set of private save states.
 
 ### M3 — Touch UX tier 1–2

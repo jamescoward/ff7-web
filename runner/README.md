@@ -57,7 +57,7 @@ node --test 'runner/test/**/*.test.js'
 ```
 
 - `test/unit/`: the address map, the pad bitmask, CLI parsing, the synthetic EXE, the schema validator, the scenario loader and the fixture registry. These need no build.
-- `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js` (and `synth/card-read.js`, which reads the slot 1 card through SIO0, with `synth/blank-card.js` generating a formatted blank card in code), an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. It contains no game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
+- `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js`, an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. The card tests use `synth/card-read.js`, an original hand-assembled PS-X EXE that reads one slot 1 card frame through SIO0 into RAM, and `synth/blank-card.js`, which formats a blank card in code. None of them contains game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
 
 ## Licence
 

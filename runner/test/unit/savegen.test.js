@@ -125,7 +125,9 @@ describe('save description schema', () => {
     test(`rejects: ${name}`, () => {
       const d = clone(base);
       mutate(d);
-      assert.notDeepEqual(descriptionProblems(d), [], name);
+      const problems = descriptionProblems(d);
+      assert.notDeepEqual(problems, [], name);
+      if (/overlapping|two vars/.test(name)) assert.match(problems.join('; '), /overlaps/);
       assert.throws(() => generateCard(pattern(1), d), SaveDescriptionError);
     });
   }
@@ -226,6 +228,20 @@ describe('card format', () => {
     assert.ok(b.subarray(4 + title.length * 2, 0x60).every((x) => x === 0));
     // palette and icon frames: blank
     assert.ok(b.subarray(0x60, SAVEMAP_IN_BLOCK).every((x) => x === 0));
+  });
+
+  test('the first and last slots stay in bounds and use their own directory frame', () => {
+    for (const slot of [1, 15]) {
+      const c = generateCard(pattern(9), { ...clone(base), slot }).card;
+      assert.equal(c.length, CARD_SIZE);
+      assert.equal(cardProblem(c), null);
+      const d = c.subarray(slot * FRAME_SIZE, (slot + 1) * FRAME_SIZE);
+      assert.equal(d[0], 0x51);
+      assert.equal(d[127], xor(d));
+      const name = `BASCUS-94163FF7-S${String(slot).padStart(2, '0')}`;
+      assert.equal(String.fromCharCode(...d.subarray(0x0a, 0x0a + name.length)), name);
+      assert.deepEqual([...c.subarray(slot * BLOCK_SIZE, slot * BLOCK_SIZE + 2)], [0x53, 0x43]);
+    }
   });
 
   test('Shift-JIS covers every allowed label character', () => {

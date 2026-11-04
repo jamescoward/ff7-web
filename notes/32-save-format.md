@@ -73,7 +73,7 @@ Field IDs are listed in the wiki's `FF7/Field/Field_ID` page (0x0000–0x0312). 
 | Offset | Value | Source |
 |---|---|---|
 | 0x000 | `SC` | **hypothesis** (standard PS1 header magic) |
-| 0x002 | 0x11: static icon, 1 frame | core (`IconCount = flag & 3`) |
+| 0x002 | 0x11: static icon, 1 frame | core for the low 2 bits (`IconCount = flag & 3`); the 0x10 nibble is a **hypothesis** |
 | 0x003 | 1: block count | **hypothesis** |
 | 0x004 | title: 32 two-byte Shift-JIS characters | core (big-endian pairs; it maps full-width letters and digits back to ASCII) |
 | 0x060 | 16-colour palette: all zero | core |
@@ -91,5 +91,9 @@ The label (`[A-Za-z0-9 .-]`, at most 24 characters) is written as full-width Shi
 - **written:** must equal the hand-written expected value and must not depend on the pattern;
 - **checksum:** 4 bytes;
 - **everything else:** must not depend on the pattern, and equals the blank card, the checked header, the checked directory entry, or zero.
+
+`web/js/memcard.js` `cardProblem()` only checks the size and the `MC` header, so passing it is a weak guarantee. The test's own XOR, directory and header checks carry the weight.
+
+The module flag at 0x0B90 is written as its low byte only. The upper 3 bytes of that u32 keep the baseline value, which in Tier 2 means the disc's new-game data. The Tier 2 scenario should check that this is harmless.
 
 It also checks that the generator sources contain no base64 or long byte tables. Generated cards are only ever held in memory; none is written to the repo.

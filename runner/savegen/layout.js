@@ -74,7 +74,7 @@ export const FRAME_SIZE = 0x80;
  */
 export const BLOCK_HEADER = Object.freeze({
   magic: 0x00, // 'S', 'C'
-  iconFlag: 0x02, // 0x11: static icon, 1 frame (low 2 bits = icon frames, core)
+  iconFlag: 0x02, // 0x11: low 2 bits = icon frames (core); the 0x10 nibble is hyp
   blockCount: 0x03,
   title: 0x04, // 64 bytes: 32 Shift-JIS characters
   titleBytes: 64,

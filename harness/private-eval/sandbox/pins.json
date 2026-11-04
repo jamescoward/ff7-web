@@ -1,0 +1,13 @@
+{
+  "image": {
+    "repository": "docker.io/library/node",
+    "tag_at_pin_time": "22-bookworm-slim",
+    "digest": "sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da",
+    "node_version": "22.23.4",
+    "pinned_on": "2026-11-04"
+  },
+  "docker": {
+    "tested_server_versions": ["29.9.2"],
+    "note": "The version of the Docker Engine the attack tests last passed on. sandbox.js records the server version it actually ran on in every report."
+  }
+}

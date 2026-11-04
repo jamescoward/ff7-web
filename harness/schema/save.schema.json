@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jamescoward/ff7-web/harness/schema/save.schema.json",
+  "title": "ff7-web save description, format 1",
+  "description": "The starting point of a test, as plain numbers chosen by the author. runner/savegen/ turns it into a memory card at test time (docs/SECURITY.md, 'Generated save boot points'). Apart from 'label', every value is a number. Offsets and their sources: notes/32-save-format.md.",
+  "type": "object",
+  "required": ["format", "label", "slot", "field", "party", "progress"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "../schema/save.schema.json" },
+    "format": { "const": 1 },
+    "label": {
+      "description": "Short ASCII label, shown as the card block title. Letters, digits, space, '.' and '-' only.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 .-]{0,23}$"
+    },
+    "slot": {
+      "description": "Card block (and FF7 save file number) to write, 1-15.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 15
+    },
+    "field": {
+      "description": "Where the player stands. Saving in a field sets the module to field.",
+      "type": "object",
+      "required": ["id", "x", "y", "triangle", "direction"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "description": "Field ID (savemap 0x0B96, u16).", "$ref": "#/$defs/u16" },
+        "x": { "description": "Field X (savemap 0x0B9A, s16).", "$ref": "#/$defs/s16" },
+        "y": { "description": "Field Y (savemap 0x0B9C, s16).", "$ref": "#/$defs/s16" },
+        "triangle": { "description": "Walkmesh triangle ID (savemap 0x0B9E, u16).", "$ref": "#/$defs/u16" },
+        "direction": { "description": "Facing (savemap 0x0BA0, u8).", "$ref": "#/$defs/u8" }
+      }
+    },
+    "party": {
+      "description": "Party slots 1-3 (savemap 0x04F8-0x04FA): character IDs 0-11, or 255 for empty.",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 255] }
+    },
+    "progress": { "description": "Main progress variable (savemap 0x0BA4, u16).", "$ref": "#/$defs/u16" },
+    "gil": { "description": "Gil (savemap 0x0B7C, u32; mirrored to the preview at 0x0020).", "$ref": "#/$defs/u32" },
+    "seconds": {
+      "description": "Play time in seconds (savemap 0x0B80, u32; mirrored to the preview at 0x0024 and to the H/M/S timer at 0x0BB4-0x0BB6, so at most 255:59:59).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 921599
+    },
+    "vars": {
+      "description": "Field script variables in the five save memory banks (bank 1-5 = savemap 0x0BA4 + 0x100 * (bank - 1)).",
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["bank", "offset", "size", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "bank": { "$ref": "#/$defs/bank" },
+              "offset": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "size": { "const": 1 },
+              "value": { "$ref": "#/$defs/u8" }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["bank", "offset", "size", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "bank": { "$ref": "#/$defs/bank" },
+              "offset": { "type": "integer", "minimum": 0, "maximum": 254 },
+              "size": { "const": 2 },
+              "value": { "$ref": "#/$defs/u16" }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "u8": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "u16": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "s16": { "type": "integer", "minimum": -32768, "maximum": 32767 },
+    "u32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "bank": { "type": "integer", "minimum": 1, "maximum": 5 }
+  }
+}

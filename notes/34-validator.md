@@ -63,7 +63,7 @@ Each rule has a test in `test/validate.test.js`.
 - which expected keys are present, and their values. Integers range over ±2³²; other numbers have 3 decimals within ±10⁶, about 33 bits each.
 - a rejection reason, as an alternative outcome.
 
-That is at most 32 × (2 + 8 × 34.2) ≈ **8.8 kbit per run, all of it numbers and statuses**. A test computes this from the constants and fails above 9 kbit. To narrow it, lower `MAX_METRICS` or `MAX_INT`.
+That is at most 32 × (2 + 8 × 33.3) + log₂(14) ≈ **8.6 kbit per run, all of it numbers and statuses**. Add up to 4 bits if the program deliberately hits sandbox limits. Each metric's 33.3 bits is log₂(2³³+1 integers + 2·10⁹ three-decimal floats + absent). A test computes this from the constants and fails above 9 kbit. Reviewer round 2 checked the arithmetic; the first draft of this note said 34.2 bits per metric and 8.8 kbit, which overstated it. To narrow it, lower `MAX_METRICS` or `MAX_INT`.
 
 ## Why the validator doesn't use `runner/schema.js`
 
@@ -98,6 +98,7 @@ Invariants checked on every input:
 - Run the validator as root (`sudo`) or as uid 65534. The sandbox's `/out` is mode 0700, owned by 65534.
 - Build `--expect` from the PR's scenario files, in trusted code, before the run. Each Tier 2 scenario needs to declare its metric keys; that belongs to the format 2 work in #37.
 - Pass the sandbox's report with `--sandbox-report`, so limit hits show up.
+- Pass `--out` as a canonical path with no trailing slash. With a trailing slash, a symlinked directory gets past the `lstat` check (reviewer round 2). `--out` is trusted input, but it costs nothing to pass it cleanly.
 - Print only this summary.
 - Call `sandbox.js release` afterwards.
 - **Reviewer note on #46:** `limit_counters` can be empty when a program exits before the host finds its cgroup, so a pids hit by a very short program can go unreported. The limit itself still applies. The validator doesn't depend on `limit_counters`.

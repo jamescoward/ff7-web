@@ -13,7 +13,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 4. ~~#6 the asset-guard check~~ (done; CI wiring is a separate `needs-owner` PR);
 5. ~~#14 per-PR preview deployment on GitHub Pages~~ (merged in #16);
 6. ~~#7 the browser wrapper with file import~~ (done in #21; the preview builds the core and CI runs `web/test` since #20);
-7. #8 the iPhone benchmark page (next; builds on `web/`, e.g. `window.ff7web` and the audio underrun counters).
+7. #8 the iPhone benchmark page (in progress: `web/bench/`, Tier 1 passing; waiting for the owner's iPhone run).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

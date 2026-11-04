@@ -1,0 +1,77 @@
+# Tier 1 checks for every PR and for main (docs/AUTOMATION.md).
+#
+# - unit: the asset guard on the repository, plus every test that needs
+#   no core build.
+# - tier1: builds the pinned core and the headless runner from scratch
+#   (about a minute; no cache, so a cache can't hide a toolchain change),
+#   runs the Tier 1 tests, and runs every scenario twice and compares the
+#   outputs byte for byte.
+#
+# Read-only token, no secrets. Nothing from the game is involved: Tier 1
+# uses original homebrew only.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Asset guard
+        run: node tools/asset-guard/check.js
+      - name: Unit tests
+        run: node --test 'runner/test/unit/**/*.test.js' 'tools/asset-guard/**/*.test.js' 'tools/preview/**/*.test.js'
+
+  tier1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Build core (pinned upstream and emsdk)
+        run: core/build.sh
+      - name: Check core
+        run: core/check.sh
+      - name: Build runner
+        run: runner/build.sh
+      - name: Tier 1 tests
+        run: node --test 'runner/test/**/*.test.js'
+      - name: Scenarios (each twice, outputs must match)
+        run: |
+          shopt -s nullglob
+          files=(harness/scenarios/*.json)
+          [ ${#files[@]} -gt 0 ] || { echo "no scenarios found"; exit 1; }
+          for s in "${files[@]}"; do
+            node runner/scenario.js "$s" > "$RUNNER_TEMP/a.json"
+            node runner/scenario.js "$s" > "$RUNNER_TEMP/b.json"
+            cmp "$RUNNER_TEMP/a.json" "$RUNNER_TEMP/b.json"
+            echo "pass, deterministic: $s"
+          done
+      - name: Build provenance
+        if: always()
+        run: cat core/dist/BUILD_INFO.json runner/dist/BUILD_INFO.json 2>/dev/null || true

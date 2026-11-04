@@ -277,6 +277,14 @@ for (const name of BROWSERS) {
         // The Audio Session API exists only in Safari 16.4+: stub it so the
         // request is observable in every browser.
         Object.defineProperty(navigator, 'audioSession', { value: { type: 'auto' }, configurable: true });
+        // Count every resume() from page start, and how many have settled.
+        window.__resumes = 0;
+        window.__settled = 0;
+        const orig = AudioContext.prototype.resume;
+        AudioContext.prototype.resume = function () {
+          window.__resumes++;
+          return orig.call(this).finally(() => { window.__settled++; });
+        };
       });
       const page = await context.newPage();
       try {
@@ -286,19 +294,19 @@ for (const name of BROWSERS) {
         // Sound off, then on: the second tap unlocks audio.
         await page.click('#mute-btn');
         await page.click('#mute-btn');
-        await until(() => page.evaluate(() => window.ff7web.audio.context !== null), { what: 'an AudioContext' });
+        // Wait for start-up to finish: the worklet loads, then unlock() calls
+        // resume(). If that resume lands after the simulated suspend below,
+        // the context runs again, the tap sees no need to resume, and the
+        // test times out (#50, WebKit).
+        await until(() => page.evaluate(() => window.__resumes >= 1 && window.__settled === window.__resumes),
+          { what: 'the start-up resume to settle' });
+        assert.ok(await page.evaluate(() => window.ff7web.audio.context !== null), 'an AudioContext');
         assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
 
         // Simulate iOS suspending the context, then tap the page.
         const resumed = await page.evaluate(async () => {
-          const ctx = window.ff7web.audio.context;
-          await ctx.suspend();
+          await window.ff7web.audio.context.suspend();
           window.__resumes = 0;
-          const orig = ctx.resume.bind(ctx);
-          ctx.resume = () => {
-            window.__resumes++;
-            return orig();
-          };
           return window.ff7web.audio.needsResume;
         });
         assert.ok(resumed, 'a suspended context reports needsResume');

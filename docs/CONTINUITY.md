@@ -20,12 +20,13 @@ Never rely on the scratchpad, `/tmp`, local-only branches, or uncommitted files.
 - `status:blocked`: the reason and what would unblock it are in the latest comment.
 - `needs-owner`: needs the owner (protected paths, account setup).
 - `needs-owner-device`: waiting for the owner's iPhone check (Tier 3, `docs/AUTOMATION.md`). Don't wait on it; take other work.
+- `model:sonnet`: the implementation goes to a Sonnet subagent (see Model delegation). Only the owner adds or removes it, or an agent when the owner asks.
 
 ## Session-start protocol (every new agent, in order)
 1. Read `CLAUDE.md`, `STATUS.md` and this file.
 2. **Finish in-flight work before starting anything new.** List open PRs. For `needs-owner-device` PRs, check whether the owner has replied: act on the result (fix, or remove the label and merge), and otherwise leave them alone. For each other PR not labelled `needs-owner`, read its Handoff section, check out the branch and continue from **Next step**. If its Handoff says it's complete and checks are green, merge it (see Merge rules).
 3. Otherwise, look for `status:in-progress` issues with no push or comment for more than 6 hours. These are abandoned claims: take them over, comment that you're resuming, and continue on the existing branch. Don't start again from scratch.
-4. Otherwise, take the oldest `status:ready` issue in the current milestone. Comment a claim, relabel it `status:in-progress`, and create the branch `issue-<n>-<slug>`.
+4. Otherwise, take the oldest `status:ready` issue in the current milestone. Comment a claim, relabel it `status:in-progress`, and create the branch `issue-<n>-<slug>`. If it's labelled `model:sonnet`, follow Model delegation below.
 5. If there are no ready issues, act as planner: break the next milestone step into issues using the task template, then take the first one.
 
 ## Checkpointing (while working)
@@ -47,6 +48,38 @@ Keep tasks small enough that a typical one finishes in a single session. If an i
 2. Wait for the required checks. Fix failures within the attempt budget.
 3. Merge (see Merge rules) and close the issue.
 4. Update `STATUS.md` if the milestone picture changed: in the same PR, or as a small follow-up.
+
+## Model delegation
+The session's own model (Opus) owns every issue: it claims it, reviews the work, and merges. For issues labelled **`model:sonnet`**, it hands the implementation to a Sonnet subagent:
+
+1. **Brief.** Start a subagent with `model: sonnet`. Give it:
+   - the full issue contract (outcome, allowed paths, acceptance, attempt budget);
+   - `CLAUDE.md`;
+   - the branch to work on;
+   - the instruction to commit and push at checkpoints, but not to open, update or merge the PR.
+
+   It can't see this conversation, so the brief must stand on its own.
+2. **Check.** When it reports back, the Opus session reads the diff and re-runs the acceptance commands itself. A subagent's "tests pass" is a claim, not evidence.
+3. **Review.** Start the reviewer subagent on Opus with fresh context (see `docs/AUTOMATION.md`). Fix its blocking findings: in the same Sonnet subagent if it's still running, otherwise yourself. Then run the review again.
+4. **Report.** The PR report names the model that implemented the work. The Opus session owns the PR, the Handoff, the merge, and every claim in the report.
+5. **Record.** Add a row to `notes/model-delegation.md`:
+   - the issue;
+   - the model;
+   - attempts used;
+   - the reviewer's blocking findings;
+   - fixes Opus had to make;
+   - the outcome.
+
+   This record decides whether more issues get the label.
+
+**Fall back to Opus**, and say so on the issue, when the Sonnet subagent:
+- uses up the attempt budget;
+- touches a path outside the contract;
+- weakens or skips a test.
+
+**Never label** issues that change the trust boundary or touch protected paths: the sandbox, the validator, Tier 2 workflows, and `docs/SECURITY.md`.
+
+Subagents use the same subscription quota as the session. Delegation saves cost per task, but it adds no capacity. Work on one delegated issue at a time, unless the owner has allowed extra branches and worktrees for parallel work.
 
 ## Merge rules
 Agents may merge their own PRs when **all** of these hold:

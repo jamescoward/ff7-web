@@ -7,7 +7,7 @@
 | Property | How | Evidence (test) |
 |---|---|---|
 | No network | `--network none` | `network`: only `lo`; DNS, UDP 8.8.8.8:53, HTTP by name, HTTPS by IP, TCP, IPv6, `169.254.169.254` and the Docker bridge gateway all fail |
-| No raw sockets | `--cap-drop ALL`, `no-new-privileges` | `network`: CapEff and CapBnd are 0, NoNewPrivs is 1 (see "Not verified") |
+| No raw sockets | `--cap-drop ALL`, `no-new-privileges` | `raw sockets`: perl's `socket()` for raw IP, raw ICMP and `AF_PACKET` all get EPERM; `network`: CapEff and CapBnd are 0, NoNewPrivs is 1 |
 | No host environment | Docker passes no host variables unless `-e`/`--env-file`, and `createArgs` has none | `credentials`: a `SECRET_<canary>` set in the host process is absent from `process.env` and every readable `/proc/*/environ`; the environment keys are exactly the image's |
 | No credential files | Only `/work`, `/disc/disc.bin` and `/out` are bind-mounted | `credentials`: the Docker and containerd sockets, `~/.docker`, `~/.aws`, `/home/runner/*`, `/github/*`, `/run/secrets` and the Kubernetes token are absent, `/etc/shadow` is EACCES, and a canary file planted on the host is not found by a walk of the filesystem |
 | Disc read-only | Bind mount with `readonly` | `filesystem`: the disc is world-writable on the host, so only the mount can stop the write; `open(r+)` gives EROFS and the host hash is unchanged |
@@ -41,16 +41,17 @@ Other settings: uid/gid 65534; `--ipc none` (no `/dev/shm`); `--init` (reaps zom
 
 - **Host:** this agent container, Docker 29.9.2. Run as root. cgroup v1 (hybrid), cgroupfs driver. **No seccomp or AppArmor profile active** (`docker info` lists no security options).
 - **Command:** `SANDBOX_REQUIRE=1 SANDBOX_IMAGE_REPO=mirror.gcr.io/library/node node --test harness/private-eval/sandbox/test/sandbox.test.js`
-- **Result:** 14 pass, 0 fail, 0 skipped, about 21 s, on three runs.
+- **Result:** 15 pass, 0 fail, 0 skipped, about 21 s (14 tests on three runs before the raw-socket test was added; 15 after).
 - **Clean-up:** no tmpfs mounts and no containers left afterwards.
-- **Without Docker:** 3 pass and 11 skip. With `SANDBOX_REQUIRE=1` the file fails.
+- **Without Docker:** 3 pass and 12 skip. With `SANDBOX_REQUIRE=1` the file fails.
 
 Docker Hub answered 429 to this session, so the image came from Google's Docker Hub mirror (`mirror.gcr.io/library/node`). The pinned manifest-list digest is the same, and Docker checks it on pull.
 
 ## Not verified (for #35)
 
 - **GitHub's runner.** `ubuntu-24.04` has cgroup v2 (systemd driver), plus Docker's default seccomp profile and AppArmor. The cgroup v2 paths in `cgroupFiles` are written but not exercised. #35 must run this suite there with `SANDBOX_REQUIRE=1` before the sandbox carries the disc. The extra seccomp/AppArmor layers can only tighten things; the cgroup lookup is the real unknown.
-- **Raw sockets.** Shown indirectly: no capabilities in any set, `no_new_privs`, and only a loopback interface. Node can't open a raw socket without a native addon, and adding a compiled test binary would trip the asset guard.
+- **Short programs and the counters.** `limit_counters` is empty when the program exits before the host has found its cgroup (the reviewer saw this on #46). A pids hit by a very short program then goes unreported, though the limit still applies. Memory is still covered by Docker's OOM flag.
+- **The output flag.** `"output"` means less than 64 KiB is left, so a legitimate run that writes close to the cap is flagged too.
 - **Kernel isolation.** This is a standard runc container, which shares the host kernel, so a kernel exploit would escape it. A stronger runtime (gVisor `runsc`) is a later option. Accepted for now, given what can leak: the job holds only the disc, and its credentials never enter the container.
 
 ## Notes for #34 (validator) and #35 (workflow)

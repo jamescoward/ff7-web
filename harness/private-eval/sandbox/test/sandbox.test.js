@@ -135,6 +135,13 @@ dockerTest('network: HTTP, DNS, UDP, TCP, IPv6, cloud metadata and the Docker ho
   assert.equal(result.no_new_privs, '1');
 });
 
+dockerTest('network: raw IP and packet sockets are refused (EPERM)', { timeout: 60000 }, async () => {
+  const { report, result } = await inSandbox(['perl', 'raw-socket.pl'], { timeoutS: 30 });
+  assert.equal(report.exit_code, 0);
+  // errno 1 is EPERM: no CAP_NET_RAW.
+  assert.deepEqual(result, { packet: '1', raw_icmp: '1', raw_inet: '1' });
+});
+
 dockerTest('credentials: no host environment, credential files, Docker socket or planted canary', { timeout: 120000 }, async () => {
   const marker = `CANARY${randomBytes(8).toString('hex')}`;
   // A secret in the host's environment (as a workflow secret would be) ...

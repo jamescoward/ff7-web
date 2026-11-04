@@ -17,10 +17,16 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
+**Waiting on the owner (protected paths, `needs-owner`):**
+- PR #16 (#14): per-PR preview deploys on GitHub Pages. Its first run deployed `gh-pages`; the owner enables Pages (Settings → Pages → `gh-pages`, root) and merges.
+- PR #17: CI (`unit` + `tier1`). Passing, with the core reproduced bit for bit on GitHub's runners. After merge, make both required checks.
+- PR #18: CODEOWNERS for the protected paths. Code-owner review stays off until agents have their own GitHub identity, because agent PRs are opened under the owner's account.
+
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 
 **Blocked / needs owner:**
 - Before M1.5:
   - set up the private storage bucket and the OIDC cloud role;
-  - set up branch protection and CODEOWNERS.
-- Agent sessions' egress proxy blocks github.com archive (codeload) downloads; `git` over HTTPS works. The core build avoids archive downloads (see `notes/3-core-build.md`).
+  - a `main` ruleset (PR required with 0 approvals, no force push or deletion, linear history, required checks once #17 merges). The repo is now public, so this is available on the free plan;
+  - a separate GitHub identity for agents (bot account or App), so code-owner review can be enforced.
+- Agent sessions' egress proxy blocks github.com archive (codeload) downloads; `git` over HTTPS works. The core build avoids archive downloads (see `notes/3-core-build.md`). The proxy also blocks `*.github.io`, so agents can't load previews themselves; they check the `gh-pages` branch instead.

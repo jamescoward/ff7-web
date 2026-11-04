@@ -25,6 +25,8 @@ html, body {
   color: var(--fg);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overscroll-behavior: none;
+  /* No double-tap zoom anywhere (Safari ignores user-scalable=no). */
+  touch-action: manipulation;
 }
 
 body {
@@ -70,8 +72,10 @@ body {
   position: absolute;
   z-index: 10;
   top: 52px;
-  left: 0;
-  width: min(280px, 80vw);
+  /* Anchored to the Card button's right edge, so it opens leftwards and
+     stays on screen (left: 0 ran off the right edge of a 390 px phone). */
+  right: 0;
+  width: min(280px, calc(100vw - 24px));
   display: grid;
   gap: 8px;
   padding: 12px;

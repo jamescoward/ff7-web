@@ -78,6 +78,21 @@ $('load-label').addEventListener('click', () => {
   if (!audio.muted) audio.unlock();
 });
 
+// iOS suspends audio again when the file picker covers the page, or when the
+// route changes (headphones) or a call comes in. Resume on the next tap or
+// key press: these events count as user gestures, pointerdown does not.
+for (const type of ['touchend', 'click', 'keydown']) {
+  document.addEventListener(type, () => {
+    if (audio.needsResume) audio.unlock();
+  }, { capture: true, passive: true });
+}
+
+// Safari ignores user-scalable=no. CSS touch-action: manipulation stops
+// double-tap zoom on most of the page; on the controls, where fast repeated
+// taps are the point, cancel the touch itself. Pointer events still fire.
+$('pad').addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
 fileInput.addEventListener('change', async () => {
   const files = [...fileInput.files];
   fileInput.value = '';

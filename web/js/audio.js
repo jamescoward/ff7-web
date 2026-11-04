@@ -2,7 +2,22 @@
 //
 // iOS only lets a page start audio from a user gesture, so `unlock()` is
 // called from the tap that opens the file picker. Until then, samples are
-// dropped.
+// dropped. iOS also suspends or interrupts the context later (the file
+// picker covering the page, headphones plugged or unplugged, a call), so the
+// page calls `unlock()` again on any tap while `needsResume` is true.
+//
+// On iOS, Web Audio counts as "ambient" sound by default and the silent
+// switch mutes it on the speaker (not on headphones). Declaring a playback
+// audio session (Safari 16.4+) makes it play like a media app.
+
+/** Ask for media-style playback, so the silent switch doesn't mute the game. */
+export function requestPlaybackSession(nav = globalThis.navigator) {
+  try {
+    if (nav?.audioSession && nav.audioSession.type !== 'playback') nav.audioSession.type = 'playback';
+  } catch {
+    // older Safari or a browser without the Audio Session API
+  }
+}
 
 export function createAudio({ sourceRate = 44100 } = {}) {
   let ctx = null;
@@ -30,6 +45,7 @@ export function createAudio({ sourceRate = 44100 } = {}) {
   return {
     /** Call from a user gesture (tap/click). Safe to call repeatedly. */
     unlock() {
+      requestPlaybackSession();
       if (!starting) starting = setup().catch((e) => {
         console.warn(`audio unavailable: ${e.message}`);
         ctx = null;
@@ -50,6 +66,14 @@ export function createAudio({ sourceRate = 44100 } = {}) {
     },
     get state() {
       return ctx?.state ?? 'off';
+    },
+    /** The AudioContext, or null before the first unlock (tests, #8). */
+    get context() {
+      return ctx;
+    },
+    /** True when audio was started but is now suspended or interrupted. */
+    get needsResume() {
+      return Boolean(ctx) && !muted && ctx.state !== 'running' && ctx.state !== 'closed';
     },
     /** { underruns, overflows, buffered } from the worklet, or null. */
     stats() {

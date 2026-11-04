@@ -40,3 +40,14 @@ A mutation check was run: moving `cross` to the wrong bit in `web/js/pad.js` fai
 - **WebKit**: Playwright's WebKit isn't installed in the agent sandbox, and agents must not run `playwright install` there. The WebKit runs were skipped locally. They need the CI job (protected `.github/`, separate `needs-owner` PR).
 - **The preview doesn't build the core yet.** The preview workflow copies `web/` without running `core/build.sh` + `core/web/link.sh`, so until that change is merged (protected, separate PR) the preview page shows "The emulator core did not start". The Tier 3 check needs that first.
 - Real iPhone behaviour: audio unlock, touch feel, landscape layout, IndexedDB persistence, WORKERFS reading a real disc. That's the Tier 3 check.
+
+## Tier 3 round 1 (owner, iPhone 14 Pro, iOS 27, 2026-11-04)
+Boot ✅, controls ✅, card export/import ✅. Three issues, fixed in the following commit:
+
+| Report | Cause | Fix | Regression test |
+|---|---|---|---|
+| Sound only after plugging in headphones and toggling sound off and on | (a) iOS suspends or interrupts the AudioContext when the file picker covers the page (and on route changes or calls), and nothing resumed it; the toggle did, inside a tap. My first guess, that the context was created after an `await`, was wrong: an async function runs synchronously up to its first `await`, so the context was already created inside the tap. (b) With the silent switch on, iOS mutes "ambient" Web Audio on the speaker but not on headphones. | Resume on any later `touchend`/`click`/`keydown` while `audio.needsResume`; set `navigator.audioSession.type = 'playback'` (Safari 16.4+) on unlock | `audio: asks for a playback session, and a later tap resumes a suspended context` (Audio Session stubbed so it runs in every browser) |
+| Double-tap zooms the page | Safari ignores `user-scalable=no` | `touch-action: manipulation` on the page; `touchstart` cancelled on the pad; `dblclick` cancelled | `phone layout: …` checks the computed `touch-action` and that a pad touch is cancelled |
+| Card panel cut off on the right | Anchored with `left: 0` at the Card button (x≈228) and 280 px wide, on a 390 px screen | `right: 0`, width ≤ `100vw - 24px` | `phone layout: …` checks the panel is inside the viewport at 390×844, 844×390 and 320×568 |
+
+Both new tests failed on the previous code and pass with the fix (Chromium locally; WebKit in CI). Whether real iOS audio now starts without the toggle, and plays with the silent switch on, needs the owner's re-check.

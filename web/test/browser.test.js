@@ -235,6 +235,84 @@ for (const name of BROWSERS) {
       }
     });
 
+    // Owner's iPhone check on PR #21: double-tap zoomed the page, and the
+    // Card panel ran off the right edge.
+    test('phone layout: no double-tap zoom, the card panel stays on screen', async (t) => {
+      if (skip) return t.skip(skip);
+      for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
+        const context = await browser.newContext({ viewport, hasTouch: true });
+        const page = await context.newPage();
+        try {
+          await page.goto(server.url);
+          const r = await page.evaluate(() => {
+            const pad = document.querySelector('[data-btn="cross"]');
+            const ev = new Event('touchstart', { bubbles: true, cancelable: true });
+            pad.dispatchEvent(ev);
+            return {
+              touchAction: getComputedStyle(document.documentElement).touchAction,
+              padTouchCancelled: ev.defaultPrevented,
+            };
+          });
+          assert.equal(r.touchAction, 'manipulation', `${viewport.width}x${viewport.height}: html touch-action`);
+          assert.ok(r.padTouchCancelled, 'a touch on the pad is cancelled (no zoom, no callout)');
+
+          await page.click('summary');
+          const box = await page.locator('.menu-body').boundingBox();
+          assert.ok(box.x >= 0 && box.x + box.width <= viewport.width,
+            `${viewport.width}x${viewport.height}: card panel spans ${box.x}..${box.x + box.width}`);
+          assert.ok(box.y + box.height <= viewport.height, 'card panel fits vertically');
+        } finally {
+          await context.close();
+        }
+      }
+    });
+
+    // Owner's iPhone check: sound played only after toggling it off and on
+    // (the context stayed suspended after the file picker), and only on
+    // headphones (the silent switch mutes "ambient" Web Audio).
+    test('audio: asks for a playback session, and a later tap resumes a suspended context', async (t) => {
+      if (skip) return t.skip(skip);
+      const context = await browser.newContext();
+      await context.addInitScript(() => {
+        // The Audio Session API exists only in Safari 16.4+: stub it so the
+        // request is observable in every browser.
+        Object.defineProperty(navigator, 'audioSession', { value: { type: 'auto' }, configurable: true });
+      });
+      const page = await context.newPage();
+      try {
+        await page.goto(server.url);
+        await page.evaluate(() => window.ff7web.ready);
+        assert.equal(await page.evaluate(() => window.ff7web.audio.state), 'off');
+        // Sound off, then on: the second tap unlocks audio.
+        await page.click('#mute-btn');
+        await page.click('#mute-btn');
+        await until(() => page.evaluate(() => window.ff7web.audio.context !== null), { what: 'an AudioContext' });
+        assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
+
+        // Simulate iOS suspending the context, then tap the page.
+        const resumed = await page.evaluate(async () => {
+          const ctx = window.ff7web.audio.context;
+          await ctx.suspend();
+          window.__resumes = 0;
+          const orig = ctx.resume.bind(ctx);
+          ctx.resume = () => {
+            window.__resumes++;
+            return orig();
+          };
+          return window.ff7web.audio.needsResume;
+        });
+        assert.ok(resumed, 'a suspended context reports needsResume');
+        await page.click('#screen');
+        await until(() => page.evaluate(() => window.__resumes > 0), { what: 'a resume on tap' });
+
+        // Muted: a tap must not restart sound.
+        await page.click('#mute-btn');
+        assert.equal(await page.evaluate(() => window.ff7web.audio.needsResume), false);
+      } finally {
+        await context.close();
+      }
+    });
+
     test('a virtual gamepad press reaches the PS1 program (pad-echo)', { skip: NEEDS_CORE }, async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser);

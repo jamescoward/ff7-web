@@ -4,7 +4,15 @@
 // from a Tier 2 run that is ever printed or posted; Actions logs are public
 // (docs/SECURITY.md, trust boundary point 3).
 //
-//   node harness/private-eval/validate/validate.js --out DIR [--sandbox-report FILE]
+//   node harness/private-eval/validate/validate.js --out DIR --expect FILE [--sandbox-report FILE]
+//
+// --expect names, before the run, every scenario and metric key the summary
+// may contain: { "format": 1, "scenarios": { "<name>": ["<key>", ...] } }.
+// The trusted job builds it from the PR's scenario files, which are public
+// and were written before the disc was read. So no text in the summary can
+// be chosen by the program at run time: the channel out of the sandbox is
+// limited to which expected scenarios report, their statuses and their
+// numbers (see notes/34-validator.md for the bound).
 //
 // Prints the summary (one JSON line) and exits 0 when it could produce one,
 // whatever the run did; exit 2 is a usage error.
@@ -29,13 +37,15 @@
 //   - nesting depth at most MAX_DEPTH -> reject "too-deep"
 //   - JSON -> reject "not-json"
 //   - exactly the documented fields, types and patterns -> reject "schema"
-//   - more than MAX_SCENARIOS scenarios -> keep the first MAX_SCENARIOS,
-//     "truncated": true (only the kept ones are checked)
+//   - more than MAX_SCENARIOS scenarios -> reject "too-many-scenarios"
+//   - every name in --expect -> reject "unexpected-name"
+//   - every metric key listed for its scenario -> reject "unexpected-metric"
 //   - scenario names unique -> reject "duplicate-name"
 //   - metric values: finite; integers within +-MAX_INT; other numbers with
 //     at most 3 decimal places and within +-MAX_FLOAT -> reject "schema"
-// The summary never contains text from the input except scenario names and
-// metric keys, which match short fixed patterns.
+// The summary contains no text from the input: names and keys are checked
+// against --expect, and scenarios and keys are sorted, so input order
+// carries nothing either.
 
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync } from 'node:fs';
 import path from 'node:path';
@@ -55,7 +65,7 @@ export const STATUSES = ['pass', 'fail', 'error'];
 export const LIMIT_NAMES = ['memory', 'output', 'pids', 'time'];
 export const REASONS = [
   'bad-directory', 'missing', 'not-regular-file', 'unreadable', 'too-large', 'not-utf8', 'too-deep',
-  'not-json', 'schema', 'duplicate-name',
+  'not-json', 'schema', 'too-many-scenarios', 'unexpected-name', 'unexpected-metric', 'duplicate-name',
 ];
 /** The summary can never be larger than this (checked at run time and by a test). */
 export const SUMMARY_MAX_BYTES = 16 * 1024;
@@ -78,6 +88,16 @@ export function readResults(dir) {
   if (!st.isDirectory()) throw new Reject('bad-directory');
 
   const file = path.join(dir, RESULTS_FILE);
+  // Check the type before opening, so a device node is never opened; the
+  // directory is frozen read-only by the sandbox, and the type is checked
+  // again on the open descriptor.
+  try {
+    if (!lstatSync(file).isFile()) throw new Reject('not-regular-file');
+  } catch (e) {
+    if (e instanceof Reject) throw e;
+    if (e.code === 'ENOENT') throw new Reject('missing');
+    throw new Reject('unreadable');
+  }
   let fd;
   try {
     fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -148,10 +168,35 @@ function checkScenario(s) {
 }
 
 /**
- * Parse and check the raw bytes of results.json. Returns
- * { scenarios, truncated }; throws Reject.
+ * Check the --expect document (trusted, but checked anyway). Returns a Map
+ * from scenario name to a Set of allowed metric keys; throws Error.
  */
-export function checkResults(bytes) {
+export function loadExpect(doc) {
+  const bad = (msg) => {
+    throw new Error(`--expect: ${msg}`);
+  };
+  if (!isPlainObject(doc) || !hasExactly(doc, ['format', 'scenarios']) || doc.format !== 1) bad('needs exactly format 1 and scenarios');
+  if (!isPlainObject(doc.scenarios)) bad('scenarios must be an object');
+  const names = Object.keys(doc.scenarios);
+  if (names.length === 0 || names.length > MAX_SCENARIOS) bad(`1 to ${MAX_SCENARIOS} scenarios`);
+  const map = new Map();
+  for (const name of names) {
+    if (!NAME_RE.test(name)) bad('a scenario name does not match the name pattern');
+    const keys = doc.scenarios[name];
+    if (!Array.isArray(keys) || keys.length > MAX_METRICS) bad(`each scenario lists at most ${MAX_METRICS} metric keys`);
+    if (!keys.every((k) => typeof k === 'string' && METRIC_RE.test(k))) bad('a metric key does not match the key pattern');
+    if (new Set(keys).size !== keys.length) bad('duplicate metric key');
+    map.set(name, new Set(keys));
+  }
+  return map;
+}
+
+/**
+ * Parse and check the raw bytes of results.json against the expected
+ * names. Returns the scenarios, sorted by name, with sorted metric keys;
+ * throws Reject.
+ */
+export function checkResults(bytes, expect) {
   let text;
   try {
     text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes);
@@ -168,22 +213,26 @@ export function checkResults(bytes) {
   if (!isPlainObject(doc) || !hasExactly(doc, ['format', 'scenarios']) || doc.format !== 1) throw new Reject('schema');
   if (!Array.isArray(doc.scenarios) || doc.scenarios.length === 0) throw new Reject('schema');
 
-  const truncated = doc.scenarios.length > MAX_SCENARIOS;
-  const kept = doc.scenarios.slice(0, MAX_SCENARIOS);
-  if (!kept.every(checkScenario)) throw new Reject('schema');
-  if (new Set(kept.map((s) => s.name)).size !== kept.length) throw new Reject('duplicate-name');
+  if (doc.scenarios.length > MAX_SCENARIOS) throw new Reject('too-many-scenarios');
+  if (!doc.scenarios.every(checkScenario)) throw new Reject('schema');
+  if (!doc.scenarios.every((s) => expect.has(s.name))) throw new Reject('unexpected-name');
+  if (!doc.scenarios.every((s) => Object.keys(s.metrics ?? {}).every((k) => expect.get(s.name).has(k)))) {
+    throw new Reject('unexpected-metric');
+  }
+  if (new Set(doc.scenarios.map((s) => s.name)).size !== doc.scenarios.length) throw new Reject('duplicate-name');
 
-  // Rebuild every value from scratch, in a fixed key order: nothing from
-  // the input object survives except checked names, keys and numbers.
-  const scenarios = kept.map((s) => {
-    const out = { name: s.name, status: s.status };
-    if (s.metrics !== undefined) {
-      out.metrics = {};
-      for (const k of Object.keys(s.metrics)) out.metrics[k] = s.metrics[k];
-    }
-    return out;
-  });
-  return { scenarios, truncated };
+  // Rebuild every value from scratch, sorted: nothing from the input
+  // survives except expected names and keys, statuses and checked numbers.
+  return doc.scenarios
+    .map((s) => {
+      const out = { name: s.name, status: s.status };
+      if (s.metrics !== undefined) {
+        out.metrics = {};
+        for (const k of Object.keys(s.metrics).sort()) out.metrics[k] = s.metrics[k];
+      }
+      return out;
+    })
+    .sort((a, b) => (a.name < b.name ? -1 : 1));
 }
 
 /** The sandbox's own report (#33) is trusted, but only limits_hit is kept, and only known names. */
@@ -193,21 +242,23 @@ export function limitsFromReport(report) {
 }
 
 /**
- * Build the summary. `ok` is true only when the output was accepted, not
- * truncated, no limit was hit and every scenario passed.
+ * Build the summary. `expect` is the --expect document (or the Map from
+ * loadExpect). `ok` is true only when the output was accepted, no limit was
+ * hit, and every expected scenario reported and passed.
  */
-export function summarize(dir, sandboxReport = null) {
+export function summarize(dir, expect, sandboxReport = null) {
+  const expected = expect instanceof Map ? expect : loadExpect(expect);
   const limits_hit = limitsFromReport(sandboxReport);
   let summary;
   try {
-    const { scenarios, truncated } = checkResults(readResults(dir));
+    const scenarios = checkResults(readResults(dir), expected);
     const counts = Object.fromEntries(STATUSES.map((st) => [st, scenarios.filter((s) => s.status === st).length]));
+    counts.missing = expected.size - scenarios.length;
     summary = {
       format: 1,
-      ok: !truncated && limits_hit.length === 0 && counts.pass === scenarios.length,
+      ok: limits_hit.length === 0 && counts.pass === expected.size,
       output: 'accepted',
       reason: null,
-      truncated,
       limits_hit,
       counts,
       scenarios,
@@ -219,9 +270,8 @@ export function summarize(dir, sandboxReport = null) {
       ok: false,
       output: 'rejected',
       reason: e.reason,
-      truncated: false,
       limits_hit,
-      counts: { pass: 0, fail: 0, error: 0 },
+      counts: { pass: 0, fail: 0, error: 0, missing: expected.size },
       scenarios: [],
     };
   }
@@ -232,28 +282,40 @@ export function summarize(dir, sandboxReport = null) {
 }
 
 function main(argv) {
-  const usage = 'usage: validate.js --out DIR [--sandbox-report FILE]';
+  const usage = 'usage: validate.js --out DIR --expect FILE [--sandbox-report FILE]';
   let values;
   try {
-    ({ values } = parseArgs({ args: argv, options: { out: { type: 'string' }, 'sandbox-report': { type: 'string' } } }));
+    ({ values } = parseArgs({
+      args: argv,
+      options: { out: { type: 'string' }, expect: { type: 'string' }, 'sandbox-report': { type: 'string' } },
+    }));
   } catch (e) {
     console.error(`error: ${e.message}\n${usage}`);
     return 2;
   }
-  if (!values.out) {
+  if (!values.out || !values.expect) {
     console.error(usage);
+    return 2;
+  }
+  let expect;
+  try {
+    expect = loadExpect(JSON.parse(readFileSync(values.expect, 'utf8')));
+  } catch (e) {
+    // loadExpect's own messages never quote the file; JSON.parse's might.
+    console.error(e.message.startsWith('--expect:') ? `error: ${e.message}` : 'error: cannot read --expect as JSON');
     return 2;
   }
   let report = null;
   if (values['sandbox-report']) {
     try {
       report = JSON.parse(readFileSync(values['sandbox-report'], 'utf8'));
-    } catch (e) {
-      console.error(`error: cannot read the sandbox report: ${e.message}`);
+    } catch {
+      // Never echo the file: a parse error message can quote its contents.
+      console.error('error: cannot read the sandbox report as JSON');
       return 2;
     }
   }
-  process.stdout.write(`${JSON.stringify(summarize(values.out, report))}\n`);
+  process.stdout.write(`${JSON.stringify(summarize(values.out, expect, report))}\n`);
   return 0;
 }
 

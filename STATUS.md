@@ -18,7 +18,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **M1 is complete.** M1.5 (private eval) is filed as #31–#40. The reasoning and the owner's decisions of 2026-11-04 are in `notes/m1.5-issue-drafts.md`: tests start from generated saves read against a baseline taken from the disc, review is done by a reviewer subagent, Tier 2 runs for same-repo branches only, and sessions are run ad hoc.
 - **Done:** #31 (runner card slot + in-memory snapshots, PR #42; `notes/31-card-and-snapshots.md`). It changed `core.wasm`, so the pad-echo baseline passes but reports `unverified` until #43 (`needs-owner`) re-records it.
 - **Done:** #32 (save descriptions + card generator, Tier 1; `notes/32-save-format.md`). The checksum, the directory file name and some header fields are hypotheses that the Tier 2 scenarios (#37/#38) must confirm.
-- **Ready now:** #39 (reviewer subagent). #33, #34 and #40 are also ready, but they touch protected paths, so their PRs need the owner (`needs-owner`).
+- **Done:** #39 (reviewer subagent, `.claude/agents/reviewer.md`; `notes/39-reviewer.md`). Before merging, agents need a PASS marker comment on the head commit (`docs/CONTINUITY.md`).
+- **Ready, needs the owner:** #33, #34, #40 and #43 touch protected paths, so their PRs need the owner (`needs-owner`). No M1.5 issue is ready for an agent alone.
 - **Blocked:** #35 (workflows), on #33, #34 and the owner's R2 secrets; then #36, then #37, then #38.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.

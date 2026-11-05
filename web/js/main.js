@@ -4,7 +4,7 @@
 import { createAudio } from './audio.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
-import { createVirtualGamepad } from './gamepad.js';
+import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
 import { createInputMixer } from './pad.js';
@@ -16,11 +16,34 @@ const status = $('status');
 const fileInput = $('file-input');
 fileInput.accept = ACCEPT;
 
-const setStatus = (text, kind = '') => {
+// Card messages are confirmations: they clear themselves (#66). Any message
+// can be tapped away. The start-up hint and load errors stay until then.
+const NOTICE_MS = 6000;
+let statusTimer = 0;
+const setStatus = (text, kind = '', { clearAfter = 0 } = {}) => {
+  clearTimeout(statusTimer);
   status.textContent = text;
   status.dataset.kind = kind;
   status.hidden = !text;
+  if (text && clearAfter) statusTimer = setTimeout(() => setStatus(''), clearAfter);
 };
+status.addEventListener('click', () => setStatus(''));
+
+// The Card panel opens just below its button: the top bar wraps to two rows on
+// narrow phones, so a fixed offset could cover the button. A tap outside, or
+// finishing an import/export, closes it.
+const cardMenu = document.querySelector('.menu');
+const cardPanel = cardMenu.querySelector('.menu-body');
+function placeCardPanel() {
+  const below = cardMenu.querySelector('summary').getBoundingClientRect().bottom;
+  cardPanel.style.top = `${Math.round(below + 8)}px`;
+}
+cardMenu.querySelector('summary').addEventListener('click', placeCardPanel);
+window.addEventListener('resize', () => { if (cardMenu.open) placeCardPanel(); });
+document.addEventListener('pointerdown', (e) => {
+  if (cardMenu.open && !cardMenu.contains(e.target)) cardMenu.open = false;
+});
+const closeCardMenu = () => { cardMenu.open = false; };
 
 const audio = createAudio();
 const cards = createCardStore();
@@ -30,7 +53,7 @@ let drawn = 0;
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
-const pad = createVirtualGamepad($('pad'), { onChange: (m) => mixer.set('touch', m) });
+const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -128,12 +151,15 @@ $('card-export').addEventListener('click', async () => {
     const live = backend?.loaded ? await backend.getCard() : null;
     const bytes = live ?? (await cards.load());
     if (!bytes) {
-      setStatus('There is no memory card yet: it is created when a game first runs.', 'error');
+      setStatus('There is no memory card yet: it is created when a game first runs.', 'error', { clearAfter: NOTICE_MS });
+      closeCardMenu();
       return;
     }
     downloadCard(bytes);
+    closeCardMenu();
   } catch (e) {
-    setStatus(`Export failed: ${e.message}`, 'error');
+    setStatus(`Export failed: ${e.message}`, 'error', { clearAfter: NOTICE_MS });
+    closeCardMenu();
   }
 });
 
@@ -147,20 +173,20 @@ $('card-input').addEventListener('change', async (e) => {
     if (backend?.loaded) backend.setCard(bytes);
     setStatus(backend?.loaded
       ? 'Card imported. If the game had the card open, go back to its title screen before loading.'
-      : 'Card imported. It will be in slot 1 when a game starts.');
+      : 'Card imported. It will be in slot 1 when a game starts.', '', { clearAfter: NOTICE_MS });
   } catch (err) {
-    setStatus(`Import failed: ${err.message}`, 'error');
+    setStatus(`Import failed: ${err.message}`, 'error', { clearAfter: NOTICE_MS });
   }
+  closeCardMenu();
 });
 
 // Stop when hidden: saves battery, releases held buttons, and stores the card.
 document.addEventListener('visibilitychange', () => {
-  if (!backend?.loaded) return;
   if (document.hidden) {
-    pad.releaseAll();
+    controls.releaseAll();
     keyboard.releaseAll();
-    backend.pause();
-  } else {
+    if (backend?.loaded) backend.pause();
+  } else if (backend?.loaded) {
     backend.resume();
   }
 });

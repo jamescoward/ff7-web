@@ -24,13 +24,13 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **Ready:** #36 (disc boot smoke test), the last M1.5 issue. It still needs disc mounting in `runner/`. The eval fetches only `disc-1.bin`; fetching the `.cue` as well would be a `needs-owner` change to `.github/` and `harness/private-eval/`.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), blocked on #36; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents:** #36 (closes M1.5), then #23 (drag-to-walk) and #24 (border crop). #50 (flaky WebKit audio test) is done (#53).
+**Next for agents:** #36 (closes M1.5, PR #64 in flight), then #24 (border crop). #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
 **Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18), core in previews + CI `web` on Chromium and WebKit (#20). The owner still needs to make `unit`, `tier1` and `web` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
 
-**Touch plan (owner decision, 2026-11-04):** field controls are drag-to-walk plus Interact/Menu buttons (#23, ready), border cropping (#24, ready), and context-aware actions once M2 exists (#25, blocked). Tap-to-walk is a stretch goal (`docs/PHASE0.md`, M3).
+**Touch plan (owner decision, 2026-11-04):** field controls are drag-to-walk plus Interact/Menu/Back buttons (#23, done), border cropping (#24, ready), and context-aware actions once M2 exists (#25, blocked). Tap-to-walk is a stretch goal (`docs/PHASE0.md`, M3).
 
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 

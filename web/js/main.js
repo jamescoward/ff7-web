@@ -4,7 +4,7 @@
 import { createAudio } from './audio.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
-import { createVirtualGamepad } from './gamepad.js';
+import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
 import { createInputMixer } from './pad.js';
@@ -30,7 +30,7 @@ let drawn = 0;
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
-const pad = createVirtualGamepad($('pad'), { onChange: (m) => mixer.set('touch', m) });
+const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -155,12 +155,11 @@ $('card-input').addEventListener('change', async (e) => {
 
 // Stop when hidden: saves battery, releases held buttons, and stores the card.
 document.addEventListener('visibilitychange', () => {
-  if (!backend?.loaded) return;
   if (document.hidden) {
-    pad.releaseAll();
+    controls.releaseAll();
     keyboard.releaseAll();
-    backend.pause();
-  } else {
+    if (backend?.loaded) backend.pause();
+  } else if (backend?.loaded) {
     backend.resume();
   }
 });

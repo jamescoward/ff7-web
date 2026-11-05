@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -196,6 +197,30 @@ body {
 .vp-center { grid-area: center; display: flex; gap: 12px; }
 .vp-pill { width: 84px; height: 44px; border-radius: 22px; font-size: 12px; letter-spacing: 0.05em; }
 
+/* The floating joystick has only an origin dot; the rest is free space. */
+.field-controls { min-height: 200px; }
+.field-actions {
+  position: absolute;
+  inset: auto 12px 12px;
+  display: flex;
+  gap: 10px;
+}
+.field-action { flex: 1; min-height: 60px; }
+.field-back { min-height: 48px; align-self: center; padding: 0 12px; }
+.field-on { background: var(--btn-on); }
+.field-cue {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fg);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 250ms ease-out;
+}
+.field-cue-on { opacity: 0.3; transition: none; }
+
 /* Landscape phones: picture centred, pad halves overlay the sides. */
 @media (orientation: landscape) and (max-height: 600px) {
   .bar { position: absolute; z-index: 5; top: env(safe-area-inset-top); left: env(safe-area-inset-left); padding: 6px; }
@@ -214,4 +239,8 @@ body {
   .vp-shl { margin-top: 56px; }
   .vp-btn, .vp-dpad .vp-arrow { opacity: 0.8; }
   .vp-dpad { background: #161a22cc; }
+  .field-controls { pointer-events: auto; }
+  .field-actions { left: auto; width: 180px; flex-wrap: wrap; }
+  .field-action { flex-basis: 100%; }
+  .field-back { margin-left: auto; }
 }

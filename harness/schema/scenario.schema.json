@@ -1,100 +1,177 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/jamescoward/ff7-web/harness/schema/scenario.schema.json",
-  "title": "ff7-web test scenario, format 1",
-  "description": "A boot point, an input script, and assertions on named memory addresses and frame hashes. See harness/README.md. Validated by runner/schema.js, which supports only the keywords used here.",
+  "title": "ff7-web test scenario, formats 1 and 2",
+  "description": "Format 1: a boot point, an input script on absolute frames, and assertions on named memory addresses and frame hashes. Format 2 (#37): a named boot point (restored from a snapshot) or power-on, an ordered script with waits, and checks. See harness/README.md. Validated by runner/schema.js, which supports only the keywords used here.",
   "type": "object",
-  "required": ["format", "name", "tier", "boot", "frames"],
-  "additionalProperties": false,
-  "properties": {
-    "$schema": { "type": "string" },
-    "format": { "const": 1 },
-    "name": {
-      "description": "Unique scenario name; also the baseline file name (harness/baselines/<name>.json).",
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
-    },
-    "description": { "type": "string" },
-    "tier": {
-      "description": "1: public, homebrew only; runner/scenario.js. 2: private eval (game data, run only by the trusted job); runner/tier2.js.",
-      "enum": [1, 2]
-    },
-    "boot": {
-      "description": "Where the scenario starts, from power-on: a registered homebrew fixture, or (tier 2) a disc the private eval supplies. Save-state boot points are reserved for format 2.",
-      "oneOf": [
-        {
-          "type": "object",
-          "required": ["fixture"],
-          "additionalProperties": false,
-          "properties": {
-            "fixture": {
-              "description": "A program listed in harness/fixtures/fixtures.json.",
-              "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": ["disc"],
-          "additionalProperties": false,
-          "properties": {
-            "disc": {
-              "description": "Disc name. The runner boots <name>.bin next to the --disc image, else the --disc image itself (no cue: a single data track). With no disc the scenario fails with \"no disc\".",
-              "type": "string",
-              "pattern": "^disc-[1-3]$"
-            }
-          }
-        }
-      ]
-    },
-    "frames": {
-      "description": "Emulated frames to run, counted from 1.",
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 216000
-    },
-    "coreOptions": {
-      "description": "libretro core options.",
-      "type": "object",
-      "additionalProperties": { "type": "string" }
-    },
-    "memory": {
-      "description": "Named main-RAM locations that assertions refer to.",
-      "type": "object",
-      "propertyNames": { "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]{0,63}$" },
-      "additionalProperties": { "$ref": "#/$defs/memoryLocation" }
-    },
-    "input": {
-      "description": "Pad input script. Buttons are held during frames from..to (inclusive); overlapping steps on a port are OR-ed. Frames with no step hold nothing.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/inputStep" }
-    },
-    "assert": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/assertion" }
-    },
-    "probes": {
-      "description": "Like assert, but a probe only feeds its metric: it never changes the status.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/probe" }
-    },
-    "metrics": {
-      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps, boot_stage, disc_error; see runner/scenario.js), the name of a u8/u16/u32 memory location read at the end of the last frame, or the metric an assertion or probe names. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
-      "type": "array",
-      "maxItems": 8,
-      "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" }
-    },
-    "checkpoints": {
-      "description": "Frames whose hashes are compared with harness/baselines/<name>.json when that file exists, and recorded by --record.",
-      "type": "array",
-      "items": { "$ref": "#/$defs/frame" },
-      "uniqueItems": true
-    }
-  },
+  "oneOf": [{ "$ref": "#/$defs/format1" }, { "$ref": "#/$defs/format2" }],
   "$defs": {
+    "format1": {
+      "description": "Format 1: a fixture or disc booted from power-on, an input script on absolute frames, and assertions on frames. Unchanged by format 2.",
+      "type": "object",
+      "required": ["format", "name", "tier", "boot", "frames"],
+      "additionalProperties": false,
+      "properties": {
+        "$schema": { "type": "string" },
+        "format": { "const": 1 },
+        "name": {
+          "description": "Unique scenario name; also the baseline file name (harness/baselines/<name>.json).",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "description": { "type": "string" },
+        "tier": {
+          "description": "1: public, homebrew only; runner/scenario.js. 2: private eval (game data, run only by the trusted job); runner/tier2.js.",
+          "enum": [1, 2]
+        },
+        "boot": {
+          "description": "Where the scenario starts, from power-on: a registered homebrew fixture, or (tier 2) a disc the private eval supplies. Save-state boot points are reserved for format 2.",
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["fixture"],
+              "additionalProperties": false,
+              "properties": {
+                "fixture": {
+                  "description": "A program listed in harness/fixtures/fixtures.json.",
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["disc"],
+              "additionalProperties": false,
+              "properties": {
+                "disc": {
+                  "description": "Disc name. The runner boots <name>.bin next to the --disc image, else the --disc image itself (no cue: a single data track). With no disc the scenario fails with \"no disc\".",
+                  "type": "string",
+                  "pattern": "^disc-[1-3]$"
+                }
+              }
+            }
+          ]
+        },
+        "frames": {
+          "description": "Emulated frames to run, counted from 1.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 216000
+        },
+        "coreOptions": {
+          "description": "libretro core options.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "memory": {
+          "description": "Named main-RAM locations that assertions refer to.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]{0,63}$" },
+          "additionalProperties": { "$ref": "#/$defs/memoryLocation" }
+        },
+        "input": {
+          "description": "Pad input script. Buttons are held during frames from..to (inclusive); overlapping steps on a port are OR-ed. Frames with no step hold nothing.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/inputStep" }
+        },
+        "assert": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/assertion" } },
+        "probes": {
+          "description": "Like assert, but a probe only feeds its metric: it never changes the status.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/probe" }
+        },
+        "metrics": {
+          "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps, boot_stage, disc_error; see runner/scenario.js), the name of a u8/u16/u32 memory location read at the end of the last frame, or the metric an assertion or probe names. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" }
+        },
+        "checkpoints": {
+          "description": "Frames whose hashes are compared with harness/baselines/<name>.json when that file exists, and recorded by --record.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/frame" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "format2": {
+      "description": "Format 2 (#37): start from a named boot point (runner/bootpoints.js) or power-on, play an ordered script of presses and waits, then check memory conditions and state equality. No raw RAM, picture or hash is reported.",
+      "type": "object",
+      "required": ["format", "name", "tier", "boot", "input", "assert"],
+      "additionalProperties": false,
+      "properties": {
+        "$schema": { "type": "string" },
+        "format": { "const": 2 },
+        "name": {
+          "description": "Unique scenario name; also the baseline file name (harness/baselines/<name>.json).",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "description": { "type": "string" },
+        "tier": {
+          "description": "1: public, homebrew only; runner/scenario.js. 2: private eval (game data, run only by the trusted job); runner/tier2.js.",
+          "enum": [1, 2]
+        },
+        "boot": {
+          "description": "The source and the boot point to start from. \"from\" is a boot point in runner/bootpoints.js that boots the same source, or \"power-on\".",
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["disc", "from"],
+              "additionalProperties": false,
+              "properties": {
+                "disc": {
+                  "description": "Disc number. The runner boots disc-<N>.bin next to the --disc image, else the --disc image. With no disc the scenario fails with \"no disc\".",
+                  "enum": [1, 2, 3]
+                },
+                "from": { "$ref": "#/$defs/bootPointName" }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["fixture", "from"],
+              "additionalProperties": false,
+              "properties": {
+                "fixture": {
+                  "description": "A program listed in harness/fixtures/fixtures.json.",
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+                },
+                "from": { "$ref": "#/$defs/bootPointName" }
+              }
+            }
+          ]
+        },
+        "memory": {
+          "description": "Named main-RAM locations that assertions refer to.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]{0,63}$" },
+          "additionalProperties": { "$ref": "#/$defs/memoryLocation" }
+        },
+        "input": {
+          "description": "The script: presses and waits, in order. Frames with no press hold nothing.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/scriptStep" }
+        },
+        "assert": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/check2" }
+        },
+        "metrics": {
+          "description": "Numbers to report, at most 8: a built-in (frames, failed_assertions, run_ms, fps, boot_stage, disc_error, snapshot_frames, saved_ms; see runner/format2.js), a u8/u16/u32 memory name read at the end of the script, or the metric a wait or a check names.",
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/metricName" }
+        }
+      }
+    },
     "frame": { "type": "integer", "minimum": 1 },
     "metricName": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
     "discPath": {
@@ -254,6 +331,125 @@
         { "$ref": "#/$defs/withinEquals" },
         { "$ref": "#/$defs/withinDiscBytes" },
         { "$ref": "#/$defs/withinStill" }
+      ]
+    },
+    "bootPointName": {
+      "description": "A boot point in runner/bootpoints.js, or \"power-on\".",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "scriptStep": {
+      "description": "One step of a format 2 script. Steps run in order; frames are counted from 1 after the start point.",
+      "oneOf": [
+        {
+          "description": "Hold buttons for `frames` frames (default 1), then go on. Nothing else is held meanwhile.",
+          "type": "object",
+          "required": ["buttons"],
+          "additionalProperties": false,
+          "properties": {
+            "buttons": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/button" },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "frames": { "type": "integer", "minimum": 1, "maximum": 36000 },
+            "port": { "enum": [0, 1] },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "description": "Hold nothing for a fixed number of frames.",
+          "type": "object",
+          "required": ["wait"],
+          "additionalProperties": false,
+          "properties": {
+            "wait": {
+              "type": "object",
+              "required": ["frames"],
+              "additionalProperties": false,
+              "properties": { "frames": { "type": "integer", "minimum": 1, "maximum": 216000 } }
+            },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "description": "Hold nothing until a memory condition holds at the end of a frame, for at most `timeout` frames. If it never holds, the scenario fails and the script stops there. metric: the frames waited (1 if it held at the end of the first frame), 0 on a timeout.",
+          "type": "object",
+          "required": ["wait"],
+          "additionalProperties": false,
+          "properties": {
+            "wait": {
+              "type": "object",
+              "required": ["until", "timeout"],
+              "additionalProperties": false,
+              "properties": {
+                "until": { "$ref": "#/$defs/condition" },
+                "timeout": { "type": "integer", "minimum": 1, "maximum": 216000 }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "condition": {
+      "description": "A named u8/u16/u32 memory location equals a value, differs from it, or lies in an inclusive range [low, high]. Compared inside the run; only pass/fail leaves.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mem", "equals"],
+          "additionalProperties": false,
+          "properties": { "mem": { "type": "string" }, "equals": { "$ref": "#/$defs/value" } }
+        },
+        {
+          "type": "object",
+          "required": ["mem", "differs"],
+          "additionalProperties": false,
+          "properties": { "mem": { "type": "string" }, "differs": { "$ref": "#/$defs/value" } }
+        },
+        {
+          "type": "object",
+          "required": ["mem", "in"],
+          "additionalProperties": false,
+          "properties": {
+            "mem": { "type": "string" },
+            "in": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/value" },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      ]
+    },
+    "check2": {
+      "description": "A format 2 check, made at the end of the script.",
+      "oneOf": [
+        {
+          "description": "A memory condition at the end of the script. metric: 1 if it holds, else 0.",
+          "type": "object",
+          "required": ["expect"],
+          "additionalProperties": false,
+          "properties": {
+            "expect": { "$ref": "#/$defs/condition" },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "description": "The script is played again and must end in the same state (main RAM and picture, compared by hash inside the run): \"rerun\" from the same start point, \"boot\" after a fresh boot through the boot point with no snapshot. metric: 1 if the states match, else 0.",
+          "type": "object",
+          "required": ["sameState"],
+          "additionalProperties": false,
+          "properties": {
+            "sameState": { "enum": ["rerun", "boot"] },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        }
       ]
     }
   }

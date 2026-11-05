@@ -46,6 +46,8 @@ When a change needs the owner's iPhone check, post one batched request (preview 
 - **Keep the project GPL-2.0 compatible**, and preserve licence notices and provenance.
 
 ## PR report
+Full-class PRs use all six sections. Light-class PRs use 1, 3 and 4 only. See "Risk classes" in `docs/CONTINUITY.md`.
+
 1. Objective and scope (link the issue)
 2. Changes and evidence
 3. Tests run / failed / skipped, with commands and tier
@@ -54,7 +56,7 @@ When a change needs the owner's iPhone check, post one batched request (preview 
 6. Next smallest step and stop condition
 
 ## Autonomy boundary
-- **You may merge your own PR** (squash) when every required check passes (Tier 1, Tier 2, the reviewer agent, and the owner's Tier 3 iPhone check where it applies), the PR touches no protected path, it is not `[WIP]`, and the PR report is complete. The full rules are in `docs/CONTINUITY.md`. Never bypass or override checks.
+- **You may merge your own PR** (squash) when every check its risk class requires passes (Tier 1, Tier 2, the reviewer agent for full-class PRs, and the owner's Tier 3 iPhone check where it applies), the PR touches no protected path, it is not `[WIP]`, and the PR report is complete. The full rules are in `docs/CONTINUITY.md`. Never bypass or override checks.
 - **Protected paths need the owner's review:**
   - `.github/`
   - `CLAUDE.md`

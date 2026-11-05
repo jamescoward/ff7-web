@@ -81,17 +81,38 @@ The session's own model (Opus) owns every issue: it claims it, reviews the work,
 
 Subagents use the same subscription quota as the session. Delegation saves cost per task, but it adds no capacity. Work on one delegated issue at a time, unless the owner has allowed extra branches and worktrees for parallel work.
 
+## Risk classes
+Every PR is one of two classes. The class is decided by the paths it touches, and is stated in the PR body's first line (`Class: full` or `Class: light`).
+
+- **Full:** anything that touches the trust boundary or game data, or changes existing tests:
+  - the sandbox, the validator and the Tier 2 entry point and workflows (`harness/private-eval/`, `runner/tier2.js`, `harness/schema/`, tier 2 files in `harness/scenarios/`);
+  - the emulator core build (`core/`) and the backend interface (`runner/backend.js`, `runner/frontend.c`);
+  - any PR that modifies or deletes an existing test, or adds a baseline;
+  - any protected path (these also need the owner, as before).
+- **Light:** everything else. Examples: `web/` UI work, `notes/`, `STATUS.md`, non-protected docs, and new Tier 1-only tests and tools.
+
+| | Full | Light |
+|---|---|---|
+| Tier 1 green | required | required |
+| Tier 2 green | required where configured | required where configured |
+| Tier 3 (owner's iPhone) | when it changes the core, renderer, audio, input or touch UX | the same |
+| Reviewer agent PASS | required | not required |
+| PR report | all six sections (`CLAUDE.md`) | short: objective and issue link, tests run, claims not verified |
+| Handoff section | required | only if the work spans more than one session |
+
+When unsure, use full. Allowed paths in an issue contract should include what the work will plausibly need, for example `harness/schema/` for any task that adds scenario fields. That way a small non-protected addition doesn't stall on approval. A non-protected path outside the contract may still be added if the PR says so in its first section, and the PR is then full class.
+
 ## Merge rules
 Agents may merge their own PRs when **all** of these hold:
 
-- every required check passes: Tier 1, Tier 2 where configured, the reviewer agent, and the owner's Tier 3 iPhone check when the PR changes the core, renderer, audio, input or touch UX;
-- the reviewer agent's verdict is PASS for the commit being merged:
+- every check its class requires passes (see Risk classes): Tier 1, Tier 2 where configured, and the owner's Tier 3 iPhone check when the PR changes the core, renderer, audio, input or touch UX;
+- for full-class PRs, the reviewer agent's verdict is PASS for the commit being merged:
   - find the latest PR comment whose first line starts with `<!-- ff7-web-reviewer ` and whose author is the account agent sessions post as (currently the owner's, `jamescoward`). The repo is public, so a marker comment from anyone else doesn't count;
   - it must say `verdict=PASS`, and its `sha=` must equal the PR's current head commit;
   - any push after the review needs a new review;
   - a verdict is a comment, not a commit status (see `notes/39-reviewer.md`);
 - the PR doesn't touch protected paths (`.github/`, `CLAUDE.md`, `docs/SECURITY.md`, `harness/private-eval/`, `harness/baselines/`);
-- the title has no `[WIP]` and the PR report is complete;
+- the title has no `[WIP]` and the PR report its class requires is complete;
 - no test was skipped, weakened or deleted, and no baseline was edited, to get green.
 
 Use squash-merge. PRs that touch protected paths get the `needs-owner` label and wait for the owner. Until the CI checks exist (before M1's harness lands), the "required checks" are the commands listed in the PR report, and they must have been run and pass.

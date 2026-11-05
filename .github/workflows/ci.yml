@@ -70,12 +70,21 @@ jobs:
           shopt -s nullglob
           files=(harness/scenarios/*.json)
           [ ${#files[@]} -gt 0 ] || { echo "no scenarios found"; exit 1; }
+          ran=0
           for s in "${files[@]}"; do
+            # Tier 2 scenarios need game data; only the private eval (tier2-eval.yml)
+            # runs them, through runner/tier2.js. runner/scenario.js refuses them.
+            if node -e 'process.exit(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).tier === 2 ? 0 : 1)' "$s"; then
+              echo "skip, tier 2 (private eval only): $s"
+              continue
+            fi
+            ran=$((ran + 1))
             node runner/scenario.js "$s" > "$RUNNER_TEMP/a.json"
             node runner/scenario.js "$s" > "$RUNNER_TEMP/b.json"
             cmp "$RUNNER_TEMP/a.json" "$RUNNER_TEMP/b.json"
             echo "pass, deterministic: $s"
           done
+          [ "$ran" -gt 0 ] || { echo "no tier 1 scenarios found"; exit 1; }
       - name: Build provenance
         if: always()
         run: cat core/dist/BUILD_INFO.json runner/dist/BUILD_INFO.json 2>/dev/null || true

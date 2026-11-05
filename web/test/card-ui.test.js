@@ -1,4 +1,4 @@
-// Tier 1: Card panel placement and status messages (owner's iPhone report on PR #63).
+// Tier 1: Card panel placement (owner's iPhone report on PR #63).
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { BROWSERS, launch, loadPlaywright, serveWeb, until } from './helpers.js';
@@ -19,7 +19,6 @@ async function openApp(browser, viewport) {
       return { loaded: false, onFrameEnd() {}, setPad() {} };
     }`,
   }));
-  await page.clock.install();
   await page.goto(server.url);
   await page.evaluate(() => window.ff7web.ready);
   return { context, page, errors };
@@ -28,7 +27,7 @@ async function openApp(browser, viewport) {
 const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 for (const name of BROWSERS) {
-  describe(`card menu and status: ${name}`, () => {
+  describe(`card menu: ${name}`, () => {
     let browser;
     let skip;
     before(async () => {
@@ -62,38 +61,16 @@ for (const name of BROWSERS) {
       }
     });
 
-    test('"Card imported" clears itself, closes the panel, and any message can be tapped away', async (t) => {
+    test('finishing an import closes the Card panel', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, { width: 393, height: 852 });
       try {
         const { blankCard } = await import('../js/memcard.js');
-        const status = page.locator('#status');
         await page.click('summary');
         await page.setInputFiles('#card-input', { name: 'blank.mcr', mimeType: 'application/octet-stream', buffer: Buffer.from(blankCard()) });
-        await until(async () => /Card imported/.test(await status.textContent()), { what: 'the import notice' });
+        await until(async () => /Card imported/.test(await page.locator('#status').textContent()), { what: 'the import notice' });
         assert.equal(await page.locator('.menu').evaluate((d) => d.open), false, 'panel closed after import');
-        await page.clock.fastForward(5000);
-        assert.ok(await status.isVisible(), 'still readable for a few seconds');
-        await page.clock.fastForward(2000);
-        assert.ok(await status.isHidden(), 'gone after the notice time');
-
-        // A refusal also clears; before that, a tap dismisses it.
-        await page.setInputFiles('#card-input', { name: 'bad.mcr', mimeType: 'application/octet-stream', buffer: Buffer.alloc(1000) });
-        await until(async () => /Import failed/.test(await status.textContent()), { what: 'the refusal' });
-        await status.tap();
-        assert.ok(await status.isHidden(), 'tapped away');
         assert.deepEqual(errors, []);
-      } finally { await context.close(); }
-    });
-
-    test('the start-up hint stays until it is tapped or a program loads', async (t) => {
-      if (skip) return t.skip(skip);
-      const { context, page } = await openApp(browser, { width: 393, height: 852 });
-      try {
-        const status = page.locator('#status');
-        await page.clock.fastForward(60000);
-        assert.match(await status.textContent(), /Choose a disc image/);
-        assert.ok(await status.isVisible());
       } finally { await context.close(); }
     });
   });

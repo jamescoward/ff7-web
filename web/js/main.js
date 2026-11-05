@@ -16,18 +16,11 @@ const status = $('status');
 const fileInput = $('file-input');
 fileInput.accept = ACCEPT;
 
-// Card messages are confirmations: they clear themselves. Any message can be
-// tapped away.
-const NOTICE_MS = 6000;
-let statusTimer = 0;
-const setStatus = (text, kind = '', { clearAfter = 0 } = {}) => {
-  clearTimeout(statusTimer);
+const setStatus = (text, kind = '') => {
   status.textContent = text;
   status.dataset.kind = kind;
   status.hidden = !text;
-  if (text && clearAfter) statusTimer = setTimeout(() => setStatus(''), clearAfter);
 };
-status.addEventListener('click', () => setStatus(''));
 
 // The Card panel opens just below its button: the top bar wraps to two rows on
 // narrow phones, so a fixed offset could cover the button. A tap outside, or
@@ -151,14 +144,14 @@ $('card-export').addEventListener('click', async () => {
     const live = backend?.loaded ? await backend.getCard() : null;
     const bytes = live ?? (await cards.load());
     if (!bytes) {
-      setStatus('There is no memory card yet: it is created when a game first runs.', 'error', { clearAfter: NOTICE_MS });
+      setStatus('There is no memory card yet: it is created when a game first runs.', 'error');
       closeCardMenu();
       return;
     }
     downloadCard(bytes);
     closeCardMenu();
   } catch (e) {
-    setStatus(`Export failed: ${e.message}`, 'error', { clearAfter: NOTICE_MS });
+    setStatus(`Export failed: ${e.message}`, 'error');
     closeCardMenu();
   }
 });
@@ -173,9 +166,9 @@ $('card-input').addEventListener('change', async (e) => {
     if (backend?.loaded) backend.setCard(bytes);
     setStatus(backend?.loaded
       ? 'Card imported. If the game had the card open, go back to its title screen before loading.'
-      : 'Card imported. It will be in slot 1 when a game starts.', '', { clearAfter: NOTICE_MS });
+      : 'Card imported. It will be in slot 1 when a game starts.');
   } catch (err) {
-    setStatus(`Import failed: ${err.message}`, 'error', { clearAfter: NOTICE_MS });
+    setStatus(`Import failed: ${err.message}`, 'error');
   }
   closeCardMenu();
 });

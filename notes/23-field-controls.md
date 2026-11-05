@@ -70,7 +70,6 @@ reviewer verdict and CI checks.
   iPhone width, so the Card button sat under the panel and couldn't close it.
   The panel is now placed below the button when it opens. A tap outside, or
   finishing an import or export, closes it.
-- **"Card imported…" never went away.** Card messages now clear after 6 s, and
-  any status message can be tapped away. The start-up hint and load errors
-  still stay until dismissed.
-- `web/test/card-ui.test.js` covers both, and fails on the previous `main.js`.
+- **"Card imported…" never went away.** This one predates #23, so it is out of
+  this issue's scope. It is fixed in its own issue and PR (see the PR #63 thread).
+- `web/test/card-ui.test.js` covers the panel, and fails on the previous `main.js`.

@@ -13,6 +13,7 @@ Exit status: `0` pass, `1` fail, `2` invalid scenario or usage error. stdout hol
 |---|---|---|
 | `schema/` | `scenario.schema.json`, formats 1 and 2 | no |
 | `scenarios/` | Tier 1 scenarios (homebrew only); the file name is `<name>.json` | no |
+| `scenarios/segments/` | input segments for format 2 scripts (#74), `<name>.json` | no |
 | `fixtures/` | homebrew test programs and `fixtures.json`, the registry recording each one's licence, origin and SHA-256 | no |
 | `baselines/` | expected frame hashes, `<scenario name>.json` | **yes**: owner review |
 | `private-eval/` | the trusted Tier 2 job (`docs/AUTOMATION.md`) | **yes** |
@@ -99,7 +100,30 @@ Format 2 (#37) starts from a **boot point** instead of power-on, plays an **orde
 - **Snapshots.** `runner/tier2.js` boots each boot point once per run, keeps its snapshot in memory and restores it for every scenario (passed between processes on a pipe, never written to a file). `runner/scenario.js` run on one scenario boots the boot point itself, takes the snapshot and restores it.
 - **Conditions** compare a named `u8`/`u16`/`u32` location: `equals`, `differs`, or `in: [low, high]` (inclusive). A `wait.until` is checked at the end of each frame, so it waits at least one frame; its metric is the frames waited, 0 on a timeout. **A timeout fails the scenario and stops the script there**; every check then fails.
 - **`sameState`** compares SHA-256 of main RAM and the picture inside the run. Only 1/0 (pass/fail) is reported, never the state or a hash.
-- **Metrics:** the format 1 built-ins (`frames` is the script's frames), plus `snapshot_frames` (T; 0 from power-on or when T was not reached) and `saved_ms` (wall time a restore saves over booting to T). A boot point that isn't reached fails the scenario at `boot_stage` 5.
+- **Metrics:** the format 1 built-ins (`frames` is the script's frames), plus `snapshot_frames` (frames from power-on to the start point: T, or for a named snapshot T plus the chain's script frames; 0 from power-on or when T was not reached) and `saved_ms` (wall time a restore saves over getting to the start point without it, at least 0). A boot point that isn't reached fails the scenario at `boot_stage` 5.
+
+### Chains, segments and still waits (#74)
+
+```jsonc
+// harness/scenarios/new-game-to-reactor-entrance.json (tier 2)
+{
+  "format": 2, "name": "new-game-to-reactor-entrance", "tier": 2,
+  "boot": { "disc": 1, "from": "title" },
+  "input": [{ "segment": "title-to-new-game" }, { "segment": "opening-to-reactor-entrance" }],
+  "assert": [{ "sameState": "rerun", "metric": "match" }],
+  "snapshot": "reactor-entrance",                 // keep the end state in memory under this name
+  "metrics": ["still_wait", "frames", "match", "snapshot_frames"]
+}
+// harness/scenarios/reactor-entrance-equals-scratch.json: a later scenario in the same run
+{ "boot": { "from": "reactor-entrance" }, "input": [{ "wait": { "frames": 120 } }],
+  "assert": [{ "sameState": "boot", "metric": "match_boot" }], ... }
+```
+
+- **Named snapshots.** `"snapshot": NAME` keeps the state at the end of the script **in memory** under NAME, if the scenario passes. A later scenario in the same run starts from it with `"boot": { "from": NAME }` (no `disc` or `fixture`: the source is the chain's). `runner/tier2.js` runs scenarios in **file name order**, and that order decides what exists: a scenario from a snapshot that no earlier scenario kept is not started and reports `error` ("no snapshot"). A later scenario that keeps the same name replaces it. Snapshots pass between processes on pipes, are never written to a file, and are dropped when the run ends. A snapshot name can't be a boot point name or `power-on`. `runner/scenario.js` on one scenario from a named snapshot exits 2 ("no snapshot").
+- **`sameState` in a chain.** `rerun` restores the named snapshot again. `boot` replays the whole chain with no snapshot: power-on, the root boot point's presses, every earlier scenario's script in order, then this one. So "a chain equals the same scripts from scratch" is a check, reported as 1/0.
+- **Segments.** `{ "segment": NAME }` includes the steps of `segments/NAME.json` beside the scenario file (`harness/scenarios/segments/`, `$defs/segment` in the schema: `{ "name", "description", "steps" }`). Segments may include segments. They are expanded before the run, to at most 16384 steps; a missing, invalid or recursive segment is a load error. Conditions in a segment use the including scenario's memory names, and metrics it names must be listed by that scenario. The trusted job reads only `*.json` directly in `scenarios/`, so segment files are never taken for scenarios; the Tier 2 build copies the whole `scenarios/` directory, segments included.
+- **Still waits.** `{ "wait": { "stillFrames": N, "timeout": T } }` waits until the picture has stayed the same, and not a single colour, for N frames in a row (checked at the end of each frame, by frame hash). Its metric is the frames waited, 0 on a timeout; a timeout fails the scenario and stops the script, as for `until`.
+- **Presses during a wait.** Any `until` or still wait may hold `"press": { "buttons", "every", "hold", "port" }`: the buttons are held for `hold` frames (default 1, less than `every`) at the start of every `every` frames, from the wait's first frame, until the wait ends.
 
 ## Fixtures
 

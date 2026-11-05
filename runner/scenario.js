@@ -26,6 +26,7 @@ import { parseArgs } from 'node:util';
 
 import { createBackend } from './backend.js';
 import { DiscError, openDisc } from './disc.js';
+import { loadScenario2, runScenario2 } from './format2.js';
 import { ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { validate } from './schema.js';
@@ -72,7 +73,7 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex');
 
 /** Little-endian unsigned value, or the hex bytes for type "bytes". */
-function decode(loc, bytes) {
+export function decode(loc, bytes) {
   if (loc.type === 'bytes') return Buffer.from(bytes).toString('hex');
   let v = 0;
   for (let i = bytes.length - 1; i >= 0; i--) v = v * 256 + bytes[i];
@@ -80,7 +81,7 @@ function decode(loc, bytes) {
 }
 
 /** Normalise an expected value for a location; throws ScenarioError if it can't fit. */
-function expectedFor(loc, value, where) {
+export function expectedFor(loc, value, where) {
   if (loc.type === 'bytes') {
     if (typeof value !== 'string' || value.startsWith('0x') || value.length !== loc.len * 2) {
       throw new ScenarioError(`${where}: a bytes value must be ${loc.len * 2} hex digits in memory order`);
@@ -96,13 +97,15 @@ function expectedFor(loc, value, where) {
   return n;
 }
 
-const fmtValue = (loc, v) => (loc.type === 'bytes' ? v : `0x${v.toString(16).padStart(SIZES[loc.type] * 2, '0')}`);
+export const fmtValue = (loc, v) => (loc.type === 'bytes' ? v : `0x${v.toString(16).padStart(SIZES[loc.type] * 2, '0')}`);
 
 /**
  * Validate a parsed scenario against the schema and the checks the schema
  * can't express. Returns the normalised scenario; throws ScenarioError.
+ * Format 2 scenarios are checked by format2.js (`bootPoints` replaces the
+ * boot point registry, for tests).
  */
-export function loadScenario(doc, { allowTier2 = false } = {}) {
+export function loadScenario(doc, { allowTier2 = false, bootPoints } = {}) {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
   const errors = validate(schema, doc);
   if (errors.length) throw new ScenarioError(`scenario does not match the schema:\n  ${errors.join('\n  ')}`);
@@ -132,6 +135,7 @@ export function loadScenario(doc, { allowTier2 = false } = {}) {
     }
     memory[name] = { ...loc, addr, len };
   }
+  if (doc.format === 2) return loadScenario2(doc, memory, { bootPoints });
 
   const input = (doc.input ?? []).map((s, i) => {
     const to = s.to ?? s.from;
@@ -343,13 +347,14 @@ class StopRun extends Error {
   }
 }
 
-function readBuildInfo() {
+export function readBuildInfo() {
   const p = path.join(HERE, 'dist', 'BUILD_INFO.json');
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null;
 }
 
 /** Run a loaded scenario. Returns the result object (status pass or fail). */
 export async function runScenario(sc, opts = {}) {
+  if (sc.format === 2) return runScenario2(sc, opts);
   const fixture = sc.fixture ? await resolveFixture(sc.fixture, opts.fixturesDir) : null;
   const disc = sc.disc ? resolveDisc(sc.disc, opts.disc) : null;
   const baseline = readBaseline(opts.baselinesDir ?? DEFAULT_BASELINES, sc.name);

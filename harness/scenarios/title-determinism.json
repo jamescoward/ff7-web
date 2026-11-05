@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "title-determinism",
+  "description": "#37 Tier 2 acceptance: from the title snapshot (boot point \"title\", frame T = 1250), play one input script, then play it again from the same snapshot in a new core instance. Both runs must end at T + 732 in the same state: main RAM and picture, compared by hash inside the sandbox, reported only as match 1/0. The script moves the title cursor and presses Circle, then waits 10 s, so the end state includes whatever the game does next; no FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": { "disc": 1, "from": "title" },
+  "input": [
+    { "wait": { "frames": 60 } },
+    { "buttons": ["down"], "frames": 4 },
+    { "wait": { "frames": 30 } },
+    { "buttons": ["up"], "frames": 4 },
+    { "wait": { "frames": 30 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 600 } }
+  ],
+  "assert": [
+    { "sameState": "rerun", "metric": "match" }
+  ],
+  "metrics": ["match", "snapshot_frames", "saved_ms", "frames", "boot_stage", "disc_error", "run_ms", "fps"]
+}

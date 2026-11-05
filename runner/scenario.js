@@ -42,13 +42,29 @@ const SIZES = { u8: 1, u16: 2, u32: 4 };
  * Metric keys a scenario may list besides its numeric memory names. Only
  * numbers leave a Tier 2 run (#34), so a metric is a count, a timing, or a
  * u8/u16/u32 memory location read at the end of the last frame.
- *   frames             frames run
+ *   frames             frames run (fewer than "frames" when the run stopped early)
  *   failed_assertions  assertions and checkpoints that failed
  *   run_ms             wall time of the frame loop, whole milliseconds
  *   fps                frames per second of the frame loop (unthrottled), 3 decimals
+ *   boot_stage         how far the run got (BOOT_STAGES); 6 = every frame ran
+ *   disc_cue           1 when a disc boot used <name>.cue, else 0
  * run_ms and fps vary between runs; the other metrics are deterministic.
  */
-export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps'];
+export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_cue'];
+
+/**
+ * Stages of a run, for boot_stage. A run that stops after stage 1 fails
+ * (status "fail", every assertion failed) instead of erroring, so a Tier 2
+ * result still says where it stopped: an error result carries no metrics.
+ * Fixture boots go from 1 straight to 4.
+ *   1  boot file found (fixture built, or disc image resolved)
+ *   2  disc image opened (cue read and parsed)
+ *   3  ISO9660 file system found
+ *   4  disc file checks done
+ *   5  the core accepted the program or disc
+ *   6  every frame ran
+ */
+export const BOOT_STAGES = { found: 1, image: 2, volume: 3, checks: 4, loaded: 5, done: 6 };
 
 export class ScenarioError extends Error {}
 
@@ -249,7 +265,7 @@ export function resolveDisc(name, discOpt) {
  * A file that is missing or unreadable fails its check; nothing about the
  * file leaves except pass/fail.
  */
-function discChecks(file, checks, memory) {
+function discChecks(file, checks, memory, setStage) {
   const passes = new Map();
   const bytes = new Map();
   const needed = checks.filter((c) => c.kind === 'discFile' || c.kind === 'withinDisc');
@@ -258,9 +274,10 @@ function discChecks(file, checks, memory) {
   try {
     disc = openDisc(file);
   } catch (e) {
-    if (e instanceof DiscError) throw new ScenarioError('no disc: the image has no readable ISO9660 file system');
+    if (e instanceof DiscError && e.step === 'volume') setStage(BOOT_STAGES.image);
     throw e;
   }
+  setStage(BOOT_STAGES.volume);
   try {
     const cache = new Map();
     const read = (p) => {
@@ -295,8 +312,10 @@ function readBaseline(dir, name) {
 }
 
 /** The scenario's listed metrics, as numbers the Tier 2 validator accepts. */
-export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map() }) {
+export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map(), stage = BOOT_STAGES.done, discCue = false }) {
   const builtin = {
+    boot_stage: stage,
+    disc_cue: discCue ? 1 : 0,
     frames,
     failed_assertions: failed,
     run_ms: Math.round(runMs),
@@ -304,6 +323,18 @@ export function metricValues(sc, { frames, failed, runMs, finalMem, named = new 
     fps: runMs > 0 ? Math.min(Math.round((frames * 1e6) / runMs) / 1000, 999999) : 999999,
   };
   return Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) : named.has(k) ? named.get(k) : builtin[k]]));
+}
+
+/** Stops a run at its current stage (see BOOT_STAGES). */
+class StopRun extends Error {
+  constructor(cause) {
+    super('run stopped', { cause });
+  }
+}
+
+function readBuildInfo() {
+  const p = path.join(HERE, 'dist', 'BUILD_INFO.json');
+  return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null;
 }
 
 /** Run a loaded scenario. Returns the result object (status pass or fail). */
@@ -330,7 +361,27 @@ export async function runScenario(sc, opts = {}) {
   const stillEnd = Math.max(0, ...stills.map((c) => c.within + c.stillFrames - 1));
   const first = new Map(); // within/still check -> first frame (absent: never)
 
-  const { passes: discPass, bytes: discBytes } = disc ? discChecks(disc.file, checks, sc.memory) : { passes: new Map(), bytes: new Map() };
+  // From here on a failure stops the run at its stage and the scenario
+  // fails (see BOOT_STAGES); "no disc" above is the only setup error.
+  let stage = BOOT_STAGES.found;
+  let stopped = false;
+  let framesRun = 0;
+  const setStage = (n) => {
+    stage = n;
+  };
+  let discPass = new Map();
+  let discBytes = new Map();
+  if (disc) {
+    try {
+      ({ passes: discPass, bytes: discBytes } = discChecks(disc.file, checks, sc.memory, setStage));
+      stage = BOOT_STAGES.checks;
+    } catch (e) {
+      if (!(e instanceof DiscError)) throw e;
+      stopped = true;
+    }
+  } else {
+    stage = BOOT_STAGES.checks;
+  }
 
   let dir = null;
   let program;
@@ -341,14 +392,21 @@ export async function runScenario(sc, opts = {}) {
   } else {
     program = disc.file;
   }
-  const backend = await createBackend({ coreOptions: sc.coreOptions, verbose: opts.verbose });
+  const backend = stopped ? null : await createBackend({ coreOptions: sc.coreOptions, verbose: opts.verbose });
   const hashes = new Map();
   const actual = new Map(); // assert -> value
   const metricMem = sc.metrics.filter((k) => sc.memory[k]);
   const finalMem = new Map(); // metric key -> value at the end of the last frame
   let runMs = 0;
   try {
-    backend.loadProgram(program);
+    if (stopped) throw new StopRun();
+    try {
+      backend.loadProgram(program);
+    } catch (e) {
+      // The core refused the program, or crashed loading it.
+      throw new StopRun(e);
+    }
+    stage = BOOT_STAGES.loaded;
     let runHash = null;
     let runStart = 0;
     const uniform = new Map(); // frame hash -> picture is one colour
@@ -390,19 +448,36 @@ export async function runScenario(sc, opts = {}) {
       }
     });
     const t0 = performance.now();
-    for (let f = 1; f <= sc.frames; f++) {
-      const masks = [0, 0];
-      for (const s of sc.input) if (f >= s.from && f <= s.to) masks[s.port] |= s.mask;
-      backend.setPad(masks[0], 0);
-      backend.setPad(masks[1], 1);
-      backend.stepFrame();
+    try {
+      for (let f = 1; f <= sc.frames; f++) {
+        const masks = [0, 0];
+        for (const s of sc.input) if (f >= s.from && f <= s.to) masks[s.port] |= s.mask;
+        backend.setPad(masks[0], 0);
+        backend.setPad(masks[1], 1);
+        backend.stepFrame();
+        framesRun = f;
+      }
+    } catch (e) {
+      // A core crash (a Wasm trap) part-way: stop with what ran.
+      throw new StopRun(e);
+    } finally {
+      runMs = performance.now() - t0;
     }
-    runMs = performance.now() - t0;
+    stage = BOOT_STAGES.done;
+  } catch (e) {
+    if (!(e instanceof StopRun)) throw e;
+    stopped = true;
   } finally {
-    backend.close();
+    if (backend) {
+      try {
+        backend.close();
+      } catch {
+        // a crashed core may not close cleanly
+      }
+    }
     if (dir) rmSync(dir, { recursive: true, force: true });
   }
-  const build = backend.buildInfo();
+  const build = stopped && !backend ? readBuildInfo() : backend.buildInfo();
   const core = build && {
     pcsx_rearmed_commit: build.pcsx_rearmed_commit,
     emsdk_version: build.emsdk_version,
@@ -420,13 +495,15 @@ export async function runScenario(sc, opts = {}) {
           at: a.at,
           mem: a.mem,
           expected: fmtValue(loc, a.expected),
-          actual: fmtValue(loc, got),
+          actual: got === undefined ? null : fmtValue(loc, got),
           pass: got === a.expected,
         };
       }
       case 'frameHash': {
-        const same = hashes.get(a.at) === hashes.get(a.other);
-        return { at: a.at, frameHash: { [a.rel]: a.other }, pass: a.rel === 'sameAs' ? same : !same };
+        const x = hashes.get(a.at);
+        const y = hashes.get(a.other);
+        const same = x === y;
+        return { at: a.at, frameHash: { [a.rel]: a.other }, pass: x !== undefined && y !== undefined && (a.rel === 'sameAs' ? same : !same) };
       }
       case 'discFile':
         return { discFile: a.path, pass: discPass.get(a) === true };
@@ -440,7 +517,8 @@ export async function runScenario(sc, opts = {}) {
         throw new Error(`unknown check ${a.kind}`);
     }
   };
-  const assertions = sc.asserts.map(report);
+  // A stopped run fails every assertion: nothing it did can be trusted.
+  const assertions = sc.asserts.map((a) => (stopped ? { ...report(a), pass: false } : report(a)));
   const probes = sc.probes.map((p) => ({ ...report(p), metric: p.metric }));
   const named = new Map();
   for (const c of checks) {
@@ -465,8 +543,9 @@ export async function runScenario(sc, opts = {}) {
     }
   }
 
+  if (stopped) checkpoints = checkpoints.map((c) => ({ ...c, pass: false }));
   const failed = assertions.filter((a) => !a.pass).length + checkpoints.filter((c) => c.pass === false).length;
-  const pass = failed === 0;
+  const pass = failed === 0 && !stopped;
   const source = fixture
     ? { fixture: { name: fixture.name, sha256: fixture.sha256, licence: fixture.licence } }
     : { disc: { name: sc.disc, image: disc.image } };
@@ -478,12 +557,16 @@ export async function runScenario(sc, opts = {}) {
     core,
     ...source,
     frames: sc.frames,
+    boot_stage: stage,
+    ...(stopped ? { stopped: true, frames_run: framesRun } : {}),
     assertions,
     ...(probes.length ? { probes } : {}),
     ...(checkpoints.length ? { checkpoints } : {}),
     ...(unverified.length ? { unverified } : {}),
   };
-  if (sc.metrics.length) result.metrics = metricValues(sc, { frames: sc.frames, failed, runMs, finalMem, named });
+  if (sc.metrics.length) {
+    result.metrics = metricValues(sc, { frames: framesRun, failed, runMs, finalMem, named, stage, discCue: disc?.image === 'cue' });
+  }
   if (opts.record) {
     result.record = {
       format: 1,

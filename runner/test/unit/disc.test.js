@@ -77,6 +77,9 @@ describe('disc reader', () => {
     assert.deepEqual(parseCue('FILE "disc-1.bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n  TRACK 02 AUDIO\r\n'),
       { file: 'disc-1.bin', mode: 'MODE2/2352' });
     assert.deepEqual(parseCue('FILE a.bin BINARY\nTRACK 1 mode1/2048\n'), { file: 'a.bin', mode: 'MODE1/2048' });
+    assert.deepEqual(parseCue('\xEF\xBB\xBFFILE "a.bin" BINARY\nTRACK 01 MODE2/2352\n'), { file: 'a.bin', mode: 'MODE2/2352' }, 'UTF-8 BOM read as latin1');
+    assert.deepEqual(parseCue('\uFEFFFILE "a.bin" BINARY\nTRACK 01 MODE2/2352\n'), { file: 'a.bin', mode: 'MODE2/2352' });
+    assert.equal(new DiscError('x', 'cue').step, 'cue');
     assert.throws(() => parseCue('TRACK 01 MODE2/2352\n'), /no FILE/);
     assert.throws(() => parseCue('FILE "a.bin" BINARY\n'), /no TRACK/);
     assert.throws(() => parseCue('FILE "a.bin" BINARY\nTRACK 01 AUDIO\n'), /unsupported/);

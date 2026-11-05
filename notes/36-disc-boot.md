@@ -1,6 +1,6 @@
 # Issue 36: disc boot smoke test — plan and findings
 
-Status: runner support and the scenario are implemented, with Tier 1 tests passing locally; the first Tier 2 run is pending (2026-11-05). The cue
+Status: attempt 2 of 3 (2026-11-05). The first Tier 2 run gave `error` with no metrics; attempt 2 makes the run say where it stops. The cue
 delivery prerequisite (#62) is merged in #61, so private eval now mounts
 `/disc/disc-1.cue` and `/disc/disc-1.bin` read-only (plus the `/disc/disc.bin` alias).
 
@@ -101,6 +101,9 @@ Tier 1 tests use a synthetic ISO built in the test from the pad-echo homebrew.
 ## Reading the Tier 2 result
 | metric | meaning |
 |---|---|
+| boot_stage | how far the run got: 1 disc found, 2 image opened, 3 ISO9660 found, 4 disc checks done, 5 core accepted the disc, 6 every frame ran |
+| disc_cue | 1: booted `disc-1.cue` (expected), 0: fell back to a bin |
+| frames | frames actually run (5400 unless the core crashed part-way) |
 | boot_exe_match | 1: SYSTEM.CNF's executable has the SHA-1 published for SCUS_941.63 |
 | title_frame | first frame with the title code resident; 0 = not within 5400 frames |
 | savemenu_match | 1: SAVEMENU.MNU is the revision the decomp describes |
@@ -109,3 +112,24 @@ Tier 1 tests use a synthetic ISO built in the test from the pad-echo homebrew.
 
 If title_frame is 0 but savemenu_match is 1, the overlay is loaded elsewhere
 or not by frame 5400. If savemenu_match is 0, the offsets don't apply to this disc.
+
+## Tier 2 attempt 1 (`f309278`, 2026-11-05): error
+- Summary: `disc-boot-smoke: error`, `limits_hit: []`. The whole sandbox step
+  took 10 s (job step timings), so the run stopped during setup or in the
+  first few seconds of boot, nowhere near 5400 frames.
+- An error result carries no metrics by design. So nothing showed which step
+  failed: the cue read, the image, the ISO9660 parse, the core's load, or a
+  crash in the first frames.
+- The browser build boots FF7 on the iPhone with the same HLE BIOS
+  (`core/web/frontend.c`), so the BIOS is an unlikely cause.
+- Candidates fixed blind: the cue sheet read raised a plain error (e.g.
+  EACCES) rather than a DiscError, and a UTF-8 BOM at the start of the cue
+  would have hidden its FILE line.
+
+## Attempt 2: staged boot
+After the disc is found, a failure no longer errors. The run stops at its
+`boot_stage`, the scenario fails, and every assertion fails. The metrics
+still leave, numbers only: `boot_stage`, `disc_cue` and `frames`
+(the frames actually run). A missing disc is still the ScenarioError
+"no disc" (status error), as #36 requires. A Wasm trap during the frame loop
+is caught as stage 5, with the number of frames that ran.

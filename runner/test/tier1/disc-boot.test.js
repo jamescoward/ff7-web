@@ -107,11 +107,6 @@ test('without a disc the smoke scenario fails cleanly with "no disc"', async () 
   for (const disc of [undefined, path.join(dir, 'nowhere', 'disc.bin')]) {
     await assert.rejects(runScenario(sc, { disc }), (e) => e instanceof ScenarioError && /^no disc/.test(e.message));
   }
-  // A file that is not a disc image: same clean failure, before the core starts.
-  const junk = path.join(dir, 'junk');
-  mkdirSync(junk);
-  writeFileSync(path.join(junk, 'disc.bin'), Buffer.alloc(2352 * 20));
-  await assert.rejects(runScenario(sc, { disc: path.join(junk, 'disc.bin') }), (e) => e instanceof ScenarioError && /^no disc/.test(e.message));
 
   // Through the sandbox entry point: an "error" result, not a crash or a missing entry.
   const out = path.join(dir, 'out-nodisc');
@@ -121,6 +116,41 @@ test('without a disc the smoke scenario fails cleanly with "no disc"', async () 
   assert.equal(r.stdout, '');
   const results = JSON.parse(readFileSync(path.join(out, 'results.json'), 'utf8'));
   assert.deepEqual(results.scenarios.find((s) => s.name === 'disc-boot-smoke'), { name: 'disc-boot-smoke', status: 'error' });
+});
+
+test('a disc that is there but unusable fails at its boot stage, with metrics, instead of erroring', async () => {
+  const sc = loadScenario(JSON.parse(readFileSync(SMOKE, 'utf8')), { allowTier2: true });
+  // No ISO9660 volume: the image opens (stage 2), the file system is not found.
+  const junk = path.join(dir, 'junk');
+  mkdirSync(junk);
+  writeFileSync(path.join(junk, 'disc.bin'), Buffer.alloc(2352 * 20));
+  let r = await runScenario(sc, { disc: path.join(junk, 'disc.bin') });
+  assert.equal(r.status, 'fail');
+  assert.equal(r.stopped, true);
+  assert.equal(r.metrics.boot_stage, 2);
+  assert.equal(r.metrics.disc_cue, 0);
+  assert.equal(r.metrics.frames, 0);
+  assert.ok(r.assertions.every((a) => !a.pass));
+
+  // A cue whose image is missing: stage 1, booted from the cue.
+  const lone = path.join(dir, 'lone');
+  mkdirSync(lone);
+  writeFileSync(path.join(lone, 'disc-1.cue'), cueFor('disc-1.bin'));
+  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
+  assert.equal(r.status, 'fail');
+  assert.equal(r.metrics.boot_stage, 1);
+  assert.equal(r.metrics.disc_cue, 1);
+
+  // A cue the reader can't parse (BOM-prefixed cues are fine, see the unit tests).
+  writeFileSync(path.join(lone, 'disc-1.cue'), 'not a cue sheet\n');
+  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
+  assert.equal(r.metrics.boot_stage, 1);
+
+  // A full run reports stage 6.
+  r = await runScenario(loadScenario(scenario({ probes: [], metrics: ['boot_stage', 'disc_cue', 'frames', 'boot_exe_match', 'code_frame', 'marker_frame'] }),
+    { allowTier2: true }), { disc: path.join(discDir, 'disc.bin') });
+  assert.equal(r.status, 'pass');
+  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_cue, r.metrics.frames], [6, 1, 120]);
 });
 
 test('runner/tier2.js boots the cue next to --disc; the validator accepts the result', () => {

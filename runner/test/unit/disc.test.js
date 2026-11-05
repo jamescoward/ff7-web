@@ -162,16 +162,15 @@ describe('disc boot scenarios: loader', () => {
     });
   }
 
-  test('resolveDisc: cue next to the image, then <name>.bin, then the image; else "no disc"', () => {
+  test('resolveDisc: <name>.bin next to the image, then the image; a cue is never used; else "no disc"', () => {
     const sub = mkdtempSync(path.join(dir, 'resolve-'));
     const alias = path.join(sub, 'disc.bin');
     assert.throws(() => resolveDisc('disc-1', undefined), (e) => e instanceof ScenarioError && /^no disc/.test(e.message));
     assert.throws(() => resolveDisc('disc-1', alias), (e) => e instanceof ScenarioError && /^no disc/.test(e.message) && !e.message.includes(sub));
     writeFileSync(alias, '');
-    assert.deepEqual(resolveDisc('disc-1', alias), { file: alias, image: 'bin' });
-    writeFileSync(path.join(sub, 'disc-1.bin'), '');
-    assert.deepEqual(resolveDisc('disc-1', alias), { file: path.join(sub, 'disc-1.bin'), image: 'bin' });
     writeFileSync(path.join(sub, 'disc-1.cue'), '');
-    assert.deepEqual(resolveDisc('disc-1', alias), { file: path.join(sub, 'disc-1.cue'), image: 'cue' });
+    assert.deepEqual(resolveDisc('disc-1', alias), { file: alias });
+    writeFileSync(path.join(sub, 'disc-1.bin'), '');
+    assert.deepEqual(resolveDisc('disc-1', alias), { file: path.join(sub, 'disc-1.bin') });
   });
 });

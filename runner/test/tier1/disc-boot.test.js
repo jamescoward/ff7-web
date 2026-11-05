@@ -1,8 +1,8 @@
 // Tier 1: disc boot (#36) on the real core with a synthetic disc. The
 // pad-echo homebrew is written as the boot executable of a MODE2/2352
-// ISO9660 image (runner/synth/iso9660.js) with a cue, laid out the way the
-// private eval mounts disc 1 (/disc/disc-1.cue, /disc/disc-1.bin and the
-// /disc/disc.bin alias). Also: without a disc, the committed smoke
+// ISO9660 image (runner/synth/iso9660.js), laid out the way the private eval
+// mounts disc 1 (/disc/disc-1.bin, the /disc/disc.bin alias, and a cue the
+// runner ignores). Also: without a disc, the committed smoke
 // scenario fails cleanly with "no disc". Needs core/build.sh and
 // runner/build.sh.
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { build as buildPadEcho } from '../../../harness/fixtures/pad-echo.js';
 import { buildExpect } from '../../../harness/private-eval/eval/lib.js';
 import { loadExpect, summarize } from '../../../harness/private-eval/validate/validate.js';
-import { loadScenario, metricValues, runScenario, ScenarioError } from '../../scenario.js';
+import { loadScenario, runScenario, ScenarioError } from '../../scenario.js';
 import { buildIso, cueFor } from '../../synth/iso9660.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -43,7 +43,8 @@ before(() => {
   });
   writeFileSync(path.join(discDir, 'disc-1.bin'), bin);
   writeFileSync(path.join(discDir, 'disc.bin'), bin);
-  writeFileSync(path.join(discDir, 'disc-1.cue'), cueFor('disc-1.bin'));
+  // A cue that names another file, as the R2 one does: the runner must not use it.
+  writeFileSync(path.join(discDir, 'disc-1.cue'), cueFor('Some Other Name (Disc 1).bin'));
 });
 after(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -71,11 +72,11 @@ const scenario = (over = {}) => ({
   ...over,
 });
 
-test('a synthetic disc boots through its cue; disc checks report pass/fail and frames only', async () => {
+test('a synthetic disc boots from its bin, ignoring the cue; disc checks report pass/fail and frames only', async () => {
   const sc = loadScenario(scenario(), { allowTier2: true });
   const r = await runScenario(sc, { disc: path.join(discDir, 'disc.bin') });
   assert.equal(r.status, 'pass', JSON.stringify(r.assertions));
-  assert.deepEqual(r.disc, { name: 'disc-1', image: 'cue' });
+  assert.deepEqual(r.disc, { name: 'disc-1' });
   assert.equal(r.fixture, undefined);
   const m = r.metrics;
   assert.equal(m.boot_exe_match, 1);
@@ -132,36 +133,21 @@ test('a disc that is there but unusable fails at its boot stage, with metrics, i
   assert.equal(r.metrics.frames, 0);
   assert.ok(r.assertions.every((a) => !a.pass));
 
-  // A cue whose image is missing: stage 1, booted from the cue.
+  // Only a cue, no image: "no disc".
   const lone = path.join(dir, 'lone');
   mkdirSync(lone);
   writeFileSync(path.join(lone, 'disc-1.cue'), cueFor('disc-1.bin'));
-  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
-  assert.equal(r.status, 'fail');
-  assert.equal(r.metrics.boot_stage, 1);
-  assert.equal(r.metrics.disc_error, 5, 'the image the cue names is missing');
-  assert.equal(metricValues({ metrics: ['disc_cue'], memory: {} }, { frames: 0, failed: 0, runMs: 0, finalMem: new Map(), discCue: true }).disc_cue, 1);
-
-  // A cue the reader can't parse (BOM-prefixed cues are fine, see the unit tests).
-  writeFileSync(path.join(lone, 'disc-1.cue'), 'not a cue sheet\n');
-  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
-  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 2], 'no FILE line');
-  writeFileSync(path.join(lone, 'disc-1.cue'), 'FILE "disc-1.bin" BINARY\n');
-  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
-  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 3], 'no TRACK line');
-  writeFileSync(path.join(lone, 'disc-1.cue'), 'FILE "disc-1.bin" BINARY\n  TRACK 01 AUDIO\n');
-  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
-  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 4], 'unsupported first track');
+  await assert.rejects(runScenario(sc, { disc: path.join(lone, 'disc.bin') }), (e) => e instanceof ScenarioError && /^no disc/.test(e.message));
 
   // A full run reports stage 6.
-  r = await runScenario(loadScenario(scenario({ probes: [], metrics: ['boot_stage', 'disc_cue', 'frames', 'boot_exe_match', 'code_frame', 'marker_frame'] }),
+  r = await runScenario(loadScenario(scenario({ probes: [], metrics: ['boot_stage', 'frames', 'boot_exe_match', 'code_frame', 'marker_frame'] }),
     { allowTier2: true }), { disc: path.join(discDir, 'disc.bin') });
   assert.equal(r.status, 'pass');
-  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_cue, r.metrics.frames], [6, 1, 120]);
+  assert.deepEqual([r.metrics.boot_stage, r.metrics.frames], [6, 120]);
   assert.equal(r.metrics.disc_error, undefined, 'only listed metrics are reported');
 });
 
-test('runner/tier2.js boots the cue next to --disc; the validator accepts the result', () => {
+test('runner/tier2.js boots the bin next to --disc; the validator accepts the result', () => {
   const work = path.join(dir, 'work');
   const scenarios = path.join(work, 'harness/scenarios');
   mkdirSync(scenarios, { recursive: true });

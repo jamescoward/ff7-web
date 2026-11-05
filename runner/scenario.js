@@ -47,11 +47,10 @@ const SIZES = { u8: 1, u16: 2, u32: 4 };
  *   run_ms             wall time of the frame loop, whole milliseconds
  *   fps                frames per second of the frame loop (unthrottled), 3 decimals
  *   boot_stage         how far the run got (BOOT_STAGES); 6 = every frame ran
- *   disc_cue           1 when a disc boot used <name>.cue, else 0
  *   disc_error         why the disc could not be opened (disc.js DISC_ERRORS), 0 if it opened
  * run_ms and fps vary between runs; the other metrics are deterministic.
  */
-export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_cue', 'disc_error'];
+export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_error'];
 
 /**
  * Stages of a run, for boot_stage. A run that stops after stage 1 fails
@@ -59,7 +58,7 @@ export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 
  * result still says where it stopped: an error result carries no metrics.
  * Fixture boots go from 1 straight to 4.
  *   1  boot file found (fixture built, or disc image resolved)
- *   2  disc image opened (cue read and parsed)
+ *   2  disc image opened
  *   3  ISO9660 file system found
  *   4  disc file checks done
  *   5  the core accepted the program or disc
@@ -246,16 +245,18 @@ export async function resolveFixture(name, fixturesDir = DEFAULT_FIXTURES) {
 }
 
 /**
- * The file a disc scenario boots, given the --disc image: <name>.cue next to
- * it (the private eval mounts /disc/disc-1.cue and /disc/disc-1.bin), else
- * <name>.bin there, else the image itself. Throws ScenarioError "no disc"
- * when there is none; the message never holds a path.
+ * The image a disc scenario boots, given the --disc image: <name>.bin next to
+ * it (the private eval mounts /disc/disc-1.bin), else the --disc image
+ * itself. A cue is not used: PS1 discs like FF7's are a single MODE2/2352
+ * data track, which the reader and the core both detect from the bin
+ * (owner decision on #36, 2026-11-05). Throws ScenarioError "no disc" when
+ * there is no image; the message never holds a path.
  */
 export function resolveDisc(name, discOpt) {
   if (!discOpt) throw new ScenarioError('no disc: this scenario boots a disc; pass --disc');
   const dir = path.dirname(path.resolve(discOpt));
-  for (const p of [path.join(dir, `${name}.cue`), path.join(dir, `${name}.bin`), path.resolve(discOpt)]) {
-    if (existsSync(p)) return { file: p, image: path.extname(p).toLowerCase() === '.cue' ? 'cue' : 'bin' };
+  for (const p of [path.join(dir, `${name}.bin`), path.resolve(discOpt)]) {
+    if (existsSync(p)) return { file: p };
   }
   throw new ScenarioError('no disc: the disc image does not exist');
 }
@@ -313,11 +314,10 @@ function readBaseline(dir, name) {
 }
 
 /** The scenario's listed metrics, as numbers the Tier 2 validator accepts. */
-export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map(), stage = BOOT_STAGES.done, discCue = false, discError = 0 }) {
+export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map(), stage = BOOT_STAGES.done, discError = 0 }) {
   const builtin = {
     disc_error: discError,
     boot_stage: stage,
-    disc_cue: discCue ? 1 : 0,
     frames,
     failed_assertions: failed,
     run_ms: Math.round(runMs),
@@ -552,7 +552,7 @@ export async function runScenario(sc, opts = {}) {
   const pass = failed === 0 && !stopped;
   const source = fixture
     ? { fixture: { name: fixture.name, sha256: fixture.sha256, licence: fixture.licence } }
-    : { disc: { name: sc.disc, image: disc.image } };
+    : { disc: { name: sc.disc } };
   const result = {
     runner: 'ff7-web/scenario',
     format: 1,
@@ -569,7 +569,7 @@ export async function runScenario(sc, opts = {}) {
     ...(unverified.length ? { unverified } : {}),
   };
   if (sc.metrics.length) {
-    result.metrics = metricValues(sc, { frames: framesRun, failed, runMs, finalMem, named, stage, discCue: disc?.image === 'cue', discError });
+    result.metrics = metricValues(sc, { frames: framesRun, failed, runMs, finalMem, named, stage, discError });
   }
   if (opts.record) {
     result.record = {

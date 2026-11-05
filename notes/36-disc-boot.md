@@ -156,3 +156,16 @@ names another file. **Blocked on the owner**: re-upload `disc-1.cue` with
 `FILE "disc-1.bin" BINARY` (see #36). The runner will not rewrite or generate
 a cue, as #36 says. Then re-run Tier 2 on PR #64. Attempts used: 2. The
 `disc_error` refinement diagnosed attempt 2 and was not a new approach.
+
+## Owner decision (2026-11-05): boot the bin, not the cue
+The owner asked to boot `disc-1.bin` directly instead of fixing the R2 cue.
+FF7 disc 1 is a single MODE2/2352 data track, so the cue adds nothing. The
+reader detects the layout from the sync pattern, and the core boots a bare
+.bin. `resolveDisc` now picks `<name>.bin` next to `--disc`, else the
+`--disc` image, and never uses a cue. This changes #36's acceptance from
+"booted from disc-1.cue + disc-1.bin" to "booted from disc-1.bin", with the
+owner's approval. The Tier 1 test puts a cue that names another file next to
+the bin and checks that it is ignored. Cue parsing stays in `runner/disc.js`
+(unit-tested) for discs that ever need one; scenarios don't use it. The
+`disc_cue` metric is gone, and `disc_error` codes 1–5 can't occur from a
+scenario now.

@@ -10,12 +10,14 @@
 //   { type: 'recycle', buffer }                  a frame buffer to reuse
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
-//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred
+//   { type: 'frame', frame, width, height, buffer, crop }   RGBA, transferred;
+//                                                crop = { x, y, w, h } (crop.js)
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
+import { createCropTracker } from './crop.js';
 import { pickBootFile } from './files.js';
 
 const MOUNT = '/game';
@@ -33,6 +35,9 @@ let baseFrame = 0;
 let cardDigest = 0;
 let timer = 0;
 const spare = [];
+// Runs on every posted frame, so the crop widens on the frame where content
+// appears. The page decides whether to use it (the toggle).
+const cropper = createCropTracker();
 
 const post = (msg, transfer) => self.postMessage(msg, transfer ?? []);
 
@@ -135,7 +140,9 @@ function runFrames(n) {
   }
   drainAudio();
   const f = grabFrame();
-  if (f) post({ type: 'frame', frame, ...f }, [f.buffer]);
+  if (!f) return;
+  const crop = cropper.update(new Uint32Array(f.buffer), f.width, f.height, frame);
+  post({ type: 'frame', frame, ...f, crop }, [f.buffer]);
 }
 
 function tick() {

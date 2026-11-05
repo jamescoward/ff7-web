@@ -2,7 +2,7 @@
 // Original project code, GPL-2.0-or-later.
 //
 // The real-time loop, the frame conversion and the audio drain repeat
-// web/js/emu-worker.js (tick, grabFrame, drainAudio), so the measurement
+// web/js/emu-worker.js (tick, grabFrame, drainAudio, the crop tracker), so the measurement
 // covers the work the app does per frame. Keep them in step: if the app's
 // pacing changes, change it here too, or the benchmark measures something
 // else. (They aren't shared because emu-worker.js isn't a module that
@@ -25,6 +25,7 @@
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
+import { createCropTracker } from '../js/crop.js';
 
 const MAX_CATCH_UP = 4; // as web/js/emu-worker.js
 const CHUNK_MS = 50; // unthrottled: yield to the message loop this often
@@ -38,6 +39,7 @@ let fps = 60;
 let peakHeap = 0;
 let stopFlag = false;
 const spare = [];
+const cropper = createCropTracker(); // as web/js/emu-worker.js
 
 const post = (msg, transfer) => self.postMessage(msg, transfer ?? []);
 const heap = () => {
@@ -152,7 +154,10 @@ function realtime({ seconds }) {
     const t2 = performance.now();
     drainAudio();
     const f = grabFrame();
-    if (f) post({ type: 'frame', frame, ...f }, [f.buffer]);
+    if (f) {
+      const crop = cropper.update(new Uint32Array(f.buffer), f.width, f.height, frame);
+      post({ type: 'frame', frame, ...f, crop }, [f.buffer]);
+    }
     if (n) frameMs[n - 1] += performance.now() - t2; // the batch's output work
   };
 

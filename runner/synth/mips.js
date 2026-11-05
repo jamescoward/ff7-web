@@ -37,6 +37,7 @@ export class Asm {
   andi(rt, rs, imm) { this.emit(iType(0x0c, rs, rt, imm)); }
   xori(rt, rs, imm) { this.emit(iType(0x0e, rs, rt, imm)); }
   addiu(rt, rs, imm) { this.emit(iType(0x09, rs, rt, imm)); }
+  sltiu(rt, rs, imm) { this.emit(iType(0x0b, rs, rt, imm)); }
   lbu(rt, off, base) { this.emit(iType(0x24, base, rt, off)); }
   lhu(rt, off, base) { this.emit(iType(0x25, base, rt, off)); }
   lw(rt, off, base) { this.emit(iType(0x23, base, rt, off)); }

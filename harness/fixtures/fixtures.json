@@ -10,6 +10,16 @@
       "licence": "GPL-2.0-or-later",
       "origin": "Original project code written for this repository. Built from source at test time by runner/synth/mips.js; no game, BIOS or SDK code.",
       "redistributable": true
+    },
+    "border-box": {
+      "description": "Shows a box on black whose borders change on a VBLANK schedule (black, then a box with borders, then a wider box), for the automatic picture crop (#24). Stores a frame counter and the phase index in RAM.",
+      "kind": "generator",
+      "module": "border-box.js",
+      "export": "build",
+      "sha256": "dea217423eec3f705effb7f582bdf6977b0ee23e1ae983fd19554665b7df0031",
+      "licence": "GPL-2.0-or-later",
+      "origin": "Original project code written for this repository. Built from source at test time by runner/synth/mips.js; no game, BIOS or SDK code.",
+      "redistributable": true
     }
   }
 }

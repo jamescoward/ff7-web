@@ -88,6 +88,8 @@ body {
 
 /* Stage */
 .stage {
+  /* The shown part of the frame (#24): main.js sets it from the crop. */
+  --screen-aspect: 1.3333;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -97,7 +99,7 @@ body {
 .screen {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: var(--screen-aspect);
   max-height: 60dvh;
   margin: 0 auto;
   background: #000;
@@ -226,7 +228,14 @@ body {
 @media (orientation: landscape) and (max-height: 600px) {
   .bar { position: absolute; z-index: 5; top: env(safe-area-inset-top); left: env(safe-area-inset-left); padding: 6px; }
   .stage { flex-direction: row; }
-  .screen { height: 100dvh; max-height: none; width: auto; }
+  /* A crop may make the picture wider, but it only grows into space the
+     side controls don't need (never narrower than 4:3 at full height). */
+  .screen {
+    height: 100dvh;
+    max-height: none;
+    width: auto;
+    max-width: max(calc(100dvh * 4 / 3), calc(100vw - 2 * (var(--dpad) + var(--gap))));
+  }
   .pad { position: absolute; inset: 0; min-height: 0; pointer-events: none; }
   .vpad {
     height: 100%;

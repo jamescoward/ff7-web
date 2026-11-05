@@ -5,6 +5,7 @@ import { createAudio } from './audio.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
+import { cropAspect } from './crop.js';
 import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
 import { createInputMixer } from './pad.js';
@@ -50,6 +51,25 @@ const cards = createCardStore();
 let backend = null;
 let pendingFrame = null;
 let drawn = 0;
+let shown = null; // the rectangle of the frame on the canvas: { x, y, w, h }
+let shownAspect = 0;
+
+// Automatic crop of black borders (#24), on by default; the button turns it
+// off. The choice is a per-browser convenience, so storage may fail.
+const CROP_KEY = 'ff7web.crop';
+let cropOn = true;
+try {
+  cropOn = localStorage.getItem(CROP_KEY) !== 'off';
+} catch {
+  // private mode or blocked storage: keep the default
+}
+const stage = document.querySelector('.stage');
+const cropBtn = $('crop-btn');
+function showCropState() {
+  cropBtn.textContent = cropOn ? 'Crop on' : 'Crop off';
+  cropBtn.setAttribute('aria-pressed', String(cropOn));
+}
+showCropState();
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
@@ -61,11 +81,19 @@ function draw() {
   const f = pendingFrame;
   if (!f) return;
   pendingFrame = null;
-  if (canvas.width !== f.width || canvas.height !== f.height) {
-    canvas.width = f.width;
-    canvas.height = f.height;
+  const c = cropOn && f.crop ? f.crop : { x: 0, y: 0, w: f.width, h: f.height };
+  if (canvas.width !== c.w || canvas.height !== c.h) {
+    canvas.width = c.w;
+    canvas.height = c.h;
   }
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
+  // Draw only the crop, moved to the canvas origin.
+  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
+  const aspect = cropAspect(c, f.width, f.height);
+  if (Math.abs(aspect - shownAspect) > 1e-3) {
+    shownAspect = aspect;
+    stage.style.setProperty('--screen-aspect', aspect.toFixed(4));
+  }
+  shown = { ...c };
   drawn = f.frame;
 }
 requestAnimationFrame(draw);
@@ -138,6 +166,18 @@ fileInput.addEventListener('change', async () => {
   }
 });
 
+cropBtn.addEventListener('click', () => {
+  cropOn = !cropOn;
+  showCropState();
+  try {
+    localStorage.setItem(CROP_KEY, cropOn ? 'on' : 'off');
+  } catch {
+    // not remembered; it still applies now
+  }
+  // Redraw the current frame at once, even while paused.
+  pendingFrame = backend?.lastFrame() ?? pendingFrame;
+});
+
 $('mute-btn').addEventListener('click', (e) => {
   const muted = !audio.muted;
   audio.setMuted(muted);
@@ -201,4 +241,6 @@ window.ff7web = {
   cards,
   mixer,
   drawnFrame: () => drawn,
+  /** The part of the frame on screen: { x, y, w, h }, or null before a frame. */
+  shownRect: () => (shown ? { ...shown } : null),
 };

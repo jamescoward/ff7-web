@@ -19,26 +19,25 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M1.5 (private eval)** was filed as #31–#40 (reasoning in `notes/m1.5-issue-drafts.md`) and **rescoped on 2026-11-04** (`notes/m1.5-rescope.md`, owner-approved). It ends when the disc boot smoke test (#36) passes.
 - **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline), #55 (in-sandbox entry point `runner/tier2.js` and scenario `metrics`, #56; test follow-ups #57 and #59).
-- **#35 (Tier 2 workflows):** merged in #54, and its last acceptance item, the bootstrap, has passed. The issue is still open, labelled `needs-owner`; closing it is the owner's call (evidence on #35 and #55).
+- **#35 (Tier 2 workflows):** merged in #54. The owner closed it (2026-11-05) after the bootstrap passed (evidence on #35 and #55).
 - **Tier 2 works end to end on GitHub** (2026-11-05). The throwaway bootstrap PR #58 gave a red `tier2` check. The only output from the sandboxed run in its log was the validator's summary; the other lines were the trusted steps' fixed words. The gate, the artifact round trip, the R2 fetch of `disc-1.bin`, the sandbox and the cleanup all ran for the first time (details in #55).
 - **Done:** #36 (PR #64). Disc 1 boots in Tier 2, the boot executable matches the USA hash, and the title code is resident at frame 1231 with Start pressed every 2 s. Unthrottled speed is about 1000 fps on GitHub's runner. Details are in `notes/36-disc-boot.md`.
-  - The scenario boots the bin, not the cue: the R2 `disc-1.cue` names another file (owner decision).
+  - The scenario boots the bin, not the cue: the R2 `disc-1.cue` names another file. **The project no longer uses cue files** (owner decision, 2026-11-05): FF7's discs are single data tracks, so the bin is enough. The private eval still fetches and mounts `disc-1.cue`. Removing that is a `needs-owner` change to `.github/` and `harness/private-eval/`. Until it merges, keep `disc-1.cue` in R2, or the eval's disc fetch fails.
   - Format 1 gained `boot.disc`, disc file checks, `within`/`stillFrames` checks, `probes` and the `boot_stage`/`disc_error` metrics.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), now unblocked. Frames to the title depend on input: without input the intro holds the game for more than 5400 frames; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents:** #24 (border crop), then #37 (M2). #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
+**Next for agents:** the owner will hand off #24 (border crop). After it: #25 (context-aware controls), using Tier 2 probes to confirm the field, battle and menu addresses. #37 (title snapshot) and #38 come in when #25 needs them. A process-by-risk proposal (a lighter process for `web/`-only work) is awaiting the owner in `docs/AUTOMATION.md`. #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 
-**Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18), core in previews + CI `web` on Chromium and WebKit (#20). The owner still needs to make `unit`, `tier1` and `web` required checks, and to have Pages serving `gh-pages` (Settings → Pages → `gh-pages`, root).
+**Merged:** preview deploys (#16), CI `unit` + `tier1` (#17), CODEOWNERS (#18), core in previews + CI `web` on Chromium and WebKit (#20), and skipping tier 2 scenarios in the `tier1` scenario loop (#65). The owner has set up the `main` ruleset and Pages serves `gh-pages` (2026-11-05). Every change to `main`, `STATUS.md` included, goes through a PR.
 
 **Touch plan (owner decision, 2026-11-04):** field controls are drag-to-walk plus Interact/Menu/Back buttons (#23, done), border cropping (#24, ready), and context-aware actions once M2 exists (#25, blocked). Tap-to-walk is a stretch goal (`docs/PHASE0.md`, M3).
 
 **Owner involvement:** the iPhone checks (Tier 3) are requested by agents through a PR comment with a preview link. Expect one short request at a time.
 
 **Blocked / needs owner:**
-- Before M1.5:
-  - ~~private storage~~: done. The R2 bucket `ff7-web-assets` holds `disc-1.bin` to `disc-3.bin`, and the read-only token is set as secrets in an environment (owner, 2026-11-04; #35 checks the names);
-  - a `main` ruleset (PR required with 0 approvals, no force push or deletion, linear history, required checks once #17 merges). The repo is now public, so this is available on the free plan;
-  - a separate GitHub identity for agents (bot account or App), so code-owner review can be enforced.
+- ~~private storage~~: done. The R2 bucket `ff7-web-assets` holds `disc-1.bin` to `disc-3.bin`, and the read-only token is set as secrets in an environment (owner, 2026-11-04; #35 checks the names).
+- ~~a `main` ruleset~~: done (owner, 2026-11-05).
+- **Optional, undecided:** a separate GitHub identity for agents (bot account or App), so code-owner review can be enforced. Until then, agents post as the owner, and a reviewer marker counts only when it comes from that account.
 - Agent sessions' egress proxy blocks github.com archive (codeload) downloads; `git` over HTTPS works. The core build avoids archive downloads (see `notes/3-core-build.md`). The proxy also blocks `*.github.io`, so agents can't load previews themselves; they check the `gh-pages` branch instead. The exceptions are `ff7-mods.github.io` and `sithlord48.github.io`, which are allowed for save-format research, but only in sessions started after 2026-11-04.

@@ -2,19 +2,24 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 1,
   "name": "disc-boot-smoke",
-  "description": "Boots disc 1 from power-on (HLE BIOS, no input). Checks that SYSTEM.CNF's boot executable is the USA release and that the title screen is reached, and reports frames to the title and the unthrottled speed (#36). Addresses, offsets and hashes are from Xeeynamo/ff7-decomp config/us.yaml at 9411173 (reference only); see notes/36-disc-boot.md.",
+  "description": "Boots disc 1 from power-on (HLE BIOS) and presses Start for 4 frames every 2 s from frame 300, to skip the pre-title logos and intro (ENDING_SceaLoop, ENDING_Loop) that main() runs before HandleTitle. Checks that SYSTEM.CNF's boot executable is the USA release and that the title screen is reached, and reports frames to the title and the unthrottled speed (#36). Addresses, offsets and hashes are from Xeeynamo/ff7-decomp config/us.yaml and src/main at 9411173 (reference only); see notes/36-disc-boot.md.",
   "tier": 2,
-  "boot": { "disc": "disc-1" },
-  "frames": 5400,
+  "boot": {
+    "disc": "disc-1"
+  },
+  "frames": 10800,
   "memory": {
-    "exe_head": {
-      "addr": "0x80010000",
+    "ending_head": {
+      "addr": "0x800a0000",
       "type": "bytes",
       "len": 4096,
-      "description": "First 4 KiB of the boot executable's read-only data: file offset 0x800, linked at 0x80010000"
+      "description": "First 4 KiB of the ENDING overlay (pre-title logos and intro), linked at 0x800A0000"
     },
-    "game_state": { "addr": "0x8009c560", "type": "u16", "description": "g_GameState (field 1, battle 2, world 3, menu 5; none on the title)" },
-    "ovl_dest": { "addr": "0x80062dec", "type": "u32", "description": "D_80062DEC: where LoadMenuOvl loads a menu overlay" },
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (field 1, battle 2, world 3, menu 5; none on the title)"
+    },
     "overlay_head": {
       "addr": "0x801d0000",
       "type": "bytes",
@@ -36,34 +41,133 @@
       "note": "SCUS_941.63, USA; source claim from ff7-decomp. Reported only as matched or not."
     },
     {
-      "within": 5400,
+      "within": 10800,
       "mem": "title_code",
-      "equalsDiscFile": { "path": "MENU/SAVEMENU.MNU", "offset": 11096 },
+      "equalsDiscFile": {
+        "path": "MENU/SAVEMENU.MNU",
+        "offset": 11096
+      },
       "metric": "title_frame",
       "note": "HandleTitle loads SAVEMENU and runs its title code: the title screen. Hypothesis to confirm on Tier 2."
     }
   ],
   "probes": [
     {
-      "within": 5400,
-      "mem": "exe_head",
-      "equalsDiscFile": { "path": "SYSTEM.CNF:BOOT", "offset": 2048 },
-      "metric": "exe_frame",
-      "note": "Whether the boot executable was loaded and is resident."
+      "within": 10800,
+      "mem": "ending_head",
+      "equalsDiscFile": {
+        "path": "FIELD/ENDING.X",
+        "offset": 0
+      },
+      "metric": "ending_frame",
+      "note": "The pre-title ENDING overlay is resident (its loops run before HandleTitle)."
     },
     {
-      "within": 5400,
+      "within": 10800,
       "mem": "overlay_head",
-      "equalsDiscFile": { "path": "MENU/SAVEMENU.MNU", "offset": 0 },
+      "equalsDiscFile": {
+        "path": "MENU/SAVEMENU.MNU",
+        "offset": 0
+      },
       "metric": "overlay_frame",
       "note": "Whether SAVEMENU is loaded at all (its file SHA-1 matched the decomp's on 2026-11-05)."
     },
     {
-      "within": 5340,
+      "within": 10740,
       "stillFrames": 60,
       "metric": "still_frame",
       "note": "Game-agnostic fallback: the first second-long still, non-blank picture."
     }
   ],
-  "metrics": ["fps", "boot_exe_match", "title_frame", "overlay_frame", "exe_frame", "game_state", "ovl_dest", "still_frame"]
+  "metrics": ["boot_stage", "fps", "boot_exe_match", "title_frame", "overlay_frame", "ending_frame", "still_frame", "game_state"],
+  "input": [
+    { "from": 300, "to": 303, "buttons": ["start"] },
+    { "from": 420, "to": 423, "buttons": ["start"] },
+    { "from": 540, "to": 543, "buttons": ["start"] },
+    { "from": 660, "to": 663, "buttons": ["start"] },
+    { "from": 780, "to": 783, "buttons": ["start"] },
+    { "from": 900, "to": 903, "buttons": ["start"] },
+    { "from": 1020, "to": 1023, "buttons": ["start"] },
+    { "from": 1140, "to": 1143, "buttons": ["start"] },
+    { "from": 1260, "to": 1263, "buttons": ["start"] },
+    { "from": 1380, "to": 1383, "buttons": ["start"] },
+    { "from": 1500, "to": 1503, "buttons": ["start"] },
+    { "from": 1620, "to": 1623, "buttons": ["start"] },
+    { "from": 1740, "to": 1743, "buttons": ["start"] },
+    { "from": 1860, "to": 1863, "buttons": ["start"] },
+    { "from": 1980, "to": 1983, "buttons": ["start"] },
+    { "from": 2100, "to": 2103, "buttons": ["start"] },
+    { "from": 2220, "to": 2223, "buttons": ["start"] },
+    { "from": 2340, "to": 2343, "buttons": ["start"] },
+    { "from": 2460, "to": 2463, "buttons": ["start"] },
+    { "from": 2580, "to": 2583, "buttons": ["start"] },
+    { "from": 2700, "to": 2703, "buttons": ["start"] },
+    { "from": 2820, "to": 2823, "buttons": ["start"] },
+    { "from": 2940, "to": 2943, "buttons": ["start"] },
+    { "from": 3060, "to": 3063, "buttons": ["start"] },
+    { "from": 3180, "to": 3183, "buttons": ["start"] },
+    { "from": 3300, "to": 3303, "buttons": ["start"] },
+    { "from": 3420, "to": 3423, "buttons": ["start"] },
+    { "from": 3540, "to": 3543, "buttons": ["start"] },
+    { "from": 3660, "to": 3663, "buttons": ["start"] },
+    { "from": 3780, "to": 3783, "buttons": ["start"] },
+    { "from": 3900, "to": 3903, "buttons": ["start"] },
+    { "from": 4020, "to": 4023, "buttons": ["start"] },
+    { "from": 4140, "to": 4143, "buttons": ["start"] },
+    { "from": 4260, "to": 4263, "buttons": ["start"] },
+    { "from": 4380, "to": 4383, "buttons": ["start"] },
+    { "from": 4500, "to": 4503, "buttons": ["start"] },
+    { "from": 4620, "to": 4623, "buttons": ["start"] },
+    { "from": 4740, "to": 4743, "buttons": ["start"] },
+    { "from": 4860, "to": 4863, "buttons": ["start"] },
+    { "from": 4980, "to": 4983, "buttons": ["start"] },
+    { "from": 5100, "to": 5103, "buttons": ["start"] },
+    { "from": 5220, "to": 5223, "buttons": ["start"] },
+    { "from": 5340, "to": 5343, "buttons": ["start"] },
+    { "from": 5460, "to": 5463, "buttons": ["start"] },
+    { "from": 5580, "to": 5583, "buttons": ["start"] },
+    { "from": 5700, "to": 5703, "buttons": ["start"] },
+    { "from": 5820, "to": 5823, "buttons": ["start"] },
+    { "from": 5940, "to": 5943, "buttons": ["start"] },
+    { "from": 6060, "to": 6063, "buttons": ["start"] },
+    { "from": 6180, "to": 6183, "buttons": ["start"] },
+    { "from": 6300, "to": 6303, "buttons": ["start"] },
+    { "from": 6420, "to": 6423, "buttons": ["start"] },
+    { "from": 6540, "to": 6543, "buttons": ["start"] },
+    { "from": 6660, "to": 6663, "buttons": ["start"] },
+    { "from": 6780, "to": 6783, "buttons": ["start"] },
+    { "from": 6900, "to": 6903, "buttons": ["start"] },
+    { "from": 7020, "to": 7023, "buttons": ["start"] },
+    { "from": 7140, "to": 7143, "buttons": ["start"] },
+    { "from": 7260, "to": 7263, "buttons": ["start"] },
+    { "from": 7380, "to": 7383, "buttons": ["start"] },
+    { "from": 7500, "to": 7503, "buttons": ["start"] },
+    { "from": 7620, "to": 7623, "buttons": ["start"] },
+    { "from": 7740, "to": 7743, "buttons": ["start"] },
+    { "from": 7860, "to": 7863, "buttons": ["start"] },
+    { "from": 7980, "to": 7983, "buttons": ["start"] },
+    { "from": 8100, "to": 8103, "buttons": ["start"] },
+    { "from": 8220, "to": 8223, "buttons": ["start"] },
+    { "from": 8340, "to": 8343, "buttons": ["start"] },
+    { "from": 8460, "to": 8463, "buttons": ["start"] },
+    { "from": 8580, "to": 8583, "buttons": ["start"] },
+    { "from": 8700, "to": 8703, "buttons": ["start"] },
+    { "from": 8820, "to": 8823, "buttons": ["start"] },
+    { "from": 8940, "to": 8943, "buttons": ["start"] },
+    { "from": 9060, "to": 9063, "buttons": ["start"] },
+    { "from": 9180, "to": 9183, "buttons": ["start"] },
+    { "from": 9300, "to": 9303, "buttons": ["start"] },
+    { "from": 9420, "to": 9423, "buttons": ["start"] },
+    { "from": 9540, "to": 9543, "buttons": ["start"] },
+    { "from": 9660, "to": 9663, "buttons": ["start"] },
+    { "from": 9780, "to": 9783, "buttons": ["start"] },
+    { "from": 9900, "to": 9903, "buttons": ["start"] },
+    { "from": 10020, "to": 10023, "buttons": ["start"] },
+    { "from": 10140, "to": 10143, "buttons": ["start"] },
+    { "from": 10260, "to": 10263, "buttons": ["start"] },
+    { "from": 10380, "to": 10383, "buttons": ["start"] },
+    { "from": 10500, "to": 10503, "buttons": ["start"] },
+    { "from": 10620, "to": 10623, "buttons": ["start"] },
+    { "from": 10740, "to": 10743, "buttons": ["start"] }
+  ]
 }

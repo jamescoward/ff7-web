@@ -212,3 +212,20 @@ BIOS.
   - exe_frame 0: the executable never loaded (an HLE BIOS or disc read problem);
   - exe_frame > 0 and ovl_dest 0: running, but not yet at the title;
   - ovl_dest set: the overlay should be resident there.
+
+## Tier 2 on `6ab3780` (2026-11-05): the game runs, but stays before the title
+`exe_frame 1` (the executable is resident from frame 1), `game_state 0`,
+`ovl_dest 2149384192` (0x801D0000, which is probably just initialised data),
+`overlay_frame 0`, `still_frame 268`, `fps 735`.
+
+The decomp's `main()` (src/main/110B8.c, reference only) runs the ENDING
+overlay's `ENDING_SceaLoop()` and then `ENDING_Loop(0)` before
+`HandleTitle()`. These are the pre-title logos and intro. The scenario
+injected no input, while the iPhone run had a person pressing buttons.
+
+## Attempt 3 (materially different): drive the boot with input
+10800 frames (3 min). Start is held for 4 frames every 120 frames from frame
+300. New probe `ending_frame`: the ENDING overlay (FIELD/ENDING.X, linked at
+0x800A0000) is resident, showing the intro loops run. Start is used because
+FF7's title confirms with Circle, so Start should not leave the title. If
+this fails, stop and report blockers (attempt budget).

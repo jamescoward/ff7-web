@@ -6,13 +6,13 @@
 // are read and compared there, and only pass/fail leaves. Nothing here
 // knows about any particular game.
 //
-// The ISO9660 reader itself is semantic/iso9660.js, shared with the browser
+// The ISO9660 reader itself is runner/iso9660.js, shared with the browser
 // (#75). This file keeps what needs Node: the cue's file and the descriptor.
 
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
 import path from 'node:path';
 
-import { DISC_ERRORS, DiscError, MAX_FILE_BYTES, openIso, parseBootLine, parseCue } from '../semantic/iso9660.js';
+import { DISC_ERRORS, DiscError, MAX_FILE_BYTES, openIso, parseBootLine, parseCue } from './iso9660.js';
 
 export { DISC_ERRORS, DiscError, MAX_FILE_BYTES, parseBootLine, parseCue };
 

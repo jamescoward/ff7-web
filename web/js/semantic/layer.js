@@ -25,7 +25,7 @@ export async function sha1Hex(bytes) {
 }
 
 /**
- * SHA-1 of the boot executable of an opened ISO (semantic/iso9660.js
+ * SHA-1 of the boot executable of an opened ISO (runner/iso9660.js
  * openIso, or runner/disc.js openDisc): the file SYSTEM.CNF's BOOT line
  * names. The bytes stay in this function; only the hash is returned, and the
  * caller must not send it anywhere.

@@ -9,7 +9,7 @@ import { after, before, describe, test } from 'node:test';
 
 import { openDisc } from '../../disc.js';
 import { ADDRESS_TABLE, EXE_USA_SHA1, makeTable, validateTable } from '../../../semantic/addresses.js';
-import { openIso } from '../../../semantic/iso9660.js';
+import { openIso } from '../../iso9660.js';
 import { activateSemantic, bootExeSha1, createSemantic, evaluateGate, sha1Hex } from '../../../semantic/layer.js';
 import { buildIso } from '../../synth/iso9660.js';
 

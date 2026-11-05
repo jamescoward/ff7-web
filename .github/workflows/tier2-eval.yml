@@ -184,6 +184,10 @@ jobs:
             --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors --no-progress
           chmod 0644 "$T2/disc/disc.part"
           mv "$T2/disc/disc.part" "$T2/disc/disc.bin"
+          aws s3 cp "s3://ff7-web-assets/disc-1.cue" "$T2/disc/cue.part" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors --no-progress
+          chmod 0644 "$T2/disc/cue.part"
+          mv "$T2/disc/cue.part" "$T2/disc/disc-1.cue"
       - name: Run in the sandbox and validate
         if: always() && steps.work.outcome == 'success' && steps.clean.outcome == 'success'
         run: node harness/private-eval/eval/tier2.js evaluate --root "$T2"
@@ -196,3 +200,4 @@ jobs:
       - name: Delete the disc and the build
         if: always()
         run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"
+

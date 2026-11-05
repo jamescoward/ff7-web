@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
-  existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync,
+  chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync,
   truncateSync, writeFileSync,
 } from 'node:fs';
 import http from 'node:http';
@@ -568,15 +568,22 @@ function fakeBuild(names, results, { metrics = {} } = {}) {
   const L = jobWith((w) => {
     for (const name of names) put(w, `harness/scenarios/${name}.json`, scenario(name, metrics[name] ? { metrics: metrics[name] } : {}));
     put(w, 'runner/tier2.js', [
-      "import { readFileSync, writeFileSync } from 'node:fs';",
+      "import { readFileSync, writeFileSync, openSync } from 'node:fs';",
       "const a = process.argv.slice(2);",
       "if (a[0] !== '--disc' || a[1] !== '/disc/disc.bin' || a[2] !== '--out' || a[3] !== '/out') process.exit(9);",
       "readFileSync('/disc/disc.bin');",
+      "if (!readFileSync('/disc/disc-1.cue', 'utf8').includes('disc-1.bin')) process.exit(10);",
+      "if (!readFileSync('/disc/disc-1.bin').equals(readFileSync('/disc/disc.bin'))) process.exit(11);",
+      "for (const p of ['/disc/disc-1.cue', '/disc/disc-1.bin']) { try { openSync(p, 'r+'); process.exit(12); } catch (e) { if (e.code !== 'EROFS') process.exit(13); } }",
       "console.log('MARKER-STDOUT'); console.error('MARKER-STDERR');",
       `writeFileSync('/out/results.json', ${JSON.stringify(JSON.stringify(results))});`,
     ].join('\n'), 0o755);
   });
   writeFileSync(L.disc, randomBytes(1 << 20), { mode: 0o644 });
+  writeFileSync(L.cue, 'FILE "disc-1.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n', { mode: 0o644 });
+  // Make the synthetic inputs writable on the host to test mount protection.
+  chmodSync(L.disc, 0o666);
+  chmodSync(L.cue, 0o666);
   checkWork(L.work);
   writeFileSync(L.expect, JSON.stringify(buildExpect(L.work)));
   return L;
@@ -649,5 +656,21 @@ test('evaluate: a missing disc is an error, before the sandbox starts', async ()
 
 test('the sandbox command is the documented entry point contract', () => {
   assert.deepEqual(SANDBOX_COMMAND, ['node', 'runner/tier2.js', '--disc', '/disc/disc.bin', '--out', '/out']);
-  assert.deepEqual(Object.keys(layout('/x')).sort(), ['disc', 'discDir', 'expect', 'out', 'report', 'root', 'summary', 'work']);
+  assert.deepEqual(Object.keys(layout('/x')).sort(), ['cue', 'disc', 'discDir', 'expect', 'out', 'report', 'root', 'summary', 'work']);
 });
+
+
+for (const kind of ['missing', 'empty', 'directory', 'symlink', 'oversize']) {
+  test(`evaluate: refuses ${kind} cue before starting the sandbox`, async () => {
+    const L = prepare(scratch());
+    writeFileSync(L.expect, JSON.stringify({ format: 1, scenarios: { a: [] } }));
+    writeFileSync(L.disc, randomBytes(128));
+    if (kind === 'empty') writeFileSync(L.cue, '');
+    if (kind === 'directory') mkdirSync(L.cue);
+    if (kind === 'symlink') symlinkSync(L.disc, L.cue);
+    if (kind === 'oversize') writeFileSync(L.cue, Buffer.alloc(65537));
+    assert.deepEqual(await evaluate(L.root, { image: 'none' }), makeSummary({ result: 'error', error: 'disc-missing' }));
+    cleanup(L.root);
+    assert.equal(existsSync(L.cue), false);
+  });
+}

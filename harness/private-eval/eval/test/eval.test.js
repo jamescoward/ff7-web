@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
-  existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync,
+  chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync,
   truncateSync, writeFileSync,
 } from 'node:fs';
 import http from 'node:http';
@@ -581,6 +581,9 @@ function fakeBuild(names, results, { metrics = {} } = {}) {
   });
   writeFileSync(L.disc, randomBytes(1 << 20), { mode: 0o644 });
   writeFileSync(L.cue, 'FILE "disc-1.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n', { mode: 0o644 });
+  // Make the synthetic inputs writable on the host to test mount protection.
+  chmodSync(L.disc, 0o666);
+  chmodSync(L.cue, 0o666);
   checkWork(L.work);
   writeFileSync(L.expect, JSON.stringify(buildExpect(L.work)));
   return L;

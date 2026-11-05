@@ -1,0 +1,22 @@
+{
+  "number": 99,
+  "state": "open",
+  "user": {
+    "login": "jamescoward"
+  },
+  "head": {
+    "ref": "issue-99-x",
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "repo": {
+      "id": 1001,
+      "full_name": "jamescoward/ff7-web"
+    }
+  },
+  "base": {
+    "ref": "main",
+    "repo": {
+      "id": 1001,
+      "full_name": "jamescoward/ff7-web"
+    }
+  }
+}

@@ -31,9 +31,9 @@
 // the eval before this program runs, so here it is skipped.
 //
 // --disc is required by the contract and passed on to scenarios. A scenario
-// with "boot": {"disc": "disc-1"} boots /disc/disc-1.bin when it is there,
-// else the --disc image (#36; scenario.js resolveDisc); fixture scenarios
-// ignore it.
+// with "boot": {"disc": "disc-1"} boots an image with no same-named cue:
+// in the private eval that is /disc/disc.bin, since /disc/disc-1.bin has the
+// R2 cue beside it (#36; scenario.js resolveDisc). Fixture scenarios ignore it.
 //
 // Exit status: 0 results written (or no tier 2 scenarios), 1 the results
 // could not be written, 2 usage error.

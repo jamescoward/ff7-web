@@ -1,6 +1,10 @@
 # Issue 36: disc boot smoke test — plan and findings
 
-Status: attempt 2 of 3 (2026-11-05). The first Tier 2 run gave `error` with no metrics; attempt 2 makes the run say where it stops. The cue
+Status (2026-11-05): **Tier 2 passes** on `880f059` (attempt 3 of 3). The
+sections below are a chronological log. Earlier ones describe states that
+were later superseded: booting through the cue, then booting disc-1.bin, and
+old metric names. The final design is in "Owner decision", "Attempt 3" and
+the last section.
 delivery prerequisite (#62) is merged in #61, so private eval now mounts
 `/disc/disc-1.cue` and `/disc/disc-1.bin` read-only (plus the `/disc/disc.bin` alias).
 

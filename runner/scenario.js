@@ -15,6 +15,7 @@
 // stdout carries only deterministic data; logs go to stderr.
 
 import { createHash } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -33,6 +34,18 @@ export const DEFAULT_FIXTURES = path.join(HARNESS, 'fixtures');
 export const DEFAULT_BASELINES = path.join(HARNESS, 'baselines');
 
 const SIZES = { u8: 1, u16: 2, u32: 4 };
+
+/**
+ * Metric keys a scenario may list besides its numeric memory names. Only
+ * numbers leave a Tier 2 run (#34), so a metric is a count, a timing, or a
+ * u8/u16/u32 memory location read at the end of the last frame.
+ *   frames             frames run
+ *   failed_assertions  assertions and checkpoints that failed
+ *   run_ms             wall time of the frame loop, whole milliseconds
+ *   fps                frames per second of the frame loop (unthrottled), 3 decimals
+ * run_ms and fps vary between runs; the other metrics are deterministic.
+ */
+export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps'];
 
 export class ScenarioError extends Error {}
 
@@ -69,7 +82,7 @@ const fmtValue = (loc, v) => (loc.type === 'bytes' ? v : `0x${v.toString(16).pad
  * Validate a parsed scenario against the schema and the checks the schema
  * can't express. Returns the normalised scenario; throws ScenarioError.
  */
-export function loadScenario(doc) {
+export function loadScenario(doc, { allowTier2 = false } = {}) {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
   const errors = validate(schema, doc);
   if (errors.length) throw new ScenarioError(`scenario does not match the schema:\n  ${errors.join('\n  ')}`);
@@ -77,7 +90,9 @@ export function loadScenario(doc) {
   const fail = (msg) => {
     throw new ScenarioError(msg);
   };
-  if (doc.tier !== 1) fail('only tier 1 scenarios run here; tier 2 runs in the private eval job');
+  if (doc.tier !== 1 && !(doc.tier === 2 && allowTier2)) {
+    fail('only tier 1 scenarios run here; tier 2 runs in the private eval job');
+  }
   const frames = doc.frames;
   const inRun = (f, where) => {
     if (f > frames) fail(`${where}: frame ${f} is after the last frame (${frames})`);
@@ -123,6 +138,16 @@ export function loadScenario(doc) {
   const checkpoints = [...(doc.checkpoints ?? [])].sort((x, y) => x - y);
   checkpoints.forEach((f, i) => inRun(f, `checkpoints[${i}]`));
 
+  const metrics = [...(doc.metrics ?? [])];
+  metrics.forEach((k, i) => {
+    const where = `metrics[${i}]`;
+    const builtin = BUILTIN_METRICS.includes(k);
+    const loc = memory[k];
+    if (builtin && loc) fail(`${where}: "${k}" is both a built-in metric and a memory name`);
+    if (!builtin && !loc) fail(`${where}: "${k}" is neither a built-in metric (${BUILTIN_METRICS.join(', ')}) nor a memory name`);
+    if (loc && loc.type === 'bytes') fail(`${where}: memory "${k}" has type bytes; a metric must be a number (u8, u16 or u32)`);
+  });
+
   return {
     name: doc.name,
     fixture: doc.boot.fixture,
@@ -132,6 +157,7 @@ export function loadScenario(doc) {
     input,
     asserts,
     checkpoints,
+    metrics,
   };
 }
 
@@ -163,6 +189,18 @@ function readBaseline(dir, name) {
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null;
 }
 
+/** The scenario's listed metrics, as numbers the Tier 2 validator accepts. */
+export function metricValues(sc, { frames, failed, runMs, finalMem }) {
+  const builtin = {
+    frames,
+    failed_assertions: failed,
+    run_ms: Math.round(runMs),
+    // At most 3 decimals and below 1e6, as the validator (#34) requires.
+    fps: runMs > 0 ? Math.min(Math.round((frames * 1e6) / runMs) / 1000, 999999) : 999999,
+  };
+  return Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) : builtin[k]]));
+}
+
 /** Run a loaded scenario. Returns the result object (status pass or fail). */
 export async function runScenario(sc, opts = {}) {
   const fixture = await resolveFixture(sc.fixture, opts.fixturesDir);
@@ -186,6 +224,9 @@ export async function runScenario(sc, opts = {}) {
   const backend = await createBackend({ coreOptions: sc.coreOptions, verbose: opts.verbose });
   const hashes = new Map();
   const actual = new Map(); // assert -> value
+  const metricMem = sc.metrics.filter((k) => sc.memory[k]);
+  const finalMem = new Map(); // metric key -> value at the end of the last frame
+  let runMs = 0;
   try {
     backend.loadProgram(exe);
     backend.onFrameEnd(({ frame }) => {
@@ -194,7 +235,11 @@ export async function runScenario(sc, opts = {}) {
         const loc = sc.memory[a.mem];
         actual.set(a, decode(loc, backend.readMem(loc.addr, loc.len)));
       }
+      if (frame === sc.frames) {
+        for (const k of metricMem) finalMem.set(k, decode(sc.memory[k], backend.readMem(sc.memory[k].addr, sc.memory[k].len)));
+      }
     });
+    const t0 = performance.now();
     for (let f = 1; f <= sc.frames; f++) {
       const masks = [0, 0];
       for (const s of sc.input) if (f >= s.from && f <= s.to) masks[s.port] |= s.mask;
@@ -202,6 +247,7 @@ export async function runScenario(sc, opts = {}) {
       backend.setPad(masks[1], 1);
       backend.stepFrame();
     }
+    runMs = performance.now() - t0;
   } finally {
     backend.close();
     rmSync(dir, { recursive: true, force: true });
@@ -246,7 +292,8 @@ export async function runScenario(sc, opts = {}) {
     }
   }
 
-  const pass = assertions.every((a) => a.pass) && checkpoints.every((c) => c.pass !== false);
+  const failed = assertions.filter((a) => !a.pass).length + checkpoints.filter((c) => c.pass === false).length;
+  const pass = failed === 0;
   const result = {
     runner: 'ff7-web/scenario',
     format: 1,
@@ -259,6 +306,7 @@ export async function runScenario(sc, opts = {}) {
     ...(checkpoints.length ? { checkpoints } : {}),
     ...(unverified.length ? { unverified } : {}),
   };
+  if (sc.metrics.length) result.metrics = metricValues(sc, { frames: sc.frames, failed, runMs, finalMem });
   if (opts.record) {
     result.record = {
       format: 1,

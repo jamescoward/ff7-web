@@ -16,7 +16,7 @@
     },
     "description": { "type": "string" },
     "tier": {
-      "description": "1: public, homebrew only. 2: private eval (game data, run only by the trusted job).",
+      "description": "1: public, homebrew only; runner/scenario.js. 2: private eval (game data, run only by the trusted job); runner/tier2.js.",
       "enum": [1, 2]
     },
     "boot": {
@@ -58,6 +58,13 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/assertion" }
+    },
+    "metrics": {
+      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps) or the name of a u8/u16/u32 memory location, read at the end of the last frame. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" }
     },
     "checkpoints": {
       "description": "Frames whose hashes are compared with harness/baselines/<name>.json when that file exists, and recorded by --record.",

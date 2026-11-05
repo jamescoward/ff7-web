@@ -52,6 +52,21 @@ Exit status: `0` pass, `1` fail, `2` invalid scenario or usage error. stdout hol
 - **Checkpoints** compare against `baselines/<name>.json`. If that file doesn't exist, the hashes are reported with `"baseline": "absent"` and the result lists the gap under `unverified`. The scenario's other assertions still decide pass or fail. `--record` adds a `record` object in baseline-file form; adding it to `baselines/` is a separate PR labelled `needs-owner`. The runner never writes baselines.
 - **Validation:** `runner/schema.js` checks the schema. It implements only the keywords the schema uses and throws on any other, so no check is silently skipped. `runner/scenario.js` then checks what the schema can't express: memory names exist, frames are inside the run, values fit their type, and addresses are in RAM.
 
+- **Metrics** (optional): `"metrics": ["fps", "buttons"]` lists up to 8 numbers to report. A key is a built-in (`frames`, `failed_assertions`, `run_ms`, `fps`) or the name of a `u8`/`u16`/`u32` memory location, read at the end of the last frame. A key that is both, a `bytes` location, or anything else is refused when the scenario loads. `run_ms` and `fps` are wall-clock measurements, so they differ between runs; the others are deterministic.
+
+### Tier 2 scenarios
+
+A scenario with `"tier": 2` uses the same format, but only the private eval runs it (`docs/AUTOMATION.md`, `notes/35-tier2-workflows.md`); `runner/scenario.js` refuses it. Its file name must be `<name>.json`. The trusted job reads `name` and `metrics` from these files *before* the run, and the summary may hold nothing else: per scenario, `pass`, `fail` or `error`, plus the listed metrics as numbers. Assertion details, values and hashes never leave the sandbox.
+
+Inside the sandbox, `runner/tier2.js` runs every tier 2 scenario, each in its own process, and writes `/out/results.json` (`schema/tier2-result.schema.json`):
+
+```sh
+node runner/tier2.js --disc /disc/disc.bin --out /out   # the fixed command (#35)
+node runner/tier2.js --disc /dev/null --out /tmp/out --scenarios DIR --fixtures DIR   # locally, for homebrew
+```
+
+A scenario that crashes, hangs past the deadline (1140 s by default, `--deadline-s`) or fails to load reports `error`. Metrics with values the validator would refuse are dropped, so one scenario can't get the whole output rejected.
+
 Save-state boot points, and fixtures fetched by pinned URL and hash, are not in format 1. They will be added when a scenario needs them.
 
 ## Fixtures

@@ -1,0 +1,227 @@
+#!/usr/bin/env node
+// Tier 2 entry point: the untrusted program the private eval runs inside the
+// sandbox (#33, #35, #55). The command is fixed by #35
+// (harness/private-eval/eval/lib.js, SANDBOX_COMMAND):
+//
+//   node runner/tier2.js --disc /disc/disc.bin --out /out
+//
+// run with the tier2-build artifact as the working directory, no network,
+// and a read-only /work. Options for tests and local runs:
+//   --scenarios DIR    scenario directory (default harness/scenarios)
+//   --fixtures DIR     fixture directory (default harness/fixtures)
+//   --baselines DIR    baseline directory (default harness/baselines)
+//   --deadline-s N     stop starting scenarios after N seconds (default 1140,
+//                      under the sandbox's 1200 s limit); the rest report error
+//
+// It runs every scenario file with "tier": 2 and writes OUT/results.json in
+// the #34 format (harness/schema/tier2-result.schema.json): per scenario,
+// pass/fail/error, plus the numeric metrics the scenario lists. Only that
+// file counts. stdout stays empty; stderr gets one line per scenario, which
+// the trusted side never reads.
+//
+// Each scenario runs in its own child process (`--one FILE`), so a crash,
+// an abort or a hang in one scenario is reported as "error" for that
+// scenario and the others still run. results.json is rewritten atomically
+// after every scenario, so if the sandbox kills the run, the scenarios
+// already finished are still reported (the rest count as missing).
+//
+// Scenario files are picked with the same rules as the trusted expect
+// builder (lib.js buildExpect): *.json in the scenario directory, "tier": 2,
+// and "name" equal to the file name. A file the builder would reject stops
+// the eval before this program runs, so here it is skipped.
+//
+// --disc is required by the contract and passed on to scenarios; format 1
+// scenarios boot fixtures, so nothing reads it yet (disc boot is #36).
+//
+// Exit status: 0 results written (or no tier 2 scenarios), 1 the results
+// could not be written, 2 usage error.
+
+import { spawnSync } from 'node:child_process';
+import { lstatSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+
+import { DEFAULT_BASELINES, DEFAULT_FIXTURES, loadScenario, runScenario } from './scenario.js';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SELF = fileURLToPath(import.meta.url);
+export const DEFAULT_SCENARIOS = path.resolve(HERE, '../harness/scenarios');
+export const RESULTS_FILE = 'results.json';
+export const DEFAULT_DEADLINE_S = 1140;
+
+// The #34 result rules, restated: the artifact holds runner/ and harness/
+// data only, never harness/private-eval/. runner/test/unit/tier2.test.js
+// checks that these agree with the validator.
+export const MAX_SCENARIOS = 32;
+export const MAX_METRICS = 8;
+export const MAX_SCENARIO_BYTES = 64 * 1024;
+export const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const METRIC_RE = /^[a-z][a-z0-9_]{0,31}$/;
+const MAX_INT = 2 ** 32;
+const MAX_FLOAT = 1e6;
+
+/** Whether the validator (#34) accepts v as a metric value. */
+export function validMetricValue(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return false;
+  if (Number.isInteger(v)) return Math.abs(v) <= MAX_INT;
+  return Math.abs(v) <= MAX_FLOAT && Math.round(v * 1000) / 1000 === v;
+}
+
+/**
+ * The tier 2 scenario files in dir, sorted by file name:
+ * [{ file, name, metrics }]. Files the trusted expect builder would refuse
+ * are skipped (the eval never runs with them).
+ */
+export function findTier2Scenarios(dir) {
+  let names;
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
+  } catch {
+    return [];
+  }
+  const found = [];
+  for (const file of names) {
+    const p = path.join(dir, file);
+    let doc;
+    try {
+      const st = lstatSync(p);
+      if (!st.isFile() || st.size > MAX_SCENARIO_BYTES) continue;
+      doc = JSON.parse(readFileSync(p, 'utf8'));
+    } catch {
+      continue;
+    }
+    if (doc === null || typeof doc !== 'object' || Array.isArray(doc) || doc.tier !== 2) continue;
+    if (typeof doc.name !== 'string' || !NAME_RE.test(doc.name) || `${doc.name}.json` !== file) continue;
+    const metrics = Array.isArray(doc.metrics) ? doc.metrics.filter((k) => typeof k === 'string' && METRIC_RE.test(k)) : [];
+    found.push({ file: p, name: doc.name, metrics: metrics.slice(0, MAX_METRICS) });
+  }
+  return found.slice(0, MAX_SCENARIOS);
+}
+
+/**
+ * One scenario's entry in results.json, from what its child reported.
+ * Anything malformed becomes "error"; metrics are kept only when the key is
+ * listed and the value is one the validator accepts, so one scenario can't
+ * get the whole output rejected.
+ */
+export function resultEntry(scenario, child) {
+  if (!child || (child.status !== 'pass' && child.status !== 'fail')) return { name: scenario.name, status: 'error' };
+  const entry = { name: scenario.name, status: child.status };
+  const m = child.metrics;
+  if (m !== null && typeof m === 'object' && !Array.isArray(m)) {
+    const metrics = {};
+    for (const k of scenario.metrics) if (Object.hasOwn(m, k) && validMetricValue(m[k])) metrics[k] = m[k];
+    if (Object.keys(metrics).length) entry.metrics = metrics;
+  }
+  return entry;
+}
+
+/** Write results.json atomically: a reader sees the old file or the new one. */
+export function writeResults(outDir, entries) {
+  const tmp = path.join(outDir, `.${RESULTS_FILE}.tmp`);
+  writeFileSync(tmp, `${JSON.stringify({ format: 1, scenarios: entries })}\n`);
+  renameSync(tmp, path.join(outDir, RESULTS_FILE));
+}
+
+/** Parse the child's last stdout line; null if it isn't a JSON object. */
+function parseChild(stdout) {
+  const line = (stdout ?? '').trim().split('\n').pop();
+  try {
+    const v = JSON.parse(line);
+    return v !== null && typeof v === 'object' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Run every tier 2 scenario; returns the entries written to results.json. */
+export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, baselines, deadlineS = DEFAULT_DEADLINE_S }) {
+  const list = findTier2Scenarios(scenarios);
+  const entries = [];
+  const deadline = Date.now() + deadlineS * 1000;
+  for (const sc of list) {
+    const left = deadline - Date.now();
+    let child = null;
+    if (left > 0) {
+      const args = [SELF, '--one', sc.file, '--disc', disc];
+      if (fixtures) args.push('--fixtures', fixtures);
+      if (baselines) args.push('--baselines', baselines);
+      const r = spawnSync(process.execPath, args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: left,
+        killSignal: 'SIGKILL',
+        maxBuffer: 1024 * 1024,
+      });
+      // Only a clean exit counts; a signal, a timeout or an exit code other
+      // than 0 leaves child null, so the scenario reports "error".
+      if (!r.error && r.signal === null && r.status === 0) child = parseChild(r.stdout);
+    }
+    const entry = resultEntry(sc, child);
+    entries.push(entry);
+    writeResults(out, entries);
+    process.stderr.write(`${sc.name}: ${entry.status}\n`);
+  }
+  return entries;
+}
+
+/** The child: run one scenario and print { status, metrics } as one line. */
+async function runOne(file, { fixtures, baselines }) {
+  let line;
+  try {
+    const sc = loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true });
+    const result = await runScenario(sc, { fixturesDir: fixtures ?? DEFAULT_FIXTURES, baselinesDir: baselines ?? DEFAULT_BASELINES });
+    line = { status: result.status, ...(result.metrics ? { metrics: result.metrics } : {}) };
+  } catch {
+    // An invalid scenario or a runtime failure: report error, never the message.
+    line = { status: 'error' };
+  }
+  // Pipe writes are synchronous on Linux; exit so nothing the core left
+  // behind keeps the process alive.
+  process.stdout.write(`${JSON.stringify(line)}\n`, () => process.exit(0));
+}
+
+async function main(argv) {
+  const usage = 'usage: node runner/tier2.js --disc PATH --out DIR [--scenarios DIR] [--fixtures DIR] [--baselines DIR] [--deadline-s N]';
+  let values;
+  try {
+    ({ values } = parseArgs({
+      args: argv,
+      options: {
+        disc: { type: 'string' },
+        out: { type: 'string' },
+        one: { type: 'string' },
+        scenarios: { type: 'string' },
+        fixtures: { type: 'string' },
+        baselines: { type: 'string' },
+        'deadline-s': { type: 'string' },
+      },
+    }));
+  } catch (e) {
+    process.stderr.write(`error: ${e.message}\n${usage}\n`);
+    return 2;
+  }
+  if (values.one) {
+    await runOne(values.one, values);
+    return 0;
+  }
+  const deadlineS = values['deadline-s'] === undefined ? DEFAULT_DEADLINE_S : Number(values['deadline-s']);
+  if (!values.disc || !values.out || !(deadlineS > 0)) {
+    process.stderr.write(`${usage}\n`);
+    return 2;
+  }
+  try {
+    const entries = runAll({ ...values, deadlineS });
+    if (!entries.length) process.stderr.write('no tier 2 scenarios\n');
+    return 0;
+  } catch (e) {
+    process.stderr.write(`error: cannot write results (${e.code ?? 'unknown'})\n`);
+    return 1;
+  }
+}
+
+const isMain = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(SELF);
+if (isMain) {
+  process.exitCode = await main(process.argv.slice(2));
+}

@@ -1,6 +1,6 @@
 # Issue 36: disc boot smoke test — plan and findings
 
-Status: research done, implementation not started (2026-11-05). The cue
+Status: runner support and the scenario are implemented, with Tier 1 tests passing locally; the first Tier 2 run is pending (2026-11-05). The cue
 delivery prerequisite (#62) is merged in #61, so private eval now mounts
 `/disc/disc-1.cue` and `/disc/disc-1.bin` read-only (plus the `/disc/disc.bin` alias).
 
@@ -58,3 +58,54 @@ Tier 1 tests use a synthetic ISO built in the test from the pad-echo homebrew.
 4. A new assertion kind or boot check for the executable SHA-1 (match only).
 5. A title detector and metrics `fps` and a title frame (≤ 8 metrics).
 6. Scenario `harness/scenarios/disc-boot-smoke.json` (`tier: 2`).
+
+## Implementation (2026-11-05)
+- `runner/disc.js`: ISO9660 on MODE1/2048, MODE1/2352 and MODE2/2352, through a
+  cue's first FILE/TRACK or a bare image; `bootPath()` reads SYSTEM.CNF.
+  A cue's FILE is resolved only next to the cue.
+- Format 1 additions (`harness/schema/scenario.schema.json`, a scope addition:
+  not protected, but outside #36's listed paths):
+  - `boot: { "disc": "disc-N" }`. `resolveDisc` picks `<name>.cue` next to
+    `--disc`, then `<name>.bin`, then the `--disc` image. Otherwise it throws
+    the ScenarioError "no disc" (no path in the message).
+  - assertion `discFile` + `sha1`: reported only as pass/fail (metric 1/0).
+    `SYSTEM.CNF:BOOT` means the boot executable.
+  - assertions `within` + `mem` + `equals`, or + `equalsDiscFile {path, offset}`:
+    the first frame (≤ within) at which RAM matches. Disc bytes are read and
+    compared in the sandbox and never reported.
+  - `within` + `stillFrames`: the first run of K identical frames that are not a
+    single colour (`backend.frameIsUniform`).
+  - `probes`: the same checks, but metric only. They never change the status.
+  - Any check may name a `metric`, which must be listed in `metrics`.
+- `runner/tier2.js` passes `--disc` to each scenario.
+- Detector A, refined: the scenario compares the **title module's code**
+  (SAVEMENU file offset 0x2B58, linked at 0x801D2B58, the first 4 KiB) with
+  the same bytes read from `MENU/SAVEMENU.MNU` on the disc. Code is not
+  modified at run time, unlike `.data`, so the open "data changes before the
+  check" risk goes away, and no hash of the overlay is needed for the
+  detector. The overlay's SHA-1 is still checked as a probe
+  (`savemenu_match`), so we learn whether the offsets fit the disc.
+- Detector B is the `still_frame` probe (60 frames), for comparison.
+
+## Tier 1 evidence (local, 2026-11-05)
+`node --test 'runner/test/**/*.test.js' 'tools/asset-guard/**/*.test.js'`:
+253 pass, 0 fail, 1 skipped (the Docker sandbox test). The new tests:
+- `runner/test/unit/disc.test.js`: the reader on all three modes, bare and
+  through a cue, plus the loader's rules.
+- `runner/test/tier1/disc-boot.test.js`: the real core boots a synthetic
+  MODE2/2352 disc whose boot executable is pad-echo, through `disc-1.cue`
+  (HLE BIOS). The boot hash, code residency and marker checks pass, and the
+  result holds no disc hash or bytes. Without a disc the smoke scenario fails
+  with "no disc", and `tier2.js` reports it as `error`.
+
+## Reading the Tier 2 result
+| metric | meaning |
+|---|---|
+| boot_exe_match | 1: SYSTEM.CNF's executable has the SHA-1 published for SCUS_941.63 |
+| title_frame | first frame with the title code resident; 0 = not within 5400 frames |
+| savemenu_match | 1: SAVEMENU.MNU is the revision the decomp describes |
+| still_frame | first frame of the first 1 s still, non-blank picture; 0 = none |
+| fps, run_ms | unthrottled speed of the frame loop |
+
+If title_frame is 0 but savemenu_match is 1, the overlay is loaded elsewhere
+or not by frame 5400. If savemenu_match is 0, the offsets don't apply to this disc.

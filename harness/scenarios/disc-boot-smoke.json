@@ -1,0 +1,47 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 1,
+  "name": "disc-boot-smoke",
+  "description": "Boots disc 1 from power-on (HLE BIOS, no input). Checks that SYSTEM.CNF's boot executable is the USA release and that the title screen is reached, and reports frames to the title and the unthrottled speed (#36). Addresses, offsets and hashes are from Xeeynamo/ff7-decomp config/us.yaml at 9411173 (reference only); see notes/36-disc-boot.md.",
+  "tier": 2,
+  "boot": { "disc": "disc-1" },
+  "frames": 5400,
+  "memory": {
+    "title_code": {
+      "addr": "0x801d2b58",
+      "type": "bytes",
+      "len": 4096,
+      "description": "First 4 KiB of the title module's code in the SAVEMENU overlay: file offset 0x2B58, linked at 0x801D0000 + 0x2B58"
+    }
+  },
+  "assert": [
+    {
+      "discFile": "SYSTEM.CNF:BOOT",
+      "sha1": "a95e8b16b97071203b953bb81a33980509262f30",
+      "metric": "boot_exe_match",
+      "note": "SCUS_941.63, USA; source claim from ff7-decomp. Reported only as matched or not."
+    },
+    {
+      "within": 5400,
+      "mem": "title_code",
+      "equalsDiscFile": { "path": "MENU/SAVEMENU.MNU", "offset": 11096 },
+      "metric": "title_frame",
+      "note": "HandleTitle loads SAVEMENU and runs its title code: the title screen. Hypothesis to confirm on Tier 2."
+    }
+  ],
+  "probes": [
+    {
+      "discFile": "MENU/SAVEMENU.MNU",
+      "sha1": "430d54dbe01d9a0c670b1d2d2b5c642bdd1b3199",
+      "metric": "savemenu_match",
+      "note": "Whether the overlay is the revision the offsets come from."
+    },
+    {
+      "within": 5340,
+      "stillFrames": 60,
+      "metric": "still_frame",
+      "note": "Game-agnostic fallback: the first second-long still, non-blank picture."
+    }
+  ],
+  "metrics": ["boot_exe_match", "title_frame", "savemenu_match", "still_frame", "fps", "run_ms"]
+}

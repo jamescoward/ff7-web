@@ -100,7 +100,7 @@
     "discPath": {
       "description": "A file on the disc, e.g. MENU/SAVEMENU.MNU (case-insensitive, no ;1), or SYSTEM.CNF:BOOT for the executable that SYSTEM.CNF boots.",
       "type": "string",
-      "pattern": "^([A-Za-z0-9_.]{1,31}/){0,7}[A-Za-z0-9_.]{1,31}(:BOOT)?$"
+      "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.]{0,30}/){0,7}[A-Za-z0-9_][A-Za-z0-9_.]{0,30}(:BOOT)?$"
     },
     "address": {
       "description": "PS1 main-RAM address (KUSEG, KSEG0 or KSEG1), as a hex string.",

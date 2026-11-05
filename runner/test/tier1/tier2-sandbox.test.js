@@ -10,7 +10,7 @@
 // SANDBOX_IMAGE_REPO may name a mirror of the pinned image (same digest).
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
@@ -32,14 +32,20 @@ if (missing && REQUIRE) throw new Error(`SANDBOX_REQUIRE=1 but ${missing}`);
 const base = mkdtempSync(path.join(tmpdir(), 'ff7-tier2-sandbox-'));
 after(() => rmSync(base, { recursive: true, force: true }));
 
-/** The tier2-build artifact's layout (.github/workflows/tier2-build.yml, "Assemble the build"). */
+/**
+ * The tier2-build artifact's layout (.github/workflows/tier2-build.yml,
+ * "Assemble the build"), except that harness/scenarios starts empty: the
+ * test writes its own scenarios, so committed tier 2 scenarios (#36 and
+ * later) don't change its counts.
+ */
 function assemble(work) {
   const runner = path.join(REPO, 'runner');
   cpSync(runner, path.join(work, 'runner'), { recursive: true, filter: (src) => path.relative(runner, src).split(path.sep)[0] !== 'test' });
-  for (const d of ['scenarios', 'fixtures', 'schema', 'saves', 'baselines']) {
+  for (const d of ['fixtures', 'schema', 'saves', 'baselines']) {
     const src = path.join(REPO, 'harness', d);
     if (existsSync(src)) cpSync(src, path.join(work, 'harness', d), { recursive: true });
   }
+  mkdirSync(path.join(work, 'harness/scenarios'), { recursive: true });
 }
 
 test('the real entry point in the sandbox: pass, fail and a crash, accepted by the validator', { skip: missing ? `skipped: ${missing}` : false, timeout: 600_000 }, async () => {

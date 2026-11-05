@@ -2,7 +2,7 @@
 
 _Update this when an issue closes or a blocker appears. Fine-grained progress lives in GitHub issues and PR Handoff sections; see `docs/CONTINUITY.md`._
 
-**Current milestone:** M1.5, private eval (`docs/PHASE0.md`). It was rescoped on 2026-11-04 and ends when #36 passes (`notes/m1.5-rescope.md`).
+**Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 
@@ -21,10 +21,12 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline), #55 (in-sandbox entry point `runner/tier2.js` and scenario `metrics`, #56; test follow-ups #57 and #59).
 - **#35 (Tier 2 workflows):** merged in #54, and its last acceptance item, the bootstrap, has passed. The issue is still open, labelled `needs-owner`; closing it is the owner's call (evidence on #35 and #55).
 - **Tier 2 works end to end on GitHub** (2026-11-05). The throwaway bootstrap PR #58 gave a red `tier2` check. The only output from the sandboxed run in its log was the validator's summary; the other lines were the trusted steps' fixed words. The gate, the artifact round trip, the R2 fetch of `disc-1.bin`, the sandbox and the cleanup all ran for the first time (details in #55).
-- **Ready:** #36 (disc boot smoke test), the last M1.5 issue. It still needs disc mounting in `runner/`. The eval fetches only `disc-1.bin`; fetching the `.cue` as well would be a `needs-owner` change to `.github/` and `harness/private-eval/`.
-- **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), blocked on #36; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
+- **Done:** #36 (PR #64). Disc 1 boots in Tier 2, the boot executable matches the USA hash, and the title code is resident at frame 1231 with Start pressed every 2 s. Unthrottled speed is about 1000 fps on GitHub's runner. Details are in `notes/36-disc-boot.md`.
+  - The scenario boots the bin, not the cue: the R2 `disc-1.cue` names another file (owner decision).
+  - Format 1 gained `boot.disc`, disc file checks, `within`/`stillFrames` checks, `probes` and the `boot_stage`/`disc_error` metrics.
+- **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), now unblocked. Frames to the title depend on input: without input the intro holds the game for more than 5400 frames; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents:** #36 (closes M1.5, PR #64 in flight), then #24 (border crop). #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
+**Next for agents:** #24 (border crop), then #37 (M2). #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

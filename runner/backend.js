@@ -301,6 +301,23 @@ export async function createBackend(opts = {}) {
       return h.digest('hex');
     },
 
+    /** Whether every visible pixel of the last frame is the same colour (or there is no frame). */
+    frameIsUniform() {
+      const info = backend.frameInfo();
+      const ptr = m._fe_fb_data();
+      const bpp = info.bytesPerPixel;
+      if (!ptr || !bpp || !info.width || !info.height) return true;
+      const heap = m.HEAPU8;
+      const px = heap.slice(ptr, ptr + bpp);
+      for (let y = 0; y < info.height; y++) {
+        const row = ptr + y * info.pitch;
+        for (let x = 0; x < info.width * bpp; x++) {
+          if (heap[row + x] !== px[x % bpp]) return false;
+        }
+      }
+      return true;
+    },
+
     /** Current Wasm heap size in bytes (growth shows up here; for tests). */
     heapBytes() {
       return m.HEAPU8.length;

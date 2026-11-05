@@ -20,17 +20,33 @@
       "enum": [1, 2]
     },
     "boot": {
-      "description": "Where the scenario starts. Format 1 supports booting a program from power-on; save-state boot points are reserved for Tier 2.",
-      "type": "object",
-      "required": ["fixture"],
-      "additionalProperties": false,
-      "properties": {
-        "fixture": {
-          "description": "A program listed in harness/fixtures/fixtures.json.",
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      "description": "Where the scenario starts, from power-on: a registered homebrew fixture, or (tier 2) a disc the private eval supplies. Save-state boot points are reserved for format 2.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["fixture"],
+          "additionalProperties": false,
+          "properties": {
+            "fixture": {
+              "description": "A program listed in harness/fixtures/fixtures.json.",
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["disc"],
+          "additionalProperties": false,
+          "properties": {
+            "disc": {
+              "description": "Disc name. The runner boots <name>.bin next to the --disc image, else the --disc image itself (no cue: a single data track). With no disc the scenario fails with \"no disc\".",
+              "type": "string",
+              "pattern": "^disc-[1-3]$"
+            }
+          }
         }
-      }
+      ]
     },
     "frames": {
       "description": "Emulated frames to run, counted from 1.",
@@ -59,8 +75,13 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/assertion" }
     },
+    "probes": {
+      "description": "Like assert, but a probe only feeds its metric: it never changes the status.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/probe" }
+    },
     "metrics": {
-      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps) or the name of a u8/u16/u32 memory location, read at the end of the last frame. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
+      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps, boot_stage, disc_error; see runner/scenario.js), the name of a u8/u16/u32 memory location read at the end of the last frame, or the metric an assertion or probe names. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
       "type": "array",
       "maxItems": 8,
       "uniqueItems": true,
@@ -75,6 +96,12 @@
   },
   "$defs": {
     "frame": { "type": "integer", "minimum": 1 },
+    "metricName": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+    "discPath": {
+      "description": "A file on the disc, e.g. MENU/SAVEMENU.MNU (case-insensitive, no ;1), or SYSTEM.CNF:BOOT for the executable that SYSTEM.CNF boots.",
+      "type": "string",
+      "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.]{0,30}/){0,7}[A-Za-z0-9_][A-Za-z0-9_.]{0,30}(:BOOT)?$"
+    },
     "address": {
       "description": "PS1 main-RAM address (KUSEG, KSEG0 or KSEG1), as a hex string.",
       "type": "string",
@@ -155,7 +182,78 @@
             },
             "note": { "type": "string" }
           }
-        }
+        },
+        { "$ref": "#/$defs/discFile" },
+        { "$ref": "#/$defs/withinEquals" },
+        { "$ref": "#/$defs/withinDiscBytes" },
+        { "$ref": "#/$defs/withinStill" }
+      ]
+    },
+    "discFile": {
+      "description": "A disc file's SHA-1 equals a value (disc boot only). Reported only as pass or fail, never as the hash. metric: 1 when it matches, else 0.",
+      "type": "object",
+      "required": ["discFile", "sha1"],
+      "additionalProperties": false,
+      "properties": {
+        "discFile": { "$ref": "#/$defs/discPath" },
+        "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "metric": { "$ref": "#/$defs/metricName" },
+        "note": { "type": "string" }
+      }
+    },
+    "withinEquals": {
+      "description": "A named memory location equals a value at the end of some frame from 1 to within. metric: the first such frame, 0 if none.",
+      "type": "object",
+      "required": ["within", "mem", "equals"],
+      "additionalProperties": false,
+      "properties": {
+        "within": { "$ref": "#/$defs/frame" },
+        "mem": { "type": "string" },
+        "equals": { "$ref": "#/$defs/value" },
+        "metric": { "$ref": "#/$defs/metricName" },
+        "note": { "type": "string" }
+      }
+    },
+    "withinDiscBytes": {
+      "description": "A named bytes location equals its len bytes of a disc file from offset, at the end of some frame from 1 to within (disc boot only). The disc bytes are never reported. metric: the first such frame, 0 if none.",
+      "type": "object",
+      "required": ["within", "mem", "equalsDiscFile"],
+      "additionalProperties": false,
+      "properties": {
+        "within": { "$ref": "#/$defs/frame" },
+        "mem": { "type": "string" },
+        "equalsDiscFile": {
+          "type": "object",
+          "required": ["path", "offset"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/$defs/discPath" },
+            "offset": { "type": "integer", "minimum": 0, "maximum": 16777216 }
+          }
+        },
+        "metric": { "$ref": "#/$defs/metricName" },
+        "note": { "type": "string" }
+      }
+    },
+    "withinStill": {
+      "description": "The picture stays the same, and is not a single colour, for stillFrames consecutive frames, the first of them at or before within. metric: that first frame, 0 if none.",
+      "type": "object",
+      "required": ["within", "stillFrames"],
+      "additionalProperties": false,
+      "properties": {
+        "within": { "$ref": "#/$defs/frame" },
+        "stillFrames": { "type": "integer", "minimum": 2, "maximum": 3600 },
+        "metric": { "$ref": "#/$defs/metricName" },
+        "note": { "type": "string" }
+      }
+    },
+    "probe": {
+      "description": "A disc file check or a within condition that must name its metric.",
+      "oneOf": [
+        { "$ref": "#/$defs/discFile" },
+        { "$ref": "#/$defs/withinEquals" },
+        { "$ref": "#/$defs/withinDiscBytes" },
+        { "$ref": "#/$defs/withinStill" }
       ]
     }
   }

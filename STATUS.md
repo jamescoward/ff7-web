@@ -18,12 +18,12 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **M1 is complete.** The owner has also booted the FF7 disc from a preview link on the iPhone, and it ran flawlessly (2026-11-04). That covers M1's private "boot the disc" step.
 
 **M1.5 (private eval)** was filed as #31–#40 (reasoning in `notes/m1.5-issue-drafts.md`) and **rescoped on 2026-11-04** (`notes/m1.5-rescope.md`, owner-approved). It ends when the disc boot smoke test (#36) passes.
-- **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline).
-- **In review, needs the owner:** #35 (Tier 2 workflows), PR #54. It touches protected paths. After it merges: a throwaway bootstrap PR confirms a red `tier2` check. The in-sandbox entry point `runner/tier2.js` is #55 (blocked on #35; #36 needs it).
-- **Blocked:** #36, on #35.
+- **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #35 (Tier 2 workflows, #54), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline), #55 (in-sandbox entry point `runner/tier2.js` and scenario `metrics`, #56; test follow-ups #57 and #59).
+- **Tier 2 works end to end on GitHub** (2026-11-05). The throwaway bootstrap PR #58 gave a red `tier2` check whose log held only the validator's summary. The gate, the artifact round trip, the R2 fetch of `disc-1.bin`, the sandbox and the cleanup all ran for the first time (details in #55).
+- **Ready:** #36 (disc boot smoke test), the last M1.5 issue. It still needs disc mounting in `runner/`. The eval fetches only `disc-1.bin`; fetching the `.cue` as well would be a `needs-owner` change to `.github/` and `harness/private-eval/`.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), blocked on #36; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents** (while #54 waits for the owner): #23 (drag-to-walk), then #24 (border crop). #50 (flaky WebKit audio test) is done (#53).
+**Next for agents:** #36 (closes M1.5), then #23 (drag-to-walk) and #24 (border crop). #50 (flaky WebKit audio test) is done (#53).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

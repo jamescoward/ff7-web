@@ -1,7 +1,8 @@
 # Issue 36: disc boot smoke test — plan and findings
 
 Status: research done, implementation not started (2026-11-05). The cue
-delivery prerequisite is PR #61 (#62), which is waiting for the owner to merge it.
+delivery prerequisite (#62) is merged in #61, so private eval now mounts
+`/disc/disc-1.cue` and `/disc/disc-1.bin` read-only (plus the `/disc/disc.bin` alias).
 
 ## Sources (reference only, nothing copied)
 - Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`
@@ -50,8 +51,6 @@ Tier 1 tests use a synthetic ISO built in the test from the pad-echo homebrew.
    report as a scope addition.
 2. `runner/tier2.js` passes `--disc` to `runScenario`. When the disc's
    directory holds `disc-1.cue`, boot the cue; otherwise boot the given bin.
-   The bin alone may boot FF7, because it is a single data track. That allows Tier 2
-   iteration before #61 merges, but acceptance needs the cue.
    `backend.loadProgram` already mounts the file's directory, so a
    cue's `FILE "disc-1.bin"` resolves.
 3. A missing or unreadable disc fails with a ScenarioError "no disc". The Tier 1

@@ -107,7 +107,8 @@ Everything else merges without it.
 Sessions can stop at any time, for example when subscription quota runs out. All state lives in the repo and GitHub: `STATUS.md`, issue labels, and the PR Handoff sections. See `docs/CONTINUITY.md`.
 
 ## Merge policy
-- **Agents merge their own PRs** (squash) once Tier 1, Tier 2 and the reviewer agent's checks all pass (the reviewer's latest marked comment says `verdict=PASS` for the head commit being merged; see `.claude/agents/reviewer.md`), Tier 3 too where it applies, and the PR is not `[WIP]`. The full conditions are in `docs/CONTINUITY.md`.
+- **Process by risk** (proposed 2026-11-05 after M1.5). Full-class PRs touch the trust boundary, game data, the core or backend, or existing tests; they keep the reviewer agent and the full report. Light-class PRs, such as `web/` UI work and docs, need Tier 1, Tier 3 where it applies, and a short report. The rules are in `docs/CONTINUITY.md`, "Risk classes". The reason: in M1.5 the ceremony around small, low-risk changes cost about as much as the changes did, while the safety comes from the sandbox, the validator and the protected paths, which are unchanged.
+- **Agents merge their own PRs** (squash) once Tier 1, Tier 2 and, for full-class PRs, the reviewer agent's checks all pass (the reviewer's latest marked comment says `verdict=PASS` for the head commit being merged; see `.claude/agents/reviewer.md`), Tier 3 too where it applies, and the PR is not `[WIP]`. The full conditions are in `docs/CONTINUITY.md`.
 - **Owner review is required** for protected paths, enforced by CODEOWNERS and branch protection:
   - `.github/`
   - `CLAUDE.md`

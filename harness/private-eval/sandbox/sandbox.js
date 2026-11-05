@@ -16,8 +16,10 @@
 // Inside the container:
 //   /work       the untrusted build, read-only (also the working directory)
 //   /disc/disc.bin   the disc image, read-only
-//   /disc/disc-1.{cue,bin} optional cue and the same image, read-only
-//               (individual file mounts; no host directory is exposed)
+//   /disc/disc-1.bin the same image under its own name, read-only
+//               (individual file mounts; no host directory is exposed; no
+//               cue: FF7's discs are single data tracks, owner decision
+//               2026-11-05)
 //   /out        the only persistent writable place: a host tmpfs with a size
 //               cap, remounted read-only on the host when the run ends
 //   /tmp        private scratch (tmpfs, capped, noexec), discarded at exit
@@ -183,7 +185,7 @@ function sample(files, seen) {
 }
 
 /** The docker create arguments: every isolation setting is here, in one place. */
-export function createArgs({ name, image, work, disc, cue, out, limits, command }) {
+export function createArgs({ name, image, work, disc, out, limits, command }) {
   return [
     'create',
     '--name', name,
@@ -207,8 +209,7 @@ export function createArgs({ name, image, work, disc, cue, out, limits, command 
     '--tmpfs', `/tmp:rw,size=${limits.tmpMiB}m,mode=1777,noexec,nosuid,nodev`,
     '--mount', `type=bind,src=${work},dst=/work,readonly`,
     '--mount', `type=bind,src=${disc},dst=/disc/disc.bin,readonly`,
-    ...(cue ? ['--mount', `type=bind,src=${disc},dst=/disc/disc-1.bin,readonly`,
-      '--mount', `type=bind,src=${cue},dst=/disc/disc-1.cue,readonly`] : []),
+    '--mount', `type=bind,src=${disc},dst=/disc/disc-1.bin,readonly`,
     '--mount', `type=bind,src=${out},dst=/out`,
     '--workdir', '/work',
     '--entrypoint', command[0],
@@ -224,16 +225,11 @@ export function createArgs({ name, image, work, disc, cue, out, limits, command 
  * limits_hit is a subset of ["time", "memory", "pids", "output"], sorted.
  * "output" means the output directory is full (the program got ENOSPC).
  */
-export async function runSandbox({ work, disc, cue, out, command, limits: rawLimits = {}, image } = {}) {
+export async function runSandbox({ work, disc, out, command, limits: rawLimits = {}, image } = {}) {
   if (!Array.isArray(command) || command.length === 0) throw new SandboxError('no command given');
   work = safePath(work, '--work');
   disc = safePath(disc, '--disc');
   out = safePath(out, '--out');
-  if (cue !== undefined) {
-    cue = safePath(cue, '--cue');
-    const st = lstatSync(cue, { throwIfNoEntry: false });
-    if (!st?.isFile() || st.size === 0 || st.size > 65536) throw new SandboxError('invalid cue file');
-  }
   if (!existsSync(work) || !statSync(work).isDirectory()) throw new SandboxError(`--work is not a directory: ${work}`);
   if (!existsSync(disc) || !statSync(disc).isFile()) throw new SandboxError(`--disc is not a file: ${disc}`);
   const limits = Object.fromEntries(Object.keys(LIMITS).map((k) => [k, bounded(k, rawLimits[k])]));
@@ -248,7 +244,7 @@ export async function runSandbox({ work, disc, cue, out, command, limits: rawLim
   let timedOut = false;
   const t0 = Date.now();
   try {
-    sh('docker', createArgs({ name, image, work, disc, cue, out, limits, command }));
+    sh('docker', createArgs({ name, image, work, disc, out, limits, command }));
     sh('docker', ['start', name]);
 
     const pid = Number(sh('docker', ['inspect', '--format', '{{.State.Pid}}', name]).stdout.trim());

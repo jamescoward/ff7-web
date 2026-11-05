@@ -4,7 +4,7 @@
 import { createAudio } from './audio.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
-import { createVirtualGamepad } from './gamepad.js';
+import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
 import { createInputMixer } from './pad.js';
@@ -29,6 +29,22 @@ const setStatus = (text, kind = '', { clearAfter = 0 } = {}) => {
 };
 status.addEventListener('click', () => setStatus(''));
 
+// The Card panel opens just below its button: the top bar wraps to two rows on
+// narrow phones, so a fixed offset could cover the button. A tap outside, or
+// finishing an import/export, closes it.
+const cardMenu = document.querySelector('.menu');
+const cardPanel = cardMenu.querySelector('.menu-body');
+function placeCardPanel() {
+  const below = cardMenu.querySelector('summary').getBoundingClientRect().bottom;
+  cardPanel.style.top = `${Math.round(below + 8)}px`;
+}
+cardMenu.querySelector('summary').addEventListener('click', placeCardPanel);
+window.addEventListener('resize', () => { if (cardMenu.open) placeCardPanel(); });
+document.addEventListener('pointerdown', (e) => {
+  if (cardMenu.open && !cardMenu.contains(e.target)) cardMenu.open = false;
+});
+const closeCardMenu = () => { cardMenu.open = false; };
+
 const audio = createAudio();
 const cards = createCardStore();
 let backend = null;
@@ -37,7 +53,7 @@ let drawn = 0;
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
-const pad = createVirtualGamepad($('pad'), { onChange: (m) => mixer.set('touch', m) });
+const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -136,11 +152,14 @@ $('card-export').addEventListener('click', async () => {
     const bytes = live ?? (await cards.load());
     if (!bytes) {
       setStatus('There is no memory card yet: it is created when a game first runs.', 'error', { clearAfter: NOTICE_MS });
+      closeCardMenu();
       return;
     }
     downloadCard(bytes);
+    closeCardMenu();
   } catch (e) {
     setStatus(`Export failed: ${e.message}`, 'error', { clearAfter: NOTICE_MS });
+    closeCardMenu();
   }
 });
 
@@ -158,16 +177,16 @@ $('card-input').addEventListener('change', async (e) => {
   } catch (err) {
     setStatus(`Import failed: ${err.message}`, 'error', { clearAfter: NOTICE_MS });
   }
+  closeCardMenu();
 });
 
 // Stop when hidden: saves battery, releases held buttons, and stores the card.
 document.addEventListener('visibilitychange', () => {
-  if (!backend?.loaded) return;
   if (document.hidden) {
-    pad.releaseAll();
+    controls.releaseAll();
     keyboard.releaseAll();
-    backend.pause();
-  } else {
+    if (backend?.loaded) backend.pause();
+  } else if (backend?.loaded) {
     backend.resume();
   }
 });

@@ -83,6 +83,10 @@ describe('scenario schema', () => {
     'negative value': (d) => { d.assert[1].equals = -1; },
     'non-hex value': (d) => { d.assert[3].equals = '0xgg'; },
     'string core option': (d) => { d.coreOptions = { a: 1 }; },
+    'more than 8 metrics': (d) => { d.metrics = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']; },
+    'metric key not in the pattern': (d) => { d.metrics = ['Run_ms']; },
+    'duplicate metric key': (d) => { d.metrics = ['fps', 'fps']; },
+    'metrics not an array': (d) => { d.metrics = 'fps'; },
   };
   for (const [name, mutate] of Object.entries(invalid)) {
     test(`rejects: ${name}`, () => {
@@ -111,6 +115,10 @@ describe('scenario loader checks beyond the schema', () => {
     'bytes value of the wrong length': [(d) => { d.assert[0].equals = 'ff'; }, /8 hex digits/],
     'decimal string for an integer type': [(d) => { d.assert[1].equals = '05'; }, /0x hex string/],
     'nothing to check': [(d) => { delete d.assert; delete d.checkpoints; }, /asserts nothing/],
+    'tier 2 even with metrics': [(d) => { d.tier = 2; d.metrics = ['fps']; }, /only tier 1/],
+    'metric that is neither built in nor a memory name': [(d) => { d.metrics = ['speed']; }, /neither a built-in metric/],
+    'metric naming a bytes location': [(d) => { d.metrics = ['marker']; }, /type bytes/],
+    'metric that is both built in and a memory name': [(d) => { d.metrics = ['frames']; }, /both a built-in metric and a memory name/],
   };
   for (const [name, [mutate, re]] of Object.entries(rejects)) {
     test(`rejects: ${name}`, () => {
@@ -119,6 +127,18 @@ describe('scenario loader checks beyond the schema', () => {
       assert.throws(() => loadScenario(d), (e) => e instanceof ScenarioError && re.test(e.message));
     });
   }
+
+  test('tier 2 loads only when the caller allows it (runner/tier2.js)', () => {
+    const d = clone(example);
+    d.tier = 2;
+    d.metrics = ['fps', 'buttons'];
+    assert.throws(() => loadScenario(d), /only tier 1/);
+    assert.deepEqual(loadScenario(d, { allowTier2: true }).metrics, ['fps', 'buttons']);
+  });
+
+  test('a scenario without metrics lists none', () => {
+    assert.deepEqual(loadScenario(clone(example)).metrics, []);
+  });
 
   test('normalises values and input', () => {
     const sc = loadScenario(clone(example));

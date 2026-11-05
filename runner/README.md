@@ -32,6 +32,14 @@ node runner/scenario.js [--record] [--baselines DIR] [--fixtures DIR] <scenario.
 
 Runs a JSON test scenario: a boot fixture, an input script, and assertions on named memory and frame hashes. The format, fixtures and baselines are described in `harness/README.md`. `schema.js` is the dependency-free validator for the scenario schema.
 
+## Tier 2 entry point
+
+```sh
+node runner/tier2.js --disc PATH --out DIR [--scenarios DIR] [--fixtures DIR] [--baselines DIR] [--deadline-s N]
+```
+
+The program the private eval runs inside the sandbox (#55). It runs every `"tier": 2` scenario in its own child process and rewrites `DIR/results.json` after each one. stdout stays empty: only the results file counts. See `harness/README.md` (Tier 2 scenarios) and `notes/55-tier2-entry.md`.
+
 ## Backend interface (`backend.js`)
 
 `createBackend(opts)` returns:
@@ -56,7 +64,8 @@ The frontend (`frontend.c`) answers the core's environment queries: no frame dup
 node --test 'runner/test/**/*.test.js'
 ```
 
-- `test/unit/`: the address map, the pad bitmask, CLI parsing, the synthetic EXE, the schema validator, the scenario loader and the fixture registry. These need no build.
+- `test/unit/`: the address map, the pad bitmask, CLI parsing, the synthetic EXE, the schema validator, the scenario loader, the fixture registry, and `tier2.js`'s discovery and result rules (checked against the trusted validator and expect builder). These need no build.
+- `test/tier1/tier2.test.js` runs `tier2.js` on the real core with passing, failing, crashing, hanging and invalid tier 2 scenarios. `test/tier1/tier2-sandbox.test.js` runs it inside the real sandbox through the trusted eval functions. That needs Docker and root or passwordless sudo; it is skipped without them, unless `SANDBOX_REQUIRE=1`.
 - `test/tier1/`: the backend interface, CLI determinism and the scenario runner against the real core. These need both build steps. They use `synth/vblank-counter.js`, an original hand-assembled PS-X EXE that counts VBLANKs into RAM and fills the screen with a colour derived from the count. The card tests use `synth/card-read.js`, an original hand-assembled PS-X EXE that reads one slot 1 card frame through SIO0 into RAM, and `synth/blank-card.js`, which formats a blank card in code. None of them contains game, BIOS or SDK code. The scenario tests use the `pad-echo` homebrew (`harness/fixtures/`), built the same way.
 
 ## Licence

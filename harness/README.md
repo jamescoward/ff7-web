@@ -11,7 +11,7 @@ Exit status: `0` pass, `1` fail, `2` invalid scenario or usage error. stdout hol
 
 | Directory | What | Protected |
 |---|---|---|
-| `schema/` | `scenario.schema.json`, format 1 | no |
+| `schema/` | `scenario.schema.json`, formats 1 and 2 | no |
 | `scenarios/` | Tier 1 scenarios (homebrew only); the file name is `<name>.json` | no |
 | `fixtures/` | homebrew test programs and `fixtures.json`, the registry recording each one's licence, origin and SHA-256 | no |
 | `baselines/` | expected frame hashes, `<scenario name>.json` | **yes**: owner review |
@@ -67,7 +67,39 @@ node runner/tier2.js --disc /dev/null --out /tmp/out --scenarios DIR --fixtures 
 
 A scenario that crashes, hangs past the deadline (1140 s by default, `--deadline-s`) or fails to load reports `error`. Metrics with values the validator would refuse are dropped, so one scenario can't get the whole output rejected.
 
-Save-state boot points, and fixtures fetched by pinned URL and hash, are not in format 1. They will be added when a scenario needs them.
+Save-state boot points are format 2 (below). Fixtures fetched by pinned URL and hash are not supported yet; they will be added when a scenario needs them.
+
+## Scenario format 2
+
+Format 2 (#37) starts from a **boot point** instead of power-on, plays an **ordered script** whose waits can depend on memory, and checks the end state. Format 1 is unchanged; `"format"` picks the form.
+
+```jsonc
+{
+  "format": 2,
+  "name": "pad-echo-script",
+  "tier": 1,
+  "boot": { "fixture": "pad-echo", "from": "pad-echo-ready" },   // or { "disc": 1, "from": "title" }
+  "memory": { "counter": { "addr": "0x800f0000", "type": "u32" }, "buttons": { "addr": "0x800f0008", "type": "u16" } },
+  "input": [                                         // steps run in order; frames count from 1 after the boot point
+    { "wait": { "frames": 5 } },                     // hold nothing for 5 frames
+    { "buttons": ["circle"], "frames": 3 },          // hold Circle for 3 frames (default 1; "port" 0 or 1)
+    { "wait": { "until": { "mem": "buttons", "equals": "0xffff" }, "timeout": 10 }, "metric": "release_wait" },
+    { "wait": { "until": { "mem": "counter", "in": [60, 70] }, "timeout": 120 } }
+  ],
+  "assert": [                                        // made at the end of the script
+    { "expect": { "mem": "counter", "differs": 0 } },
+    { "sameState": "rerun", "metric": "same_rerun" },  // played again from the same start: same RAM + picture
+    { "sameState": "boot" }                            // played after a fresh boot with no snapshot: same state
+  ],
+  "metrics": ["release_wait", "same_rerun", "snapshot_frames", "saved_ms"]
+}
+```
+
+- **Boot points** live in `runner/bootpoints.js`: a source (disc or fixture), a fixed press script from power-on to frame T, and a check that T was reached. `title` is FF7 disc 1 at the title screen (#36's Start script, T = 1250, verified with #36's title-code check); `pad-echo-ready` is the homebrew one. `"from": "power-on"` starts with no boot point. A scenario must name the boot point's own source.
+- **Snapshots.** `runner/tier2.js` boots each boot point once per run, keeps its snapshot in memory and restores it for every scenario (passed between processes on a pipe, never written to a file). `runner/scenario.js` run on one scenario boots the boot point itself, takes the snapshot and restores it.
+- **Conditions** compare a named `u8`/`u16`/`u32` location: `equals`, `differs`, or `in: [low, high]` (inclusive). A `wait.until` is checked at the end of each frame, so it waits at least one frame; its metric is the frames waited, 0 on a timeout. **A timeout fails the scenario and stops the script there**; every check then fails.
+- **`sameState`** compares SHA-256 of main RAM and the picture inside the run. Only 1/0 (pass/fail) is reported, never the state or a hash.
+- **Metrics:** the format 1 built-ins (`frames` is the script's frames), plus `snapshot_frames` (T; 0 from power-on or when T was not reached) and `saved_ms` (wall time a restore saves over booting to T). A boot point that isn't reached fails the scenario at `boot_stage` 5.
 
 ## Fixtures
 

@@ -1,0 +1,27 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "pad-echo-script",
+  "description": "Format 2 example (#37): start pad-echo from its boot point (frame 30, restored from a snapshot), play an ordered script with fixed and conditional waits, check memory at the end, and check that the script ends in the same state when played again from the snapshot and from a fresh boot.",
+  "tier": 1,
+  "boot": { "fixture": "pad-echo", "from": "pad-echo-ready" },
+  "memory": {
+    "counter": { "addr": "0x800f0000", "type": "u32", "description": "VBLANKs seen by the program" },
+    "buttons": { "addr": "0x800f0008", "type": "u16", "description": "pad button word, active low" }
+  },
+  "input": [
+    { "wait": { "frames": 5 } },
+    { "buttons": ["circle"], "frames": 3, "note": "frames 6-8 after the boot point" },
+    { "wait": { "until": { "mem": "buttons", "equals": "0xffff" }, "timeout": 10 }, "metric": "release_wait", "note": "released on the first frame after the press" },
+    { "wait": { "until": { "mem": "counter", "in": [60, 70] }, "timeout": 120 }, "metric": "counter_wait", "note": "boot point at 30, 9 frames so far: 21 more" },
+    { "buttons": ["up", "cross"] },
+    { "wait": { "frames": 1 } }
+  ],
+  "assert": [
+    { "expect": { "mem": "counter", "equals": 62 }, "note": "30 + 32 frames of script" },
+    { "expect": { "mem": "buttons", "equals": "0xffff" } },
+    { "sameState": "rerun", "metric": "same_rerun" },
+    { "sameState": "boot", "metric": "same_boot" }
+  ],
+  "metrics": ["frames", "snapshot_frames", "release_wait", "counter_wait", "same_rerun", "same_boot", "failed_assertions"]
+}

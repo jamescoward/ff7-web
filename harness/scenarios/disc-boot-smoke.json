@@ -7,6 +7,14 @@
   "boot": { "disc": "disc-1" },
   "frames": 5400,
   "memory": {
+    "exe_head": {
+      "addr": "0x80010000",
+      "type": "bytes",
+      "len": 4096,
+      "description": "First 4 KiB of the boot executable's read-only data: file offset 0x800, linked at 0x80010000"
+    },
+    "game_state": { "addr": "0x8009c560", "type": "u16", "description": "g_GameState (field 1, battle 2, world 3, menu 5; none on the title)" },
+    "ovl_dest": { "addr": "0x80062dec", "type": "u32", "description": "D_80062DEC: where LoadMenuOvl loads a menu overlay" },
     "overlay_head": {
       "addr": "0x801d0000",
       "type": "bytes",
@@ -38,6 +46,13 @@
   "probes": [
     {
       "within": 5400,
+      "mem": "exe_head",
+      "equalsDiscFile": { "path": "SYSTEM.CNF:BOOT", "offset": 2048 },
+      "metric": "exe_frame",
+      "note": "Whether the boot executable was loaded and is resident."
+    },
+    {
+      "within": 5400,
       "mem": "overlay_head",
       "equalsDiscFile": { "path": "MENU/SAVEMENU.MNU", "offset": 0 },
       "metric": "overlay_frame",
@@ -48,13 +63,7 @@
       "stillFrames": 60,
       "metric": "still_frame",
       "note": "Game-agnostic fallback: the first second-long still, non-blank picture."
-    },
-    {
-      "within": 3600,
-      "stillFrames": 1800,
-      "metric": "frozen_frame",
-      "note": "The first 30 s still, non-blank picture: a stuck boot, or a static title."
     }
   ],
-  "metrics": ["boot_stage", "frames", "fps", "boot_exe_match", "title_frame", "overlay_frame", "still_frame", "frozen_frame"]
+  "metrics": ["fps", "boot_exe_match", "title_frame", "overlay_frame", "exe_frame", "game_state", "ovl_dest", "still_frame"]
 }

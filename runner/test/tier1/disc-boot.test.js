@@ -67,8 +67,9 @@ const scenario = (over = {}) => ({
     { discFile: 'PADECHO.EXE', sha1: '0'.repeat(40), metric: 'wrong_sha1' },
     { discFile: 'NOPE.EXE', sha1: exeSha1, metric: 'missing_file' },
     { within: 61, stillFrames: 60, metric: 'still_frame', note: 'pad-echo fills the screen with one colour: never counts' },
+    { within: 120, mem: 'code', equalsDiscFile: { path: 'SYSTEM.CNF:BOOT', offset: 2048 }, metric: 'boot_code_frame' },
   ],
-  metrics: ['boot_exe_match', 'code_frame', 'marker_frame', 'wrong_sha1', 'missing_file', 'still_frame', 'fps'],
+  metrics: ['boot_exe_match', 'code_frame', 'marker_frame', 'wrong_sha1', 'missing_file', 'still_frame', 'fps', 'boot_code_frame'],
   ...over,
 });
 
@@ -85,11 +86,12 @@ test('a synthetic disc boots from its bin, ignoring the cue; disc checks report 
   assert.equal(m.still_frame, 0, 'a single-colour picture is not a still');
   assert.ok(m.code_frame >= 1 && m.code_frame <= m.marker_frame, `code resident by frame ${m.code_frame}, marker at ${m.marker_frame}`);
   assert.ok(m.fps > 0);
+  assert.equal(m.boot_code_frame, m.code_frame, 'SYSTEM.CNF:BOOT names the same file in equalsDiscFile');
   // Nothing from the disc leaves: no hash of a disc file, no disc bytes.
   const text = JSON.stringify(r);
   assert.ok(!text.includes(exeSha1), 'the boot executable hash is not echoed');
   assert.ok(!text.includes(exe.subarray(2048, 2048 + 8).toString('hex')), 'disc bytes are not echoed');
-  assert.deepEqual(r.probes.map((p) => [p.metric, p.pass]), [['wrong_sha1', false], ['missing_file', false], ['still_frame', false]]);
+  assert.deepEqual(r.probes.map((p) => [p.metric, p.pass]), [['wrong_sha1', false], ['missing_file', false], ['still_frame', false], ['boot_code_frame', true]]);
 });
 
 test('a wrong boot hash or a value never seen fails the scenario', async () => {

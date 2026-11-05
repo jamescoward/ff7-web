@@ -193,3 +193,22 @@ Metrics: `boot_stage 6`, `frames 5400`, `boot_exe_match 1`,
   leave the metric list, since both are known now.
 - This fixes how the owner's decision was carried out. It is not a new title
   detector, so attempts used are still 2 of 3.
+
+## Tier 2 on `8aa966c` (2026-11-05): still no title, and no overlay at all
+Booting `/disc/disc.bin` (no cue beside it): `boot_stage 6`, `frames 5400`,
+`boot_exe_match 1`, `fps 1084.429`, `still_frame 268`, `frozen_frame 0`,
+`overlay_frame 0`, `title_frame 0`. No byte of SAVEMENU appears at its link
+address in 90 s, and the picture never holds still for 30 s. So the cue was
+not the (only) cause: the game does not reach HandleTitle's overlay load in
+this runner, yet the iPhone build reaches the title with the same core and HLE
+BIOS.
+- **Ruled out:** the memory card option. The core's default
+  `pcsx_rearmed_memcard1` is `libretro`, the same value the browser sets.
+- **Next run (diagnostic, not a new detector):** `exe_frame` (the boot
+  executable's first 4 KiB resident at 0x80010000, compared with the disc
+  file at offset 0x800), `game_state` (u16 at 0x8009C560 at the end) and
+  `ovl_dest` (u32 at 0x80062DEC at the end, the overlay load address).
+  Readings:
+  - exe_frame 0: the executable never loaded (an HLE BIOS or disc read problem);
+  - exe_frame > 0 and ovl_dest 0: running, but not yet at the title;
+  - ovl_dest set: the overlay should be resident there.

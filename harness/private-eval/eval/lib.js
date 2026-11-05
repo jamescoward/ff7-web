@@ -182,6 +182,7 @@ export function layout(root) {
     work: path.join(r, 'work'),
     discDir: path.join(r, 'disc'),
     disc: path.join(r, 'disc', 'disc.bin'),
+    cue: path.join(r, 'disc', 'disc-1.cue'),
     out: path.join(r, 'out'),
     expect: path.join(r, 'expect.json'),
     report: path.join(r, 'sandbox-report.json'),
@@ -338,9 +339,11 @@ export async function evaluate(root, { command = SANDBOX_COMMAND, limits = SANDB
   if (Object.keys(expect.scenarios).length === 0) return makeSummary({ result: 'no-scenarios' });
   const d = lstatSync(L.disc, { throwIfNoEntry: false });
   if (!d || !d.isFile() || d.size === 0) return makeSummary({ result: 'error', error: 'disc-missing' });
+  const c = lstatSync(L.cue, { throwIfNoEntry: false });
+  if (!c || !c.isFile() || c.size === 0 || c.size > 65536) return makeSummary({ result: 'error', error: 'disc-missing' });
   let report;
   try {
-    report = await runSandbox({ work: L.work, disc: L.disc, out: L.out, command, limits, image });
+    report = await runSandbox({ work: L.work, disc: L.disc, cue: L.cue, out: L.out, command, limits, image });
   } catch {
     return makeSummary({ result: 'error', error: 'sandbox-failed' });
   }
@@ -431,4 +434,5 @@ export function checkRunOutput(summary) {
     output: { title: titles[result] ?? titles.error, summary: lines.join('\n') },
   };
 }
+
 

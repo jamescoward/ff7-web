@@ -148,3 +148,11 @@ attempt 2 showed is 1): 1 cue unreadable, 2 no FILE line, 3 no TRACK line,
 FILE line names a file other than `disc-1.bin`. The trusted job stores the
 image as `disc-1.bin` whatever the cue says, so only the owner can confirm
 that.
+
+## Tier 2 on `3be29f7` (2026-11-05): disc_error 5
+The cue is read and parses, but the image its FILE line names is not next to
+it. The trusted job always stores the image as `disc-1.bin`, so the R2 cue
+names another file. **Blocked on the owner**: re-upload `disc-1.cue` with
+`FILE "disc-1.bin" BINARY` (see #36). The runner will not rewrite or generate
+a cue, as #36 says. Then re-run Tier 2 on PR #64. Attempts used: 2. The
+`disc_error` refinement diagnosed attempt 2 and was not a new approach.

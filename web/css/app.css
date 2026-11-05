@@ -121,6 +121,27 @@ body {
 .status[data-kind="error"] { color: var(--error); }
 .status:not([hidden]) { cursor: pointer; }
 
+/* Debug overlay (#79): read-only, over the picture, never takes a touch. */
+.debug {
+  position: absolute;
+  inset: 8px auto auto 8px;
+  max-width: calc(100% - 16px);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #000b;
+  color: var(--fg);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+}
+.dbg-row { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; }
+.dbg-label { color: var(--muted); min-width: 6.5em; }
+.dbg-val { font-weight: 600; }
+.dbg-badge, .dbg-reason { font-size: 11px; }
+.dbg-badge[data-status="hypothesis"] { color: #ffd479; }
+.dbg-badge[data-status="confirmed"] { color: #6fe0b5; }
+.dbg-reason { color: var(--muted); font-style: italic; }
+#debug-btn[aria-pressed="true"] { background: var(--btn-on); }
+
 /* Virtual gamepad */
 .pad {
   flex: 1;

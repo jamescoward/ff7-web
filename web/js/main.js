@@ -7,6 +7,7 @@ import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
+import { createOverlay } from './overlay.js';
 import { createInputMixer } from './pad.js';
 
 const $ = (id) => document.getElementById(id);
@@ -44,6 +45,14 @@ document.addEventListener('pointerdown', (e) => {
   if (cardMenu.open && !cardMenu.contains(e.target)) cardMenu.open = false;
 });
 const closeCardMenu = () => { cardMenu.open = false; };
+
+// The debug overlay (#79): off by default, and its toggle stays hidden unless
+// the worker's hash gate says this is the USA disc.
+const overlay = createOverlay({
+  panel: $('debug'),
+  toggle: $('debug-btn'),
+  onToggle: (on) => backend?.setOverlay(on),
+});
 
 const audio = createAudio();
 const cards = createCardStore();
@@ -85,6 +94,8 @@ const backendReady = createWorkerBackend({
     if (!cardProblem(bytes)) persistCard(bytes);
   },
   onError: (msg) => setStatus(msg, 'error'),
+  onSemantic: (gate) => overlay.setGate(gate),
+  onState: (sample) => overlay.update(sample),
 }).then((b) => {
   backend = b;
   backend.onFrameEnd((f) => {
@@ -200,5 +211,6 @@ window.ff7web = {
   audio,
   cards,
   mixer,
+  overlay,
   drawnFrame: () => drawn,
 };

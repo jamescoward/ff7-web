@@ -80,19 +80,75 @@ test('eval: secrets appear only in the disc step, which runs only in the main-on
   const withSecrets = s.filter((x) => x.includes('secrets.'));
   assert.equal(withSecrets.length, 1);
   assert.match(withSecrets[0], /name: Fetch the disc/);
-  assert.match(withSecrets[0], /if: steps\.work\.outputs\.scenarios != '0'/);
-  const jobs = code(evalWf).split(/\n {2}(?=[a-z]+:\n)/);
-  const gate = jobs.find((j) => j.startsWith('gate:'));
-  const ev = jobs.find((j) => j.startsWith('eval:'));
+  assert.match(withSecrets[0], /steps\.work\.outputs\.scenarios != '0'/);
+  const gate = job(evalWf, 'gate');
+  const ev = job(evalWf, 'eval');
   assert.ok(!gate.includes('secrets.') && !gate.includes('environment:'), 'the gate holds no secrets');
   assert.match(ev, /environment: tier2-private/);
-  assert.match(ev, /if: needs\.gate\.outputs\.run == 'true'/);
+  assert.match(ev, /if: always\(\) && needs\.gate\.outputs\.run == 'true'\n/);
+  assert.match(ev, /needs: \[gate, inspect\]/);
+});
+
+/** The text of one job of a workflow. */
+function job(text, name) {
+  const jobs = code(text).split(/\n {2}(?=[a-z]+:\n)/);
+  const j = jobs.find((x) => x.startsWith(`${name}:`));
+  assert.ok(j, `job ${name}`);
+  return j;
+}
+/** A job's steps, as text. */
+const jobSteps = (text, name) => steps(`jobs:\n  ${job(text, name)}`);
+
+test('eval: the untrusted archive is unpacked only in inspect, which has no environment or secrets', () => {
+  const inspect = job(evalWf, 'inspect');
+  assert.ok(!inspect.includes('secrets.') && !inspect.includes('environment:'));
+  assert.match(inspect, /if: needs\.gate\.outputs\.run == 'true'/);
+  const s = jobSteps(evalWf, 'inspect');
+  const idx = (re) => s.findIndex((x) => re.test(x));
+  const prep = idx(/tier2\.js prepare/);
+  const dl = idx(/actions\/download-artifact@/);
+  const check = idx(/tier2\.js check-work/);
+  const clean = idx(/git status --porcelain/);
+  const up = idx(/actions\/upload-artifact@/);
+  assert.ok(prep >= 0 && prep < dl && dl < check && check < clean && clean < up, [prep, dl, check, clean, up].join());
+  assert.match(s[dl], /name: tier2-build\n/);
+  assert.match(s[dl], /run-id: \$\{\{ needs\.gate\.outputs\.build_run_id \}\}/);
+  assert.match(s[dl], /path: \$\{\{ runner\.temp \}\}\/tier2\/work$/m);
+  assert.match(s[up], /name: tier2-checked\n/);
+  assert.match(s[up], /include-hidden-files: true/);
+  assert.match(s[s.length - 1], /if: always\(\)\n[\s\S]*tier2\.js cleanup --root/);
+  // The eval job never touches the PR's own artifact.
+  const ev = job(evalWf, 'eval');
+  assert.ok(!/tier2-build|run-id:/.test(ev), 'eval downloads only the checked tree');
+});
+
+test('eval: the eval job needs the inspected digest and a clean checkout before anything runs', () => {
+  const s = jobSteps(evalWf, 'eval');
+  const idx = (re) => s.findIndex((x) => re.test(x));
+  const prep = idx(/tier2\.js prepare/);
+  const dl = idx(/actions\/download-artifact@/);
+  const check = idx(/tier2\.js check-work/);
+  const clean = idx(/git status --porcelain/);
+  const disc = idx(/Fetch the disc/);
+  const run = idx(/tier2\.js evaluate/);
+  assert.ok(prep >= 0 && prep < dl && dl < check && check < clean && clean < disc && disc < run, [prep, dl, check, clean, disc, run].join());
+  assert.match(s[dl], /name: tier2-checked\n/);
+  assert.match(s[check], /--digest "\$DIGEST"/);
+  assert.match(s[check], /DIGEST: \$\{\{ needs\.inspect\.outputs\.digest \}\}/);
+  assert.match(s[clean], /id: clean\n/);
+  assert.match(s[disc], /if: steps\.clean\.outcome == 'success' && steps\.work\.outputs\.scenarios != '0'\n/);
+  // A modified checkout or a failed check stops the run, even under always().
+  assert.match(s[run], /if: always\(\) && steps\.work\.outcome == 'success' && steps\.clean\.outcome == 'success'\n/);
+  const rec = s[idx(/record-error/)];
+  assert.match(rec, /if: needs\.inspect\.result != 'success'\n/);
+  assert.match(rec, /--code artifact-rejected/);
 });
 
 test('eval: the disc never reaches the cache or an artifact, and is deleted even on failure', () => {
-  const c = code(evalWf);
-  assert.ok(!/actions\/cache|upload-artifact|^\s+cache:/m.test(c));
-  const s = steps(evalWf);
+  const ev = job(evalWf, 'eval');
+  assert.ok(!/actions\/cache|upload-artifact|^\s+cache:/m.test(ev));
+  assert.ok(!/actions\/cache|^\s+cache:/m.test(code(evalWf)));
+  const s = jobSteps(evalWf, 'eval');
   const last = s[s.length - 1];
   assert.match(last, /name: Delete the disc and the build/);
   assert.match(last, /if: always\(\)\n/);
@@ -101,22 +157,11 @@ test('eval: the disc never reaches the cache or an artifact, and is deleted even
   assert.match(disc, /"\$T2\/disc\//, 'the disc goes under the job root that cleanup removes');
 });
 
-test('eval: the artifact is downloaded into the empty directory prepare made, then checked before anything else', () => {
-  const s = steps(evalWf);
-  const idx = (re) => s.findIndex((x) => re.test(x));
-  const prep = idx(/tier2\.js prepare/);
-  const dl = idx(/actions\/download-artifact@/);
-  const check = idx(/tier2\.js check-work/);
-  const disc = idx(/Fetch the disc/);
-  const run = idx(/tier2\.js evaluate/);
-  assert.ok(prep >= 0 && prep < dl && dl < check && check < disc && disc < run, [prep, dl, check, disc, run].join());
-  assert.match(s[dl], /path: \$\{\{ runner\.temp \}\}\/tier2\/work$/m);
-  assert.match(s[dl], /name: tier2-build\n/);
-  // Nothing from the artifact is executed on the host: every run: block calls
-  // trusted code from the checkout, or moves the disc.
+test('eval: nothing from the artifact is executed on the host', () => {
+  // Every run: line calls trusted code from the checkout, or moves the disc.
   for (const b of runBlocks(evalWf)) {
     for (const line of b.split('\n').map((l) => l.trim()).filter((l) => l && l !== '|')) {
-      assert.match(line, /^(node harness\/private-eval\/eval\/tier2\.js |echo "T2=|aws s3 cp |--endpoint-url |chmod 0644 "\$T2\/disc\/|mv "\$T2\/disc\/|git status|test -z)/, line);
+      assert.match(line, /^(node harness\/private-eval\/eval\/tier2\.js |echo "T2=|aws s3 cp |--endpoint-url |chmod 0644 "\$T2\/disc\/|mv "\$T2\/disc\/|test -z "\$\(git status)/, line);
     }
   }
 });

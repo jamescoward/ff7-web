@@ -4,7 +4,10 @@
 //
 //   tier2.js gate          decide whether this run may go on (writes step outputs)
 //   tier2.js prepare       --root DIR   create the job's directories (empty)
-//   tier2.js check-work    --root DIR   check the unpacked artifact, write expect.json
+//   tier2.js check-work    --root DIR [--digest HEX]
+//                          check the unpacked artifact, write expect.json; with
+//                          --digest, the tree must be exactly the one inspected
+//   tier2.js record-error  --root DIR --code CODE   write an error summary
 //   tier2.js evaluate      --root DIR   sandbox + validator; writes and prints the summary
 //   tier2.js cleanup       --root DIR   remove the disc, the output mount and the build
 //   tier2.js check-start   --sha SHA    create the in-progress `tier2` check run
@@ -24,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import {
-  buildExpect, checkRunOutput, checkWork, CHECK_NAME, BUILD_WORKFLOW_FILE, cleanup, evaluate, gateDispatch,
+  buildExpect, checkRunOutput, ERRORS, checkWork, CHECK_NAME, BUILD_WORKFLOW_FILE, cleanup, evaluate, gateDispatch,
   gateWorkflowRun, layout, makeSummary, permissionAllows, pickArtifact, pickBuildRun, prepare, Tier2Error,
 } from './lib.js';
 
@@ -106,21 +109,31 @@ async function gate() {
   return 0;
 }
 
-function checkWorkCmd(root) {
+function checkWorkCmd(root, wantDigest) {
   const L = layout(root);
-  let n = 0;
   try {
-    const { files, bytes } = checkWork(L.work);
+    if (wantDigest !== undefined && !/^[0-9a-f]{64}$/.test(wantDigest)) throw new Tier2Error('artifact-rejected');
+    const { files, bytes, digest } = checkWork(L.work);
+    if (wantDigest !== undefined && digest !== wantDigest) throw new Tier2Error('artifact-rejected');
     const expect = buildExpect(L.work);
     writeFileSync(L.expect, JSON.stringify(expect));
-    n = Object.keys(expect.scenarios).length;
-    console.log(`check-work: ${files} files, ${bytes} bytes, ${n} tier 2 scenarios`);
+    const n = Object.keys(expect.scenarios).length;
+    setOutputs({ scenarios: n, digest });
+    console.log(`check-work: ${files} files, ${bytes} bytes, ${n} tier 2 scenarios, digest ${digest}`);
+    return 0;
   } catch (e) {
     const code = e instanceof Tier2Error ? e.code : 'internal';
     writeFileSync(L.summary, JSON.stringify(makeSummary({ result: 'error', error: code })));
     console.log(`check-work: rejected (${code})`);
+    return 1;
   }
-  setOutputs({ scenarios: n });
+}
+
+function recordError(root, code) {
+  const L = layout(root);
+  if (!ERRORS.includes(code)) throw new Error('--code must be a known error code');
+  if (!existsSync(L.summary)) writeFileSync(L.summary, JSON.stringify(makeSummary({ result: 'error', error: code })));
+  console.log(`record-error: ${code}`);
   return 0;
 }
 
@@ -169,12 +182,12 @@ async function main(argv) {
   const [verb, ...rest] = argv;
   let values;
   try {
-    ({ values } = parseArgs({ args: rest, options: { root: { type: 'string' }, sha: { type: 'string' }, id: { type: 'string' } } }));
+    ({ values } = parseArgs({ args: rest, options: { root: { type: 'string' }, sha: { type: 'string' }, id: { type: 'string' }, digest: { type: 'string' }, code: { type: 'string' } } }));
   } catch {
     console.error(usage);
     return 2;
   }
-  const needRoot = ['prepare', 'check-work', 'evaluate', 'cleanup', 'check-finish'];
+  const needRoot = ['prepare', 'check-work', 'record-error', 'evaluate', 'cleanup', 'check-finish'];
   if (needRoot.includes(verb) && !values.root) {
     console.error(usage);
     return 2;
@@ -186,7 +199,8 @@ async function main(argv) {
         prepare(values.root);
         console.log('prepare: done');
         return 0;
-      case 'check-work': return checkWorkCmd(values.root);
+      case 'check-work': return checkWorkCmd(values.root, values.digest);
+      case 'record-error': return recordError(values.root, values.code);
       case 'evaluate': return await evaluateCmd(values.root);
       case 'cleanup': {
         const r = cleanup(values.root);

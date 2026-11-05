@@ -24,6 +24,7 @@
 // Error messages are fixed codes.
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs';
@@ -200,11 +201,17 @@ export function prepare(root) {
 
 // ---------------------------------------------------------------- artifact
 
+/** Top-level directories a build must have; without them it can't be a tier2-build artifact. */
+export const WORK_TOP_DIRS = ['harness', 'runner'];
+
 /**
  * Check the unpacked artifact: only regular files and directories, within
- * the caps. Then clear every execute bit on files (0644) and make
- * directories 0755, so the sandbox user can read them and nothing in the
- * tree is executable on the host. Throws Tier2Error('artifact-rejected').
+ * the caps, with runner/ and harness/ at the top. Then clear every execute
+ * bit on files (0644) and make directories 0755, so the sandbox user can
+ * read them and nothing in the tree is executable on the host.
+ * Returns { files, bytes, digest }: the digest covers every path and file
+ * content, so a second job can tell it has the same tree.
+ * Throws Tier2Error('artifact-rejected').
  */
 export function checkWork(dir) {
   const reject = () => {
@@ -237,9 +244,22 @@ export function checkWork(dir) {
   };
   walk(dir, 0);
   if (files.length === 0) reject();
+  for (const top of WORK_TOP_DIRS) {
+    if (!lstatSync(path.join(dir, top), { throwIfNoEntry: false })?.isDirectory()) reject();
+  }
   for (const f of files) chmodSync(f, 0o644);
   for (const d of dirs) chmodSync(d, 0o755);
-  return { files: files.length, bytes };
+  return { files: files.length, bytes, digest: treeDigest(dir, files) };
+}
+
+/** SHA-256 over every file's relative path and content hash, in sorted order. */
+export function treeDigest(dir, files) {
+  const h = createHash('sha256');
+  for (const rel of files.map((f) => path.relative(dir, f)).sort()) {
+    const fh = createHash('sha256').update(readFileSync(path.join(dir, rel))).digest('hex');
+    h.update(`${rel}\0${fh}\n`);
+  }
+  return h.digest('hex');
 }
 
 /**

@@ -30,7 +30,7 @@ Test scenarios may start from a memory card that the harness **generates at test
 ## Trust boundary for automated testing
 Agents may write code that runs against game data, provided that code runs only inside the private eval sandbox described in `docs/AUTOMATION.md`:
 
-1. **Credentials are a read-only storage token, scoped to the disc bucket.** It is held as secrets of the GitHub environment `tier2-private`, whose deployment branches are limited to `main`. Only the private-eval workflow on `main` can read it, and only in the step that downloads the disc. PR code never sees credentials, and PR-triggered workflows get no secrets. (Owner decision, 2026-11-04: R2 doesn't accept GitHub OIDC tokens natively; see #35.)
+1. **Credentials are a read-only storage token, scoped to the disc bucket.** It is held as secrets of the GitHub environment `tier2-private`, whose deployment branches are limited to `main`. Only workflow jobs running from `main` that name that environment can read it: today only the Tier 2 eval job, which uses it to download the disc and never unpacks untrusted archives (that happens in a separate job without secrets). PR code never sees credentials, and PR-triggered workflows get no secrets. (Owner decision, 2026-11-04: R2 doesn't accept GitHub OIDC tokens natively; see #35.)
 2. **The untrusted code runs in a container with no network.** The disc is mounted read-only, with resource and time limits.
 3. **The only output is JSON validated by trusted code from `main`** against a fixed schema of pass/fail, numbers and small integers. Nothing else from the sandbox is printed or uploaded.
 4. **No game data in the GitHub Actions cache or artifacts.** Both can be reached from PR workflows.

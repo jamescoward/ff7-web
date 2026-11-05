@@ -323,6 +323,8 @@ const put = (work, rel, content, mode) => {
   writeFileSync(p, content, mode ? { mode } : undefined);
   return p;
 };
+/** The smallest tree checkWork accepts. */
+const base = (w) => { put(w, 'runner/tier2.js', ''); put(w, 'harness/README.md', ''); };
 const scenario = (name, extra = {}) => JSON.stringify({ format: 1, name, tier: 2, boot: { fixture: 'x' }, frames: 1, ...extra });
 
 test('prepare: makes empty directories and refuses an existing root', () => {
@@ -339,7 +341,10 @@ test('artifact: regular files pass, and every execute bit is cleared', () => {
     put(w, 'runner/dist/core.wasm', randomBytes(100), 0o777);
     put(w, 'harness/scenarios/a.json', '{}', 0o600);
   });
-  assert.deepEqual(checkWork(L.work), { files: 3, bytes: 20 + 100 + 2 });
+  const r = checkWork(L.work);
+  assert.equal(r.files, 3);
+  assert.equal(r.bytes, 20 + 100 + 2);
+  assert.match(r.digest, /^[0-9a-f]{64}$/);
   for (const f of ['runner/tier2.js', 'runner/dist/core.wasm', 'harness/scenarios/a.json']) {
     assert.equal(statSync(path.join(L.work, f)).mode & 0o777, 0o644, f);
   }
@@ -353,15 +358,46 @@ test('artifact: links, FIFOs, hard links, empty trees and oversize trees are rej
     ['dangling symlink', (w) => { put(w, 'a', 'x'); symlinkSync('/nonexistent', path.join(w, 'b')); }],
     ['FIFO', (w) => { put(w, 'a', 'x'); spawnSync('mkfifo', [path.join(w, 'fifo')]); }],
     ['hard link', (w) => { const p = put(w, 'a', 'x'); linkSync(p, path.join(w, 'b')); }],
-    ['empty', () => {}],
-    ['only directories', (w) => { mkdirSync(path.join(w, 'd')); }],
     ['over the size cap (sparse)', (w) => { const p = put(w, 'big', ''); truncateSync(p, MAX_WORK_BYTES + 1); }],
     ['too deep', (w) => { put(w, `${Array.from({ length: MAX_WORK_DEPTH + 2 }, () => 'd').join('/')}/f`, 'x'); }],
   ];
   for (const [what, fill] of cases) {
-    const L = jobWith(fill);
+    // A valid base, so each case is rejected for its own reason.
+    const L = jobWith((w) => { base(w); fill(w); });
     assert.throws(() => checkWork(L.work), (e) => e instanceof Tier2Error && e.code === 'artifact-rejected', what);
   }
+  const ok = jobWith(base);
+  assert.equal(checkWork(ok.work).files, 2, 'the base alone is accepted');
+});
+
+test('artifact: an empty tree, or one with only directories, is rejected', () => {
+  const empty = jobWith(() => {});
+  assert.throws(() => checkWork(empty.work), (e) => e.code === 'artifact-rejected', 'empty');
+  const dirs = jobWith((w) => { mkdirSync(path.join(w, 'runner')); mkdirSync(path.join(w, 'harness')); });
+  assert.throws(() => checkWork(dirs.work), (e) => e.code === 'artifact-rejected', 'only directories');
+});
+
+test('artifact: runner/ and harness/ must be directories at the top (no silent "no scenarios")', () => {
+  for (const [what, fill] of [
+    ['nested one level down', (w) => { put(w, 'tier2-build/runner/x.js', ''); put(w, 'tier2-build/harness/x', ''); }],
+    ['no harness', (w) => put(w, 'runner/x.js', '')],
+    ['no runner', (w) => put(w, 'harness/x', '')],
+    ['runner is a file', (w) => { put(w, 'runner', ''); put(w, 'harness/x', ''); }],
+  ]) {
+    const L = jobWith(fill);
+    assert.throws(() => checkWork(L.work), (e) => e.code === 'artifact-rejected', what);
+  }
+});
+
+test('artifact: the digest covers paths and contents, not timestamps or modes', () => {
+  const a = jobWith((w) => { base(w); put(w, 'runner/a.js', 'one'); });
+  const b = jobWith((w) => { base(w); put(w, 'runner/a.js', 'one', 0o755); });
+  const c = jobWith((w) => { base(w); put(w, 'runner/a.js', 'two'); });
+  const d = jobWith((w) => { base(w); put(w, 'runner/b.js', 'one'); });
+  const [da, db, dc, dd] = [a, b, c, d].map((L) => checkWork(L.work).digest);
+  assert.equal(da, db);
+  assert.notEqual(da, dc);
+  assert.notEqual(da, dd);
 });
 
 test('artifact: the work directory itself must be a real directory', () => {
@@ -379,6 +415,7 @@ test('expect: tier 2 scenarios only, with their metric keys, sorted', () => {
     put(w, 'harness/scenarios/disc-boot.json', scenario('disc-boot', { metrics: ['speed', 'boot_frames'] }));
     put(w, 'harness/scenarios/b-plain.json', scenario('b-plain'));
     put(w, 'harness/scenarios/README.md', 'not json');
+    put(w, 'runner/tier2.js', '');
   });
   checkWork(L.work);
   assert.deepEqual(buildExpect(L.work), { format: 1, scenarios: { 'b-plain': [], 'disc-boot': ['boot_frames', 'speed'] } });
@@ -409,6 +446,44 @@ test('expect: a tier 2 scenario that could smuggle text is rejected', () => {
   }
   const many = jobWith((w) => { for (let i = 0; i < 33; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });
   assert.throws(() => buildExpect(many.work), (e) => e.code === 'bad-scenario', 'more than 32 tier 2 scenarios');
+});
+
+test('check-work CLI: the eval job accepts only the tree the inspect job checked', async () => {
+  const L = jobWith((w) => { base(w); put(w, 'harness/scenarios/a.json', scenario('a', { metrics: ['x'] })); });
+  const first = await runCli(['check-work', '--root', L.root], {});
+  assert.equal(first.code, 0, first.stdout);
+  assert.equal(first.outputs.scenarios, '1');
+  assert.match(first.outputs.digest, /^[0-9a-f]{64}$/);
+  assert.deepEqual(JSON.parse(readFileSync(L.expect, 'utf8')), { format: 1, scenarios: { a: ['x'] } });
+  const same = await runCli(['check-work', '--root', L.root, '--digest', first.outputs.digest], {});
+  assert.equal(same.code, 0);
+  assert.equal(existsSync(L.summary), false);
+  put(L.work, 'runner/extra.js', 'swapped in between the jobs');
+  const changed = await runCli(['check-work', '--root', L.root, '--digest', first.outputs.digest], {});
+  assert.equal(changed.code, 1);
+  assert.deepEqual(JSON.parse(readFileSync(L.summary, 'utf8')), makeSummary({ result: 'error', error: 'artifact-rejected' }));
+  const M = jobWith(base);
+  const junk = await runCli(['check-work', '--root', M.root, '--digest', 'not-hex'], {});
+  assert.equal(junk.code, 1);
+});
+
+test('check-work CLI: a rejected build exits 1 and leaves an error summary', async () => {
+  const L = jobWith((w) => { base(w); symlinkSync('/etc/passwd', path.join(w, 'runner/link')); });
+  const r = await runCli(['check-work', '--root', L.root], {});
+  assert.equal(r.code, 1);
+  assert.equal(r.stdout.trim(), 'check-work: rejected (artifact-rejected)');
+  assert.equal(JSON.parse(readFileSync(L.summary, 'utf8')).error, 'artifact-rejected');
+});
+
+test('record-error CLI: writes a fixed-code summary, never overwrites one, and refuses unknown codes', async () => {
+  const L = prepare(scratch());
+  assert.equal((await runCli(['record-error', '--root', L.root, '--code', 'artifact-rejected'], {})).code, 0);
+  assert.equal(JSON.parse(readFileSync(L.summary, 'utf8')).error, 'artifact-rejected');
+  await runCli(['record-error', '--root', L.root, '--code', 'internal'], {});
+  assert.equal(JSON.parse(readFileSync(L.summary, 'utf8')).error, 'artifact-rejected');
+  const M = prepare(scratch());
+  assert.equal((await runCli(['record-error', '--root', M.root, '--code', 'free text'], {})).code, 1);
+  assert.equal(existsSync(M.summary), false);
 });
 
 // ---------------------------------------------------------------- check run

@@ -31,8 +31,8 @@ Two workflows and one trusted script. PR code meets the disc only inside the san
 
 ## Contracts this PR fixes for later issues
 
-- **Entry point.** `SANDBOX_COMMAND` is `node runner/tier2.js --disc /disc/disc.bin --out /out`, with `/work` (the artifact) as the working directory. It writes `/out/results.json` in the #34 format. **It doesn't exist yet.** It is untrusted runner code, outside this issue's allowed paths, and needs its own issue before #36. Until then every PR gets a green `tier2` ("no tier 2 scenarios").
-- **Tier 2 scenarios.** A file `harness/scenarios/<name>.json` with `"tier": 2`, `name` equal to the file name, and an optional `metrics` array of up to 8 metric keys. `buildExpect` reads only `tier`, `name` and `metrics`. Adding `metrics` (and tier 2) to `harness/schema/scenario.schema.json` belongs to the entry-point issue or #36.
+- **Entry point.** `SANDBOX_COMMAND` is `node runner/tier2.js --disc /disc/disc.bin --out /out`, with `/work` (the artifact) as the working directory. It writes `/out/results.json` in the #34 format. **It doesn't exist yet.** It is untrusted runner code, outside this issue's allowed paths: #55, before #36. Until then every PR gets a green `tier2` ("no tier 2 scenarios").
+- **Tier 2 scenarios.** A file `harness/scenarios/<name>.json` with `"tier": 2`, `name` equal to the file name, and an optional `metrics` array of up to 8 metric keys. `buildExpect` reads only `tier`, `name` and `metrics`. Adding `metrics` (and tier 2) to `harness/schema/scenario.schema.json` belongs to #55.
 - **Disc.** Only `disc-1.bin` is fetched. Discs 2 and 3, and the cue files, aren't used yet.
 - **Limits.** `SANDBOX_LIMITS` is 1200 s, 2 GiB of memory, 2 CPUs, 64 processes, 4 MiB of output and 64 MiB of `/tmp`. #36 may need to change them, which is a protected-path PR.
 

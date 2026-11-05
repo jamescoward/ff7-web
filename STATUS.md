@@ -19,7 +19,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M1.5 (private eval)** was filed as #31–#40 (reasoning in `notes/m1.5-issue-drafts.md`) and **rescoped on 2026-11-04** (`notes/m1.5-rescope.md`, owner-approved). It ends when the disc boot smoke test (#36) passes.
 - **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline).
-- **In review, needs the owner:** #35 (Tier 2 workflows), PR #54. It touches protected paths. After it merges: a throwaway bootstrap PR confirms a red `tier2` check. The in-sandbox entry point `runner/tier2.js` needs its own issue before #36.
+- **In review, needs the owner:** #35 (Tier 2 workflows), PR #54. It touches protected paths. After it merges: a throwaway bootstrap PR confirms a red `tier2` check. The in-sandbox entry point `runner/tier2.js` is #55 (blocked on #35; #36 needs it).
 - **Blocked:** #36, on #35.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), blocked on #36; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 

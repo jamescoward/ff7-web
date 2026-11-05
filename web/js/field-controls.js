@@ -22,6 +22,11 @@ export function createFieldControls(root, { onChange }) {
     const el = doc.elementFromPoint(x, y)?.closest('[data-action]');
     return el && root.contains(el) ? PAD[el.dataset.action] : 0;
   }
+  function placeCue(x, y) {
+    const r = root.getBoundingClientRect();
+    cue.style.left = `${x - r.left}px`;
+    cue.style.top = `${y - r.top}px`;
+  }
   function update() {
     let next = drag.mask;
     for (const p of pointers.values()) next |= p.mask;
@@ -43,9 +48,7 @@ export function createFieldControls(root, { onChange }) {
     if (!action) {
       walker = e.pointerId;
       drag.release();
-      const r = root.getBoundingClientRect();
-      cue.style.left = `${e.clientX - r.left}px`;
-      cue.style.top = `${e.clientY - r.top}px`;
+      placeCue(e.clientX, e.clientY);
       cue.classList.add('field-cue-on');
     }
     try { root.setPointerCapture(e.pointerId); } catch { /* Synthetic test pointer. */ }
@@ -55,8 +58,10 @@ export function createFieldControls(root, { onChange }) {
     const p = pointers.get(e.pointerId);
     if (!p) return;
     e.preventDefault();
-    if (e.pointerId === walker) drag.move(e.clientX - p.x, e.clientY - p.y);
-    else p.mask = actionAt(e.clientX, e.clientY);
+    if (e.pointerId === walker) {
+      drag.move(e.clientX - p.x, e.clientY - p.y, e.timeStamp);
+      placeCue(p.x + drag.origin.x, p.y + drag.origin.y);
+    } else p.mask = actionAt(e.clientX, e.clientY);
     update();
   }
   function releaseCapture(id) {

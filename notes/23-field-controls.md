@@ -11,7 +11,17 @@
 - `field-drag.js` maps screen-space vectors to eight digital directions. The dead
   zone is 10 CSS pixels. The current sector remains selected until the thumb
   crosses its 22.5-degree edge by another 6 degrees. At 64 CSS pixels, Cross is
-  added to the direction mask; retreating below 64 releases it.
+  added to the direction mask (run).
+- **Running, revised after the owner's iPhone check (2026-11-05).** The first
+  version had a fixed origin and released Cross below 64 px, so running the
+  other way meant dragging back past the landing point and 64 px out again.
+  Now:
+  - the origin trails the thumb on a 64 px leash (the cue moves with it), so a
+    reversal never needs more than about 74 px of travel;
+  - the run latches: it holds through direction changes and a quick pass
+    through the centre, and ends on release or after resting 250 ms in the
+    dead zone (measured on pointer event timestamps, no timers).
+  Walking slowly is unchanged: stay inside 64 px.
 - Interact = Circle; Menu = Triangle; Back = Cross. An action finger can slide
   between buttons or off them to release, but never becomes a walking finger.
 - The existing input mixer combines field controls with keyboard input. Switching
@@ -52,3 +62,15 @@ The complete device checklist is:
 Use the classic gamepad for battles and minigames. Automatic mode detection
 remains #25. Do not merge before the owner's Tier 3 result and the required
 reviewer verdict and CI checks.
+
+## Owner-reported UI bugs fixed on this PR (2026-11-05)
+
+- **Card panel covered the Card button in portrait.** The panel had a fixed
+  `top: 60px`. Adding the controls toggle made the top bar wrap to two rows at
+  iPhone width, so the Card button sat under the panel and couldn't close it.
+  The panel is now placed below the button when it opens. A tap outside, or
+  finishing an import or export, closes it.
+- **"Card imported…" never went away.** Card messages now clear after 6 s, and
+  any status message can be tapped away. The start-up hint and load errors
+  still stay until dismissed.
+- `web/test/card-ui.test.js` covers both, and fails on the previous `main.js`.

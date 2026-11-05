@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { BUTTONS_ADDR, build as buildPadEcho } from '../../harness/fixtures/pad-echo.js';
+import { RUN_DISTANCE } from '../js/field-drag.js';
 import { PAD } from '../js/pad.js';
 import { BROWSERS, CORE_BUILT, launch, loadPlaywright, serveWeb, until } from './helpers.js';
 
@@ -92,13 +93,20 @@ for (const name of BROWSERS) {
         assert.equal(await mask(page), PAD.up);
         await fire(page, 'pointermove', 1, { x: origin.x, y: origin.y - 80 });
         assert.equal(await mask(page), PAD.up | PAD.cross);
+        // The centre trails the thumb at the run distance, and the cue follows it.
+        const trailed = await page.locator('.field-cue').boundingBox();
+        assert.ok(Math.abs(trailed.y + trailed.height / 2 - (origin.y - 80 + RUN_DISTANCE)) < 1);
+        // Running holds through a retreat and a reversal past the trailed centre.
         await fire(page, 'pointermove', 1, { x: origin.x, y: origin.y - 30 });
+        assert.equal(await mask(page), PAD.up | PAD.cross);
+        await fire(page, 'pointermove', 1, { x: origin.x, y: origin.y + 20 });
+        assert.equal(await mask(page), PAD.down | PAD.cross);
         await fire(page, 'pointerup', 1, origin);
         assert.equal(await mask(page), 0);
         await until(() => page.locator('.field-cue').evaluate((el) => getComputedStyle(el).opacity === '0'), { what: 'cue to fade' });
         assert.deepEqual(await page.evaluate(() => window.padCalls), [
           ...expected, PAD.up, PAD.up | PAD.circle, PAD.up,
-          PAD.up | PAD.cross, PAD.up, 0,
+          PAD.up | PAD.cross, PAD.down | PAD.cross, 0,
         ]);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }

@@ -40,7 +40,7 @@ Runs on GitHub-hosted runners. No owner machine is involved.
 
 1. **Untrusted build job** (`pull_request` trigger, no secrets): builds the Wasm core, the runner and the scenario files from the PR, then uploads them as a build artifact.
 2. **Trusted eval job** (`workflow_run` trigger): the workflow definition always comes from `main`, so a PR cannot change it.
-   1. It obtains short-lived storage credentials through GitHub OIDC. The cloud role trusts only this workflow file on `main`.
+   1. It reads a read-only storage token, scoped to the disc bucket, from the GitHub environment `tier2-private`. Only `main` can deploy to that environment, so only this workflow file on `main` can read the token.
    2. It downloads the disc image from private object storage (encrypted at rest).
    3. It runs the PR's build inside a container started with `--network none`, a read-only mount of the disc, CPU, memory and time limits, and a single writable output directory.
    4. Trusted code from `main` validates the output against a strict JSON schema: per scenario, pass/fail, numeric metrics, and small integers such as addresses and coordinates. Anything that doesn't fit the schema is discarded.
@@ -128,7 +128,7 @@ To show the process works, and for the project's own steering:
 ## Build order
 1. **M1:** Tier 1 headless runner and asset guard, built alongside Experiment 01.
 2. **M1:** a per-PR preview deployment, the benchmark page with its "Report results" button, and the `needs-owner-device` flow.
-3. **Before M2:** Tier 2 private eval (the storage bucket and OIDC role are a one-off setup by the owner), CODEOWNERS and branch protection, and the reviewer agent.
+3. **Before M2:** Tier 2 private eval (the storage bucket, its read-only token and the `main`-only environment that holds it are a one-off setup by the owner), CODEOWNERS and branch protection, and the reviewer agent.
 4. **M2 onward:** planner and implementer on a schedule.
 
 ## Unverified

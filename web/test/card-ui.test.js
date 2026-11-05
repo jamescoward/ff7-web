@@ -61,6 +61,28 @@ for (const name of BROWSERS) {
       }
     });
 
+    test('finishing an export closes the Card panel', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, { width: 393, height: 852 });
+      try {
+        // No stored card yet: export ends with a message, and the panel closes.
+        await page.click('summary');
+        await page.click('#card-export');
+        await until(async () => /no memory card yet/.test(await page.locator('#status').textContent()), { what: 'the export result' });
+        assert.equal(await page.locator('.menu').evaluate((d) => d.open), false, 'panel closed after export');
+        // With a card, export downloads it, and the panel closes too.
+        await page.evaluate(async () => {
+          const { blankCard } = await import('./js/memcard.js');
+          await window.ff7web.cards.save(blankCard());
+        });
+        await page.click('summary');
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('#card-export')]);
+        assert.equal(download.suggestedFilename(), 'ff7-web-card1.mcr');
+        await until(() => page.locator('.menu').evaluate((d) => !d.open), { what: 'panel closed after a download' });
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     test('finishing an import closes the Card panel', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, { width: 393, height: 852 });

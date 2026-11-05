@@ -229,3 +229,22 @@ injected no input, while the iPhone run had a person pressing buttons.
 0x800A0000) is resident, showing the intro loops run. Start is used because
 FF7's title confirms with Circle, so Start should not leave the title. If
 this fails, stop and report blockers (attempt budget).
+
+## Tier 2 attempt 3 (`880f059`, 2026-11-05): PASS
+`boot_exe_match 1`, `boot_stage 6`, `ending_frame 82`, `overlay_frame 1228`,
+`title_frame 1231`, `still_frame 268`, `game_state 0`, `fps 989.352`.
+- **Demonstrated (Tier 2):**
+  - disc 1 boots from `/disc/disc.bin` (no cue);
+  - the boot executable matches the published USA SCUS_941.63 SHA-1, reported
+    as matched only;
+  - the ENDING intro overlay is resident from frame 82;
+  - the SAVEMENU overlay is resident from frame 1228;
+  - the title module's code is resident from frame **1231** (20.5 s at 60 Hz),
+    with Start pressed for 4 frames every 120 frames from frame 300;
+  - unthrottled speed: **989 fps** (about 16.5× real time) on the GitHub runner.
+- **For #37:** the frames-to-title figure depends on the input script. Without
+  input, the title was not reached within 5400 frames. A title snapshot would
+  save about 1231 frames (about 1.2 s at this speed) per scenario.
+- `game_state` stays 0 on the title, as the decomp says (no state for the title).
+- The earlier fps readings (735 to 1283) were with the game sitting in the
+  intro. The high fps was not a sign of a broken boot: the intro is light work.

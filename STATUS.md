@@ -4,6 +4,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
+**M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** This replaces the order given under "Next for agents" below. Ready now: #37 (format 2) and #75 (semantic layer, can run in parallel). Then #74 (chained snapshots) → #76 (mode) → #77 (field ID, position) and #78 (cursor, party) → #38 (generated saves) → #80 (world map, minigame) → #81 (M2 exit). #79 (debug overlay, Tier 3) follows #75. #24 and #25 become ready for M3 when #81 is done.
+
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 
 **Next:** implement the M1 issues in order:

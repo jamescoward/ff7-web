@@ -63,7 +63,9 @@ describe('scenario schema', () => {
       const doc = JSON.parse(readFileSync(path.join(SCENARIOS, f), 'utf8'));
       assert.deepEqual(validate(schema, doc), [], f);
       assert.equal(`${doc.name}.json`, f, 'file name matches scenario name');
-      assert.doesNotThrow(() => loadScenario(doc), f);
+      // Tier 2 scenarios load through runner/tier2.js, which opts in; the
+      // CLI's refusal of tier 2 is tested below and in tier1/tier2.test.js.
+      assert.doesNotThrow(() => loadScenario(doc, { allowTier2: doc.tier === 2 }), f);
     }
   });
 

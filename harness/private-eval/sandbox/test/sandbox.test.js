@@ -287,3 +287,15 @@ dockerTest('a normal Tier 1 scenario gives byte-identical output inside and outs
   assert.deepEqual(report.limits_hit, []);
   assert.equal(readOut(path.join(out, 'result.json')), outside.stdout);
 });
+
+
+test('cue pair mounts are individual read-only files; legacy bin path stays available', () => {
+  const args = createArgs({ name: 'n', image: 'img', work: '/w', disc: '/d', cue: '/c', out: '/o',
+    limits: Object.fromEntries(Object.entries(LIMITS).map(([k, v]) => [k, v.def])), command: ['node', 'x.js'] });
+  const mounts = args.flatMap((v, i) => v === '--mount' ? [args[i + 1]] : []);
+  assert.deepEqual(mounts, ['type=bind,src=/w,dst=/work,readonly',
+    'type=bind,src=/d,dst=/disc/disc.bin,readonly',
+    'type=bind,src=/d,dst=/disc/disc-1.bin,readonly',
+    'type=bind,src=/c,dst=/disc/disc-1.cue,readonly',
+    'type=bind,src=/o,dst=/out']);
+});

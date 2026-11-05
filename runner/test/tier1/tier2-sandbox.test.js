@@ -74,6 +74,7 @@ test('the real entry point in the sandbox: pass, fail and a crash, accepted by t
   writeFileSync(path.join(L.work, 'harness/fixtures/crash.js'), "export function build() { process.kill(process.pid, 'SIGKILL'); }\n");
 
   writeFileSync(L.disc, Buffer.alloc(1 << 20), { mode: 0o644 });
+  writeFileSync(L.cue, "FILE \"disc-1.bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n", { mode: 0o644 });
   checkWork(L.work);
   writeFileSync(L.expect, JSON.stringify(buildExpect(L.work)));
   try {
@@ -92,3 +93,4 @@ test('the real entry point in the sandbox: pass, fail and a crash, accepted by t
     cleanup(L.root);
   }
 });
+

@@ -120,7 +120,10 @@ test('without a disc the smoke scenario fails cleanly with "no disc"', async () 
 });
 
 test('a disc that is there but unusable fails at its boot stage, with metrics, instead of erroring', async () => {
-  const sc = loadScenario(JSON.parse(readFileSync(SMOKE, 'utf8')), { allowTier2: true });
+  const doc = JSON.parse(readFileSync(SMOKE, 'utf8'));
+  doc.probes = [];
+  doc.metrics = ['boot_stage', 'disc_error', 'frames', 'boot_exe_match', 'title_frame'];
+  const sc = loadScenario(doc, { allowTier2: true });
   // No ISO9660 volume: the image opens (stage 2), the file system is not found.
   const junk = path.join(dir, 'junk');
   mkdirSync(junk);

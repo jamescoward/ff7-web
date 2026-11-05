@@ -169,3 +169,27 @@ the bin and checks that it is ignored. Cue parsing stays in `runner/disc.js`
 (unit-tested) for discs that ever need one; scenarios don't use it. The
 `disc_cue` metric is gone, and `disc_error` codes 1–5 can't occur from a
 scenario now.
+
+## Tier 2 on `4523902` (2026-11-05): boots, hashes match, no title
+Metrics: `boot_stage 6`, `frames 5400`, `boot_exe_match 1`,
+`savemenu_match 1`, `disc_error 0`, `still_frame 268`, `title_frame 0`,
+`fps 1282.998`.
+- **Demonstrated:** the disc boots and all 5400 frames run.
+  SYSTEM.CNF's executable has the SHA-1 published for SCUS_941.63, and
+  MENU/SAVEMENU.MNU has the decomp's SHA-1, so the offsets apply.
+- The title code was never resident at 0x801D2B58.
+- The fps looks wrong: 1283 fps is about 10× pad-echo's 126 fps locally, on
+  an interpreter CPU. This suggests the emulated machine is not doing the
+  game's normal work.
+- **Cause found in the pinned core:** `libpcsxcore/cdriso.c` `parsecue()`
+  swaps a `.bin`'s extension for `.cue` and parses that file when it exists
+  (`parsetoc` does the same for .toc, and the core also looks for .ccd and
+  .mds). Booting `/disc/disc-1.bin` therefore still read the R2 cue whose FILE
+  line names another file, despite the owner's decision. Fix: `resolveDisc`
+  takes the first candidate without a same-named .cue/.toc/.ccd/.mds. In the
+  sandbox that is `/disc/disc.bin`, the eval's alias of the same image.
+- Probes for the next run: `overlay_frame` (any SAVEMENU code resident) and
+  `frozen_frame` (a 30 s still picture). `savemenu_match` and `disc_error`
+  leave the metric list, since both are known now.
+- This fixes how the owner's decision was carried out. It is not a new title
+  detector, so attempts used are still 2 of 3.

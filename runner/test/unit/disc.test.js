@@ -168,9 +168,18 @@ describe('disc boot scenarios: loader', () => {
     assert.throws(() => resolveDisc('disc-1', undefined), (e) => e instanceof ScenarioError && /^no disc/.test(e.message));
     assert.throws(() => resolveDisc('disc-1', alias), (e) => e instanceof ScenarioError && /^no disc/.test(e.message) && !e.message.includes(sub));
     writeFileSync(alias, '');
-    writeFileSync(path.join(sub, 'disc-1.cue'), '');
     assert.deepEqual(resolveDisc('disc-1', alias), { file: alias });
     writeFileSync(path.join(sub, 'disc-1.bin'), '');
     assert.deepEqual(resolveDisc('disc-1', alias), { file: path.join(sub, 'disc-1.bin') });
+    // The core parses a same-named cue (or .toc/.ccd/.mds) instead of the
+    // bin, so an image without one wins: the private eval's layout.
+    for (const ext of ['.cue', '.toc', '.ccd', '.mds']) {
+      writeFileSync(path.join(sub, `disc-1${ext}`), '');
+      assert.deepEqual(resolveDisc('disc-1', alias), { file: alias }, ext);
+      rmSync(path.join(sub, `disc-1${ext}`));
+    }
+    writeFileSync(path.join(sub, 'disc-1.cue'), '');
+    writeFileSync(path.join(sub, 'disc.cue'), '');
+    assert.deepEqual(resolveDisc('disc-1', alias), { file: path.join(sub, 'disc-1.bin') }, 'all have sidecars: the first');
   });
 });

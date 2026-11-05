@@ -7,6 +7,12 @@
   "boot": { "disc": "disc-1" },
   "frames": 5400,
   "memory": {
+    "overlay_head": {
+      "addr": "0x801d0000",
+      "type": "bytes",
+      "len": 4096,
+      "description": "First 4 KiB of the SAVEMENU overlay (read-only data and code), linked at 0x801D0000"
+    },
     "title_code": {
       "addr": "0x801d2b58",
       "type": "bytes",
@@ -31,17 +37,24 @@
   ],
   "probes": [
     {
-      "discFile": "MENU/SAVEMENU.MNU",
-      "sha1": "430d54dbe01d9a0c670b1d2d2b5c642bdd1b3199",
-      "metric": "savemenu_match",
-      "note": "Whether the overlay is the revision the offsets come from."
+      "within": 5400,
+      "mem": "overlay_head",
+      "equalsDiscFile": { "path": "MENU/SAVEMENU.MNU", "offset": 0 },
+      "metric": "overlay_frame",
+      "note": "Whether SAVEMENU is loaded at all (its file SHA-1 matched the decomp's on 2026-11-05)."
     },
     {
       "within": 5340,
       "stillFrames": 60,
       "metric": "still_frame",
       "note": "Game-agnostic fallback: the first second-long still, non-blank picture."
+    },
+    {
+      "within": 3600,
+      "stillFrames": 1800,
+      "metric": "frozen_frame",
+      "note": "The first 30 s still, non-blank picture: a stuck boot, or a static title."
     }
   ],
-  "metrics": ["boot_stage", "disc_error", "frames", "boot_exe_match", "title_frame", "savemenu_match", "still_frame", "fps"]
+  "metrics": ["boot_stage", "frames", "fps", "boot_exe_match", "title_frame", "overlay_frame", "still_frame", "frozen_frame"]
 }

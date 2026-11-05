@@ -245,20 +245,29 @@ export async function resolveFixture(name, fixturesDir = DEFAULT_FIXTURES) {
 }
 
 /**
- * The image a disc scenario boots, given the --disc image: <name>.bin next to
- * it (the private eval mounts /disc/disc-1.bin), else the --disc image
- * itself. A cue is not used: PS1 discs like FF7's are a single MODE2/2352
- * data track, which the reader and the core both detect from the bin
- * (owner decision on #36, 2026-11-05). Throws ScenarioError "no disc" when
- * there is no image; the message never holds a path.
+ * Sidecar files the core (pcsx_rearmed libpcsxcore/cdriso.c) looks for next
+ * to an image with the same base name, and parses instead of the bare image.
+ */
+const SIDECARS = ['.cue', '.toc', '.ccd', '.mds'];
+const hasSidecar = (p) => SIDECARS.some((ext) => existsSync(p.slice(0, -path.extname(p).length) + ext));
+
+/**
+ * The image a disc scenario boots, given the --disc image. No cue is used:
+ * PS1 discs like FF7's are a single MODE2/2352 data track, which the reader
+ * and the core both detect from the bin (owner decision on #36, 2026-11-05).
+ * The core would still parse a same-named cue next to the image, so the
+ * first candidate without one wins: <name>.bin next to --disc, then the
+ * --disc image itself (the private eval mounts /disc/disc-1.bin with its cue,
+ * and the same image as /disc/disc.bin without one). If every candidate has
+ * a sidecar, the first that exists is used. Throws ScenarioError "no disc"
+ * when there is no image; the message never holds a path.
  */
 export function resolveDisc(name, discOpt) {
   if (!discOpt) throw new ScenarioError('no disc: this scenario boots a disc; pass --disc');
   const dir = path.dirname(path.resolve(discOpt));
-  for (const p of [path.join(dir, `${name}.bin`), path.resolve(discOpt)]) {
-    if (existsSync(p)) return { file: p };
-  }
-  throw new ScenarioError('no disc: the disc image does not exist');
+  const found = [path.join(dir, `${name}.bin`), path.resolve(discOpt)].filter((p) => existsSync(p));
+  if (!found.length) throw new ScenarioError('no disc: the disc image does not exist');
+  return { file: found.find((p) => !hasSidecar(p)) ?? found[0] };
 }
 
 /**

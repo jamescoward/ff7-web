@@ -13,9 +13,11 @@
 //   { type: 'frame', frame, width, height, buffer }   RGBA, transferred
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
+//   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
+import { gateForFiles } from './disc-gate.js';
 import { pickBootFile } from './files.js';
 
 const MOUNT = '/game';
@@ -217,6 +219,11 @@ const handlers = {
     fps = m._fe_fps() || 60;
     post({ type: 'loaded', path: boot, fps, sampleRate: m._fe_sample_rate() });
     start();
+    // The disc's boot executable is hashed here, on the device, and only the
+    // verdict leaves this function.
+    gateForFiles(files)
+      .catch((e) => ({ active: false, reason: e.message }))
+      .then(({ active, reason }) => post({ type: 'semantic', active, reason }));
   },
 
   pad({ port, mask }) {

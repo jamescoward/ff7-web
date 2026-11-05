@@ -19,6 +19,7 @@ export const DEFAULT_CORE_OPTIONS = Object.freeze({
  * @param {(msg: string) => void} [opts.onError]   unsolicited worker errors
  * @param {(samples: Float32Array) => void} [opts.onAudio]
  * @param {(bytes: Uint8Array) => void} [opts.onCard]  the card changed in the core
+ * @param {(gate: {active: boolean, reason: string|null}) => void} [opts.onSemantic]  the semantic layer hash gate ran (#75)
  */
 export async function createWorkerBackend(opts = {}) {
   const worker = new Worker(new URL('./emu-worker.js', import.meta.url), { type: 'module' });
@@ -27,6 +28,7 @@ export async function createWorkerBackend(opts = {}) {
   let nextId = 1;
   let lastFrame = null;
   let loadedInfo = null;
+  let semanticGate = null;
   let readyResolve;
   let readyReject;
   let loadWait = null;
@@ -62,6 +64,10 @@ export async function createWorkerBackend(opts = {}) {
         break;
       case 'card':
         opts.onCard?.(data.bytes);
+        break;
+      case 'semantic':
+        semanticGate = { active: data.active, reason: data.reason };
+        opts.onSemantic?.(semanticGate);
         break;
       case 'reply':
         pending.get(data.id)?.resolve(data.value);
@@ -102,6 +108,10 @@ export async function createWorkerBackend(opts = {}) {
     buildInfo: () => buildInfo,
     get loaded() {
       return loadedInfo;
+    },
+    /** { active, reason } once the hash gate has run for the loaded disc, else null. */
+    get semanticGate() {
+      return semanticGate;
     },
     get frame() {
       return lastFrame?.frame ?? 0;

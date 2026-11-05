@@ -133,3 +133,18 @@ still leave, numbers only: `boot_stage`, `disc_cue` and `frames`
 (the frames actually run). A missing disc is still the ScenarioError
 "no disc" (status error), as #36 requires. A Wasm trap during the frame loop
 is caught as stage 5, with the number of frames that ran.
+
+## Tier 2 attempt 2 (`7c002b2`, 2026-11-05): fail at boot_stage 1
+Metrics: `boot_stage 1`, `disc_cue 1`, `frames 0`, every check 0. So
+`/disc/disc-1.cue` exists, but `openDisc` failed before it had the image
+open: the cue can't be read or parsed, or the image its FILE line names is
+not next to it under that name. Both files are fetched as 0644
+(`tier2-eval.yml`), so permissions are an unlikely cause.
+
+Next (`disc_error`, replacing `disc_cue` in the scenario's metrics, which
+attempt 2 showed is 1): 1 cue unreadable, 2 no FILE line, 3 no TRACK line,
+4 unsupported first-track mode, 5 the image the cue names is missing,
+6 the image is unreadable, 7 no ISO9660 file system. 5 would mean the cue's
+FILE line names a file other than `disc-1.bin`. The trusted job stores the
+image as `disc-1.bin` whatever the cue says, so only the owner can confirm
+that.

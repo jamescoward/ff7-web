@@ -43,5 +43,5 @@
       "note": "Game-agnostic fallback: the first second-long still, non-blank picture."
     }
   ],
-  "metrics": ["boot_stage", "disc_cue", "frames", "boot_exe_match", "title_frame", "savemenu_match", "still_frame", "fps"]
+  "metrics": ["boot_stage", "disc_error", "frames", "boot_exe_match", "title_frame", "savemenu_match", "still_frame", "fps"]
 }

@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { build as buildPadEcho } from '../../../harness/fixtures/pad-echo.js';
 import { buildExpect } from '../../../harness/private-eval/eval/lib.js';
 import { loadExpect, summarize } from '../../../harness/private-eval/validate/validate.js';
-import { loadScenario, runScenario, ScenarioError } from '../../scenario.js';
+import { loadScenario, metricValues, runScenario, ScenarioError } from '../../scenario.js';
 import { buildIso, cueFor } from '../../synth/iso9660.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -128,7 +128,7 @@ test('a disc that is there but unusable fails at its boot stage, with metrics, i
   assert.equal(r.status, 'fail');
   assert.equal(r.stopped, true);
   assert.equal(r.metrics.boot_stage, 2);
-  assert.equal(r.metrics.disc_cue, 0);
+  assert.equal(r.metrics.disc_error, 7, 'no ISO9660 volume');
   assert.equal(r.metrics.frames, 0);
   assert.ok(r.assertions.every((a) => !a.pass));
 
@@ -139,18 +139,26 @@ test('a disc that is there but unusable fails at its boot stage, with metrics, i
   r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
   assert.equal(r.status, 'fail');
   assert.equal(r.metrics.boot_stage, 1);
-  assert.equal(r.metrics.disc_cue, 1);
+  assert.equal(r.metrics.disc_error, 5, 'the image the cue names is missing');
+  assert.equal(metricValues({ metrics: ['disc_cue'], memory: {} }, { frames: 0, failed: 0, runMs: 0, finalMem: new Map(), discCue: true }).disc_cue, 1);
 
   // A cue the reader can't parse (BOM-prefixed cues are fine, see the unit tests).
   writeFileSync(path.join(lone, 'disc-1.cue'), 'not a cue sheet\n');
   r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
-  assert.equal(r.metrics.boot_stage, 1);
+  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 2], 'no FILE line');
+  writeFileSync(path.join(lone, 'disc-1.cue'), 'FILE "disc-1.bin" BINARY\n');
+  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
+  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 3], 'no TRACK line');
+  writeFileSync(path.join(lone, 'disc-1.cue'), 'FILE "disc-1.bin" BINARY\n  TRACK 01 AUDIO\n');
+  r = await runScenario(sc, { disc: path.join(lone, 'disc.bin') });
+  assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_error], [1, 4], 'unsupported first track');
 
   // A full run reports stage 6.
   r = await runScenario(loadScenario(scenario({ probes: [], metrics: ['boot_stage', 'disc_cue', 'frames', 'boot_exe_match', 'code_frame', 'marker_frame'] }),
     { allowTier2: true }), { disc: path.join(discDir, 'disc.bin') });
   assert.equal(r.status, 'pass');
   assert.deepEqual([r.metrics.boot_stage, r.metrics.disc_cue, r.metrics.frames], [6, 1, 120]);
+  assert.equal(r.metrics.disc_error, undefined, 'only listed metrics are reported');
 });
 
 test('runner/tier2.js boots the cue next to --disc; the validator accepts the result', () => {

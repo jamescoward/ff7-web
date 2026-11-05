@@ -81,7 +81,7 @@
       "items": { "$ref": "#/$defs/probe" }
     },
     "metrics": {
-      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps, boot_stage, disc_cue; see runner/scenario.js), the name of a u8/u16/u32 memory location read at the end of the last frame, or the metric an assertion or probe names. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
+      "description": "Numbers to report, at most 8. Each key is a built-in metric (frames, failed_assertions, run_ms, fps, boot_stage, disc_cue, disc_error; see runner/scenario.js), the name of a u8/u16/u32 memory location read at the end of the last frame, or the metric an assertion or probe names. A Tier 2 run reports only these keys, and only as numbers (harness/schema/tier2-result.schema.json).",
       "type": "array",
       "maxItems": 8,
       "uniqueItems": true,

@@ -19,11 +19,26 @@ import path from 'node:path';
  * system), or "file" (a file on a readable disc).
  */
 export class DiscError extends Error {
-  constructor(message, step = 'file') {
+  constructor(message, step = 'file', reason = 0) {
     super(message);
     this.step = step;
+    this.reason = reason;
   }
 }
+
+/**
+ * Why opening a disc failed, as a number (DiscError.reason): a scenario
+ * can report it as the metric disc_error. 0 means no error.
+ */
+export const DISC_ERRORS = {
+  cue_read: 1, // the cue sheet can't be read, or is too large
+  cue_file: 2, // no FILE line
+  cue_track: 3, // no TRACK line after the FILE
+  cue_mode: 4, // the first track's mode is not supported
+  image_missing: 5, // the image the cue names is not next to it
+  image_read: 6, // the image can't be opened or read
+  volume: 7, // no ISO9660 file system
+};
 
 const SECTOR = 2048;
 const RAW = 2352;
@@ -55,9 +70,9 @@ export function parseCue(text) {
       mode = m[1].toUpperCase();
     }
   }
-  if (!file) throw new DiscError('cue sheet has no FILE line', 'cue');
-  if (!mode) throw new DiscError('cue sheet has no TRACK line', 'cue');
-  if (!MODES[mode]) throw new DiscError(`unsupported first track mode ${mode}`, 'cue');
+  if (!file) throw new DiscError('cue sheet has no FILE line', 'cue', DISC_ERRORS.cue_file);
+  if (!mode) throw new DiscError('cue sheet has no TRACK line', 'cue', DISC_ERRORS.cue_track);
+  if (!MODES[mode]) throw new DiscError(`unsupported first track mode ${mode}`, 'cue', DISC_ERRORS.cue_mode);
   return { file, mode };
 }
 
@@ -75,7 +90,7 @@ function sniffMode(fd, size) {
     if (pvd[0] === 0 && pvd[11] === 0) return pvd[15] === 1 ? 'MODE1/2352' : 'MODE2/2352';
   }
   if (size % SECTOR === 0) return 'MODE1/2048';
-  throw new DiscError('image size is not a whole number of 2048 or 2352 byte sectors', 'volume');
+  throw new DiscError('image size is not a whole number of 2048 or 2352 byte sectors', 'volume', DISC_ERRORS.volume);
 }
 
 /** Name compare key: upper case, version (";1") and a trailing dot removed. */
@@ -93,9 +108,9 @@ export function openDisc(file) {
     try {
       text = readFileSync(file);
     } catch (e) {
-      throw new DiscError(`cannot read the cue sheet (${e.code ?? 'error'})`, 'cue');
+      throw new DiscError(`cannot read the cue sheet (${e.code ?? 'error'})`, 'cue', DISC_ERRORS.cue_read);
     }
-    if (text.length > MAX_CUE_BYTES) throw new DiscError('cue sheet is too large', 'cue');
+    if (text.length > MAX_CUE_BYTES) throw new DiscError('cue sheet is too large', 'cue', DISC_ERRORS.cue_read);
     const cue = parseCue(text.toString('latin1'));
     // Only a file next to the cue: a cue can't point elsewhere.
     image = path.join(path.dirname(file), path.basename(cue.file.replace(/\\/g, '/')));
@@ -105,7 +120,8 @@ export function openDisc(file) {
   try {
     fd = openSync(image, 'r');
   } catch (e) {
-    throw new DiscError(`cannot open the disc image (${e.code ?? 'error'})`, 'image');
+    const reason = e.code === 'ENOENT' ? DISC_ERRORS.image_missing : DISC_ERRORS.image_read;
+    throw new DiscError(`cannot open the disc image (${e.code ?? 'error'})`, 'image', reason);
   }
   const size = fstatSync(fd).size;
   try {
@@ -113,7 +129,7 @@ export function openDisc(file) {
   } catch (e) {
     closeSync(fd);
     if (e instanceof DiscError) throw e;
-    throw new DiscError(`cannot read the disc image (${e.code ?? 'error'})`, 'image');
+    throw new DiscError(`cannot read the disc image (${e.code ?? 'error'})`, 'image', DISC_ERRORS.image_read);
   }
   const { size: sectorSize, offset } = MODES[mode];
   const sectors = Math.floor(size / sectorSize);
@@ -144,11 +160,11 @@ export function openDisc(file) {
     pvd = sector(16);
   } catch (e) {
     closeSync(fd);
-    throw new DiscError(e.message, 'volume');
+    throw new DiscError(e.message, 'volume', DISC_ERRORS.volume);
   }
   if (pvd[0] !== 1 || pvd.toString('latin1', 1, 6) !== 'CD001') {
     closeSync(fd);
-    throw new DiscError('no ISO9660 primary volume descriptor', 'volume');
+    throw new DiscError('no ISO9660 primary volume descriptor', 'volume', DISC_ERRORS.volume);
   }
   const root = { lba: pvd.readUInt32LE(156 + 2), size: pvd.readUInt32LE(156 + 10), dir: true };
 

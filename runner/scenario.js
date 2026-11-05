@@ -48,9 +48,10 @@ const SIZES = { u8: 1, u16: 2, u32: 4 };
  *   fps                frames per second of the frame loop (unthrottled), 3 decimals
  *   boot_stage         how far the run got (BOOT_STAGES); 6 = every frame ran
  *   disc_cue           1 when a disc boot used <name>.cue, else 0
+ *   disc_error         why the disc could not be opened (disc.js DISC_ERRORS), 0 if it opened
  * run_ms and fps vary between runs; the other metrics are deterministic.
  */
-export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_cue'];
+export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_cue', 'disc_error'];
 
 /**
  * Stages of a run, for boot_stage. A run that stops after stage 1 fails
@@ -312,8 +313,9 @@ function readBaseline(dir, name) {
 }
 
 /** The scenario's listed metrics, as numbers the Tier 2 validator accepts. */
-export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map(), stage = BOOT_STAGES.done, discCue = false }) {
+export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map(), stage = BOOT_STAGES.done, discCue = false, discError = 0 }) {
   const builtin = {
+    disc_error: discError,
     boot_stage: stage,
     disc_cue: discCue ? 1 : 0,
     frames,
@@ -366,6 +368,7 @@ export async function runScenario(sc, opts = {}) {
   let stage = BOOT_STAGES.found;
   let stopped = false;
   let framesRun = 0;
+  let discError = 0;
   const setStage = (n) => {
     stage = n;
   };
@@ -377,6 +380,7 @@ export async function runScenario(sc, opts = {}) {
       stage = BOOT_STAGES.checks;
     } catch (e) {
       if (!(e instanceof DiscError)) throw e;
+      discError = e.reason;
       stopped = true;
     }
   } else {
@@ -565,7 +569,7 @@ export async function runScenario(sc, opts = {}) {
     ...(unverified.length ? { unverified } : {}),
   };
   if (sc.metrics.length) {
-    result.metrics = metricValues(sc, { frames: framesRun, failed, runMs, finalMem, named, stage, discCue: disc?.image === 'cue' });
+    result.metrics = metricValues(sc, { frames: framesRun, failed, runMs, finalMem, named, stage, discCue: disc?.image === 'cue', discError });
   }
   if (opts.record) {
     result.record = {

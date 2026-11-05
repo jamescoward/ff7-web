@@ -1,0 +1,16 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "reactor-entrance-equals-scratch",
+  "description": "#74 Tier 2 acceptance, second link of the chain: start from the snapshot \"reactor-entrance\" that new-game-to-reactor-entrance kept earlier in this run (scenarios run in file name order), wait 2 s, and compare the end state (main RAM and picture, by hash inside the sandbox, reported only as 1/0) with the same script played (a) again from the snapshot (match_rerun) and (b) with no snapshot at all: a fresh power-on, the title boot point's presses, new-game-to-reactor-entrance's script and then this one, in one core instance (match_boot). snapshot_frames is the frames from power-on to reactor-entrance. If the snapshot was not kept, this scenario does not run and reports error (\"no snapshot\"). No FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": { "from": "reactor-entrance" },
+  "input": [
+    { "wait": { "frames": 120 } }
+  ],
+  "assert": [
+    { "sameState": "rerun", "metric": "match_rerun" },
+    { "sameState": "boot", "metric": "match_boot" }
+  ],
+  "metrics": ["match_boot", "match_rerun", "snapshot_frames", "frames", "saved_ms", "boot_stage", "run_ms", "fps"]
+}

@@ -1,6 +1,7 @@
-// Scenario format 2 (#37): start from a boot point (a snapshot) or
-// power-on, play an ordered script of presses and waits, then check memory
-// conditions and state equality. Original project code, GPL-2.0-or-later.
+// Scenario format 2 (#37, #74): start from a boot point (a snapshot), a
+// named snapshot an earlier scenario kept, or power-on; play an ordered
+// script of presses and waits; then check memory conditions and state
+// equality. Original project code, GPL-2.0-or-later.
 //
 // runner/scenario.js dispatches here on "format": 2; the format is
 // described in harness/README.md and harness/schema/scenario.schema.json.
@@ -9,6 +10,13 @@
 // metrics (numbers). States are compared by SHA-256 of main RAM and the
 // picture inside the run; no RAM, picture or hash is reported. Snapshots are
 // bytes in memory (backend.saveState); nothing here writes one to a file.
+//
+// Chains (#74): a scenario with "snapshot": NAME hands the state at the end
+// of its script to the caller (opts.onSnapshot), which keeps it in memory for
+// later scenarios in the same run with "boot": { "from": NAME }. Such a
+// scenario gets the snapshot and its chain: the scenarios that led to it,
+// root first, so that "boot" checks can replay the whole chain from
+// power-on with no snapshot at all.
 
 import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -34,10 +42,12 @@ import {
  *   run_ms, fps        wall time and unthrottled speed of the script's frame loop
  *   boot_stage         how far the run got (scenario.js BOOT_STAGES); 6 = the script ran
  *   disc_error         why the disc could not be opened (disc.js DISC_ERRORS), 0 if it opened
- *   snapshot_frames    T: the boot point's frame, where the script starts; 0 from power-on
- *                      or when the boot point was not reached
- *   saved_ms           wall time a restore saves over booting to the boot point:
- *                      boot_ms - restore_ms, whole milliseconds; 0 from power-on
+ *   snapshot_frames    frames from power-on to the start point: T of the boot point, or
+ *                      for a named snapshot T plus the frames of the chain's scripts;
+ *                      0 from power-on or when the boot point was not reached
+ *   saved_ms           wall time a restore saves over getting to the start point
+ *                      without it: boot_ms - restore_ms, whole milliseconds, at least 0;
+ *                      0 from power-on
  * run_ms, fps and saved_ms vary between runs; the others are deterministic.
  */
 export const BUILTIN_METRICS_2 = [
@@ -66,14 +76,27 @@ export function conditionHolds(cond, value) {
   return value >= cond.lo && value <= cond.hi;
 }
 
-/** Normalise script steps: [{ kind: 'press'|'wait'|'until', ... }]. */
+/** Normalise a wait's press; null if none. Throws ScenarioError. */
+function loadPress(p, where) {
+  if (!p) return null;
+  const hold = p.hold ?? 1;
+  if (hold >= p.every) throw new ScenarioError(`${where}: hold (${hold}) must be less than every (${p.every})`);
+  return { mask: padMask(p.buttons), port: p.port ?? 0, every: p.every, hold };
+}
+
+/** Normalise script steps: [{ kind: 'press'|'wait'|'until'|'still', ... }]. Segments are already expanded. */
 function loadScript(steps, memory, where, { allowUntil = true } = {}) {
   return steps.map((s, i) => {
     const w = `${where}[${i}]`;
     if (s.buttons) return { kind: 'press', mask: padMask(s.buttons), port: s.port ?? 0, frames: s.frames ?? 1 };
+    if (s.segment !== undefined) throw new ScenarioError(`${w}: segment "${s.segment}" was not expanded`);
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);
-    return { kind: 'until', cond: loadCondition(s.wait.until, memory, `${w}.wait.until`), timeout: s.wait.timeout, metric: s.metric, index: i };
+    const press = loadPress(s.wait.press, `${w}.wait.press`);
+    if ('stillFrames' in s.wait) {
+      return { kind: 'still', stillFrames: s.wait.stillFrames, timeout: s.wait.timeout, press, metric: s.metric, index: i };
+    }
+    return { kind: 'until', cond: loadCondition(s.wait.until, memory, `${w}.wait.until`), timeout: s.wait.timeout, press, metric: s.metric, index: i };
   });
 }
 
@@ -93,24 +116,50 @@ export function loadBootPoint(name, source, points = BOOT_POINTS) {
   };
 }
 
+/** Throw unless `name` can name a snapshot: not a boot point and not power-on. */
+function checkSnapshotName(name, where, points) {
+  if (name === POWER_ON) throw new ScenarioError(`${where}: "${POWER_ON}" can't name a snapshot`);
+  if (Object.hasOwn(points, name)) {
+    const src = points[name].source;
+    throw new ScenarioError(`${where}: "${name}" is a boot point, not a snapshot; start from it with { ${src.disc !== undefined ? `disc: ${src.disc}` : `fixture: "${src.fixture}"`}, from: "${name}" }`);
+  }
+}
+
 /**
  * Validate the parts of a format 2 scenario the schema can't express.
- * `doc` already matched the schema. Returns the normalised scenario.
+ * `doc` already matched the schema; `input` is its script with segments
+ * expanded (default doc.input). Returns the normalised scenario.
  */
-export function loadScenario2(doc, memory, { bootPoints } = {}) {
+export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
+  const points = bootPoints ?? BOOT_POINTS;
   const fail = (msg) => {
     throw new ScenarioError(msg);
   };
-  const source = doc.boot.disc !== undefined ? { disc: doc.boot.disc } : { fixture: doc.boot.fixture };
-  const bootPoint = loadBootPoint(doc.boot.from, source, bootPoints);
+  const named = doc.boot.disc === undefined && doc.boot.fixture === undefined;
+  let source = null;
+  let bootPoint = null;
+  let fromSnapshot = null;
+  if (named) {
+    checkSnapshotName(doc.boot.from, 'boot.from', points);
+    fromSnapshot = doc.boot.from;
+  } else {
+    source = doc.boot.disc !== undefined ? { disc: doc.boot.disc } : { fixture: doc.boot.fixture };
+    bootPoint = loadBootPoint(doc.boot.from, source, points);
+  }
+  const snapshotName = doc.snapshot ?? null;
+  if (snapshotName !== null) {
+    checkSnapshotName(snapshotName, 'snapshot', points);
+    if (snapshotName === fromSnapshot) fail(`snapshot: "${snapshotName}" is the snapshot this scenario starts from`);
+  }
+
   const declared = new Map(); // metric -> where
   const name = (metric, where) => {
     if (metric === undefined) return;
     if (declared.has(metric)) fail(`${where}: metric "${metric}" is already named by ${declared.get(metric)}`);
     declared.set(metric, where);
   };
-  const steps = loadScript(doc.input, memory, 'input');
-  steps.forEach((s) => s.kind === 'until' && name(s.metric, `input[${s.index}]`));
+  const steps = loadScript(input ?? doc.input, memory, 'input');
+  steps.forEach((s) => (s.kind === 'until' || s.kind === 'still') && name(s.metric, `input[${s.index}]`));
   const asserts = doc.assert.map((a, i) => {
     const where = `assert[${i}]`;
     name(a.metric, where);
@@ -123,10 +172,10 @@ export function loadScenario2(doc, memory, { bootPoints } = {}) {
     const where = `metrics[${i}]`;
     const builtin = BUILTIN_METRICS_2.includes(k);
     const loc = memory[k];
-    const named = declared.has(k);
+    const isNamed = declared.has(k);
     if (builtin && loc) fail(`${where}: "${k}" is both a built-in metric and a memory name`);
-    if (named && (builtin || loc)) fail(`${where}: "${k}" is named by ${declared.get(k)} and is also a ${builtin ? 'built-in metric' : 'memory name'}`);
-    if (!builtin && !loc && !named) {
+    if (isNamed && (builtin || loc)) fail(`${where}: "${k}" is named by ${declared.get(k)} and is also a ${builtin ? 'built-in metric' : 'memory name'}`);
+    if (!builtin && !loc && !isNamed) {
       fail(`${where}: "${k}" is neither a built-in metric (${BUILTIN_METRICS_2.join(', ')}), a memory name, nor a wait's or check's metric`);
     }
     if (loc && !NUMERIC.has(loc.type)) fail(`${where}: memory "${k}" has type bytes; a metric must be a number (u8, u16 or u32)`);
@@ -138,9 +187,11 @@ export function loadScenario2(doc, memory, { bootPoints } = {}) {
   return {
     format: 2,
     name: doc.name,
-    fixture: source.fixture ?? null,
-    disc: source.disc !== undefined ? `disc-${source.disc}` : null,
+    fixture: source?.fixture ?? null,
+    disc: source && source.disc !== undefined ? `disc-${source.disc}` : null,
     bootPoint,
+    fromSnapshot,
+    snapshotName,
     memory,
     steps,
     asserts,
@@ -155,6 +206,9 @@ class StopRun extends Error {
   }
 }
 
+/** The press a wait holds on its i-th frame (from 1): { mask, port }. */
+const pressAt = (press, i) => (press && (i - 1) % press.every < press.hold ? press : null);
+
 /**
  * Play script steps on a backend. Returns { frames, waits: Map(step -> frames waited, 0 = timed out), timedOut }.
  * A timed-out wait stops the script.
@@ -168,19 +222,47 @@ export function playScript(backend, steps, memory) {
     backend.stepFrame();
     frames += 1;
   };
+  const framePress = (press, i) => {
+    const p = pressAt(press, i);
+    frame(p ? p.mask : 0, p ? p.port : 0);
+  };
   for (const s of steps) {
     if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
       for (let i = 0; i < s.frames; i++) frame();
-    } else {
+    } else if (s.kind === 'until') {
       const loc = memory[s.cond.mem];
       let waited = 0;
       for (let i = 1; i <= s.timeout; i++) {
-        frame();
+        framePress(s.press, i);
         if (conditionHolds(s.cond, decode(loc, backend.readMem(loc.addr, loc.len)))) {
           waited = i;
           break;
+        }
+      }
+      waits.set(s, waited);
+      if (!waited) return { frames, waits, timedOut: true };
+    } else {
+      // still: the same picture, not one colour, for stillFrames frames in a row.
+      let waited = 0;
+      let last = null;
+      let start = 0;
+      let uniform = null; // whether `last` is one colour, once asked
+      for (let i = 1; i <= s.timeout; i++) {
+        framePress(s.press, i);
+        const h = backend.frameHash();
+        if (h !== last) {
+          last = h;
+          start = i;
+          uniform = null;
+        }
+        if (i - start + 1 >= s.stillFrames) {
+          if (uniform === null) uniform = backend.frameIsUniform();
+          if (!uniform) {
+            waited = i;
+            break;
+          }
         }
       }
       waits.set(s, waited);
@@ -245,14 +327,16 @@ function verifyBytes(bp, discFile, setStage) {
 }
 
 /**
- * Power on, play a boot point's script and check its verify. Returns
- * { backend, reached, bootMs }. The caller closes the backend.
+ * Power on, play a boot point's script and check its verify (bp null:
+ * power-on, nothing to play). Returns { backend, reached, bootMs }. The
+ * caller closes the backend.
  */
 async function bootThrough(bp, program, want, { verbose } = {}) {
   const t0 = performance.now();
   const backend = await createBackend({ verbose });
   try {
     backend.loadProgram(program);
+    if (bp === null) return { backend, reached: true, bootMs: performance.now() - t0 };
     playScript(backend, bp.steps, {});
     const reached = want === null || (want !== false && Buffer.from(backend.readMem(bp.verify.addr, bp.verify.len)).equals(want));
     return { backend, reached, bootMs: performance.now() - t0 };
@@ -305,18 +389,51 @@ export async function makeSnapshot(name, opts = {}) {
 }
 
 /**
+ * Check that `chain` (loaded scenarios, root first) leads to the snapshot
+ * `sc` starts from: the root starts from a boot point or power-on, each
+ * later one from the snapshot the one before kept, and the last keeps
+ * sc.fromSnapshot. Throws ScenarioError.
+ */
+export function checkChain(sc, chain) {
+  const bad = (why) => {
+    throw new ScenarioError(`snapshot "${sc.fromSnapshot}": ${why}`);
+  };
+  if (!Array.isArray(chain) || !chain.length) bad('no chain of scenarios that kept it');
+  if (chain[0].fromSnapshot !== null) bad(`the chain's first scenario "${chain[0].name}" starts from another snapshot`);
+  chain.forEach((c, i) => {
+    if (i > 0 && c.fromSnapshot !== chain[i - 1].snapshotName) bad(`"${c.name}" does not start from what "${chain[i - 1].name}" kept`);
+  });
+  if (chain.at(-1).snapshotName !== sc.fromSnapshot) bad(`the chain's last scenario "${chain.at(-1).name}" does not keep it`);
+}
+
+/**
  * Run a loaded format 2 scenario. Options:
  *   disc, fixturesDir, verbose  as for format 1
- *   snapshot   { bytes, frames, bootMs } from makeSnapshot for this boot
- *              point: restore it instead of booting (runner/tier2.js)
- *   fresh      boot through the boot point and play the script on, with no
- *              snapshot at all (for tests)
+ *   snapshot   for a boot point: { bytes, frames, bootMs } from makeSnapshot,
+ *              restored instead of booting (runner/tier2.js). For a named
+ *              snapshot (boot: { from: NAME }): { bytes, frames, bootMs,
+ *              chain }, where chain is the loaded scenarios that led to it,
+ *              root first (checkChain); required
+ *   fresh      boot through the boot point (and the chain's scripts) and
+ *              play the script on, with no snapshot at all (for tests)
+ *   onSnapshot called with { bytes, frames, bootMs } when the scenario keeps
+ *              a snapshot ("snapshot": NAME) and passes
  * Returns the result object (status pass or fail). Throws ScenarioError
- * ("no disc") before anything runs.
+ * ("no disc", or "no snapshot" for a named snapshot it was not given)
+ * before anything runs.
  */
 export async function runScenario2(sc, opts = {}) {
-  const src = await resolveSource({ fixture: sc.fixture, disc: sc.disc }, opts);
-  const bp = sc.bootPoint;
+  let chain = [];
+  if (sc.fromSnapshot !== null) {
+    if (!opts.snapshot) throw new ScenarioError(`no snapshot: "${sc.fromSnapshot}" was not kept by an earlier scenario in this run`);
+    chain = opts.snapshot.chain;
+    checkChain(sc, chain);
+  }
+  // Where the chain starts: its root's source and boot point.
+  const root = chain.length ? chain[0] : sc;
+  const src = await resolveSource({ fixture: root.fixture, disc: root.disc }, opts);
+  const bp = root.bootPoint;
+  const named = sc.fromSnapshot !== null;
   let stage = BOOT_STAGES.found;
   let discError = 0;
   let stopped = false;
@@ -326,6 +443,7 @@ export async function runScenario2(sc, opts = {}) {
   let run = null; // playScript result of the main run
   let runMs = 0;
   let digest = null;
+  let kept = null; // { bytes, frames, bootMs } at the end of the main run, for "snapshot"
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
   const actual = new Map(); // expect check -> value at the end of the script
@@ -354,6 +472,24 @@ export async function runScenario2(sc, opts = {}) {
     if (bytes) b.loadState(bytes);
     return { backend: b, ms: performance.now() - t0 };
   };
+  /**
+   * Get to the start point with no snapshot: boot through the boot point,
+   * then play the chain's scripts. Returns { backend, reached, ms, frames }.
+   */
+  const fromScratch = async (want) => {
+    const r = await bootThrough(bp, src.program, want, opts);
+    track(r.backend);
+    let reachedHere = r.reached;
+    let frames = bp ? bp.frames : 0;
+    const t0 = performance.now();
+    for (const c of chain) {
+      if (!reachedHere) break;
+      const p = playScript(r.backend, c.steps, c.memory);
+      frames += p.frames;
+      if (p.timedOut) reachedHere = false;
+    }
+    return { backend: r.backend, reached: reachedHere, ms: r.bootMs + (performance.now() - t0), frames };
+  };
 
   try {
     let want = null;
@@ -368,20 +504,26 @@ export async function runScenario2(sc, opts = {}) {
       throw new StopRun();
     }
 
-    let snapshot = null;
+    let snapshot = null; // what "rerun" restores
     let main;
+    let startMs = 0; // wall time to get to the start point without the snapshot used
     try {
-      if (bp === null) {
-        main = await restoreInto(null);
-      } else if (opts.fresh) {
-        const r = await bootThrough(bp, src.program, want, opts);
-        main = { backend: track(r.backend) };
+      if (opts.fresh) {
+        const r = await fromScratch(want);
+        main = { backend: r.backend };
         reached = r.reached;
-      } else if (opts.snapshot) {
+        snapshotFrames = r.frames;
+        startMs = r.ms;
+      } else if (named || (bp !== null && opts.snapshot)) {
         snapshot = opts.snapshot;
         main = await restoreInto(snapshot.bytes);
         reached = true;
-        savedMs = snapshot.bootMs - main.ms;
+        snapshotFrames = snapshot.frames;
+        startMs = snapshot.bootMs;
+        savedMs = Math.max(0, snapshot.bootMs - main.ms);
+      } else if (bp === null) {
+        main = await restoreInto(null);
+        startMs = main.ms;
       } else {
         const r = await bootThrough(bp, src.program, want, opts);
         track(r.backend);
@@ -390,7 +532,9 @@ export async function runScenario2(sc, opts = {}) {
           snapshot = { bytes: r.backend.saveState(), frames: bp.frames, bootMs: r.bootMs };
           release(r.backend);
           main = await restoreInto(snapshot.bytes);
-          savedMs = snapshot.bootMs - main.ms;
+          snapshotFrames = bp.frames;
+          startMs = snapshot.bootMs;
+          savedMs = Math.max(0, snapshot.bootMs - main.ms);
         } else {
           main = { backend: r.backend };
         }
@@ -401,13 +545,18 @@ export async function runScenario2(sc, opts = {}) {
       throw new StopRun();
     }
     stage = BOOT_STAGES.loaded;
-    if (!reached) throw new StopRun();
-    snapshotFrames = bp ? bp.frames : 0;
+    if (!reached) {
+      snapshotFrames = 0;
+      throw new StopRun();
+    }
 
     try {
       const p = play(main.backend);
       ({ run, digest } = p);
       runMs = p.ms;
+      if (sc.snapshotName !== null && !run.timedOut) {
+        kept = { bytes: main.backend.saveState(), frames: snapshotFrames + run.frames, bootMs: startMs + p.ms };
+      }
       for (const k of sc.metrics) {
         const loc = sc.memory[k];
         if (loc) finalMem.set(k, decode(loc, main.backend.readMem(loc.addr, loc.len)));
@@ -424,14 +573,17 @@ export async function runScenario2(sc, opts = {}) {
         if (a.kind !== 'sameState') continue;
         // rerun: the same kind of start as the main run; boot: no snapshot.
         let again;
-        if (bp === null) {
-          again = (await restoreInto(null)).backend;
-        } else if (a.how === 'rerun' && snapshot) {
+        let ok = true;
+        if (a.how === 'rerun' && snapshot) {
           again = (await restoreInto(snapshot.bytes)).backend;
+        } else if (bp === null && !named) {
+          again = (await restoreInto(null)).backend;
         } else {
-          again = track((await bootThrough(bp, src.program, want, opts)).backend);
+          const r = await fromScratch(want);
+          again = r.backend;
+          ok = r.reached;
         }
-        sameStates.set(a, play(again).digest === digest);
+        sameStates.set(a, ok && play(again).digest === digest);
         release(again);
       }
     } catch (e) {
@@ -460,15 +612,17 @@ export async function runScenario2(sc, opts = {}) {
     }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
+  const isWait = (s) => s.kind === 'until' || s.kind === 'still';
   const waits = sc.steps
-    .filter((s) => s.kind === 'until')
+    .filter(isWait)
     .map((s) => ({ step: s.index, frames: run?.waits.get(s) ?? 0, pass: (run?.waits.get(s) ?? 0) > 0 }));
   const failed = assertions.filter((a) => !a.pass).length + waits.filter((w) => !w.pass).length;
   const pass = failed === 0 && !stopped;
+  if (pass && kept && opts.onSnapshot) opts.onSnapshot(kept);
 
-  const named = new Map();
-  sc.steps.forEach((s) => s.kind === 'until' && s.metric !== undefined && named.set(s.metric, run?.waits.get(s) ?? 0));
-  sc.asserts.forEach((a, i) => a.metric !== undefined && named.set(a.metric, assertions[i].pass ? 1 : 0));
+  const namedMetrics = new Map();
+  sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
+  sc.asserts.forEach((a, i) => a.metric !== undefined && namedMetrics.set(a.metric, assertions[i].pass ? 1 : 0));
   const framesRun = run?.frames ?? 0;
   const builtin = {
     frames: framesRun,
@@ -483,22 +637,50 @@ export async function runScenario2(sc, opts = {}) {
 
   const build = readBuildInfo();
   const core = build && { pcsx_rearmed_commit: build.pcsx_rearmed_commit, emsdk_version: build.emsdk_version, wasm_sha256: build.wasm_sha256 };
+  const from = named
+    ? { snapshot: sc.fromSnapshot, chain: chain.map((c) => c.name), frames: snapshotFrames }
+    : bp ? { boot_point: bp.name, frames: bp.frames, reached } : { boot_point: 'power-on' };
   const result = {
     runner: 'ff7-web/scenario',
     format: 2,
     scenario: sc.name,
     status: pass ? 'pass' : 'fail',
     core,
-    ...(src.fixture ? { fixture: { name: src.fixture.name, sha256: src.fixture.sha256, licence: src.fixture.licence } } : { disc: { name: sc.disc } }),
-    from: bp ? { boot_point: bp.name, frames: bp.frames, reached } : { boot_point: 'power-on' },
+    ...(src.fixture ? { fixture: { name: src.fixture.name, sha256: src.fixture.sha256, licence: src.fixture.licence } } : { disc: { name: root.disc } }),
+    from,
     frames: framesRun,
     boot_stage: stage,
     ...(stopped ? { stopped: true } : {}),
     ...(waits.length ? { waits } : {}),
     assertions,
+    ...(sc.snapshotName !== null ? { snapshot: { name: sc.snapshotName, kept: Boolean(pass && kept) } } : {}),
   };
   if (sc.metrics.length) {
-    result.metrics = Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) ?? 0 : named.has(k) ? named.get(k) : builtin[k]]));
+    result.metrics = Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) ?? 0 : namedMetrics.has(k) ? namedMetrics.get(k) : builtin[k]]));
   }
   return result;
+}
+
+/**
+ * Run loaded scenarios in order in this process, keeping named snapshots in
+ * memory between them (as runner/tier2.js does across processes). A
+ * scenario from a snapshot that does not exist (yet) is not run: its entry
+ * is { scenario, status: 'error', error: 'no snapshot' }. Returns the
+ * results, in order. Snapshots are dropped when this returns.
+ */
+export async function runSequence(scenarios, opts = {}) {
+  const kept = new Map(); // name -> { bytes, frames, bootMs, chain }
+  const results = [];
+  for (const sc of scenarios) {
+    // Boot point scenarios boot their own boot point here.
+    const snapshot = sc.fromSnapshot !== null ? kept.get(sc.fromSnapshot) : undefined;
+    if (sc.fromSnapshot !== null && !snapshot) {
+      results.push({ scenario: sc.name, status: 'error', error: 'no snapshot' });
+      continue;
+    }
+    const chain = snapshot?.chain ?? [];
+    const onSnapshot = (s) => kept.set(sc.snapshotName, { ...s, chain: [...chain, sc] });
+    results.push(await runScenario2(sc, { ...opts, snapshot, onSnapshot }));
+  }
+  return results;
 }

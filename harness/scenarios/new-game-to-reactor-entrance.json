@@ -1,0 +1,17 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "new-game-to-reactor-entrance",
+  "description": "#74 Tier 2 acceptance, first link of the chain: from the title snapshot (boot point \"title\", T = 1250), New Game, then through the opening movie to the first controllable field, judged only by a game-agnostic check: a still, non-blank picture for 5 s while Circle is pressed every second (segments title-to-new-game and opening-to-reactor-entrance). still_wait is the frames that wait took (0 on a timeout); frames is the script's length, so the still picture was reached at frame T + frames. The end state is kept in memory as the snapshot \"reactor-entrance\" for the next scenario in this run. match: the same script, played again from the title snapshot in a new core instance, ends in the same state (main RAM and picture, compared by hash inside the sandbox, reported only as 1/0). No FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": { "disc": 1, "from": "title" },
+  "input": [
+    { "segment": "title-to-new-game" },
+    { "segment": "opening-to-reactor-entrance" }
+  ],
+  "assert": [
+    { "sameState": "rerun", "metric": "match" }
+  ],
+  "snapshot": "reactor-entrance",
+  "metrics": ["still_wait", "frames", "match", "snapshot_frames", "boot_stage", "disc_error", "run_ms", "fps"]
+}

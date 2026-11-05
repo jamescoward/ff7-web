@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "title-to-new-game",
+  "description": "From the title boot point (T = 1250): press Circle three times, one second apart, to pick the title menu's first entry (New Game; with no memory card it is where the cursor starts). Repeated so that a press made while the menu is still fading in does not matter; presses after New Game fall on the fade-out and the opening movie, which take no input. 240 frames. A hypothesis about the game's menu, judged only by what follows (#74); no FF7 address is used.",
+  "steps": [
+    { "wait": { "frames": 60 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 56 } }
+  ]
+}

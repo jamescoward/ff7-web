@@ -30,12 +30,14 @@ import { loadScenario2, runScenario2 } from './format2.js';
 import { ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { validate } from './schema.js';
+import { expandSegments, segmentsDirFor } from './segments.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HARNESS = path.resolve(HERE, '../harness');
 export const SCHEMA_PATH = path.join(HARNESS, 'schema/scenario.schema.json');
 export const DEFAULT_FIXTURES = path.join(HARNESS, 'fixtures');
 export const DEFAULT_BASELINES = path.join(HARNESS, 'baselines');
+export const DEFAULT_SEGMENTS = path.join(HARNESS, 'scenarios/segments');
 
 const SIZES = { u8: 1, u16: 2, u32: 4 };
 
@@ -103,9 +105,10 @@ export const fmtValue = (loc, v) => (loc.type === 'bytes' ? v : `0x${v.toString(
  * Validate a parsed scenario against the schema and the checks the schema
  * can't express. Returns the normalised scenario; throws ScenarioError.
  * Format 2 scenarios are checked by format2.js (`bootPoints` replaces the
- * boot point registry, for tests).
+ * boot point registry, for tests); their { segment } steps are expanded from
+ * `segmentsDir` (default harness/scenarios/segments) first (#74).
  */
-export function loadScenario(doc, { allowTier2 = false, bootPoints } = {}) {
+export function loadScenario(doc, { allowTier2 = false, bootPoints, segmentsDir = DEFAULT_SEGMENTS } = {}) {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
   const errors = validate(schema, doc);
   if (errors.length) throw new ScenarioError(`scenario does not match the schema:\n  ${errors.join('\n  ')}`);
@@ -135,7 +138,10 @@ export function loadScenario(doc, { allowTier2 = false, bootPoints } = {}) {
     }
     memory[name] = { ...loc, addr, len };
   }
-  if (doc.format === 2) return loadScenario2(doc, memory, { bootPoints });
+  if (doc.format === 2) {
+    const input = expandSegments(doc.input, { dir: segmentsDir, schema });
+    return loadScenario2(doc, memory, { bootPoints, input });
+  }
 
   const input = (doc.input ?? []).map((s, i) => {
     const to = s.to ?? s.from;
@@ -621,7 +627,7 @@ async function main() {
 
   let sc;
   try {
-    sc = loadScenario(JSON.parse(readFileSync(positionals[0], 'utf8')));
+    sc = loadScenario(JSON.parse(readFileSync(positionals[0], 'utf8')), { segmentsDir: segmentsDirFor(positionals[0]) });
   } catch (e) {
     console.error(`error: ${positionals[0]}: ${e.message}`);
     process.exit(2);

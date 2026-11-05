@@ -1,0 +1,16 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "diag-new-game-first-still",
+  "description": "#74 diagnostic, to be removed before merge: from the title snapshot, the title-to-new-game segment, then no input until the first 1 s still, non-blank picture (at most 20000 frames). first_still is the frames that wait took, 0 if none. A small value would mean New Game did not start (the title menu stayed on screen). Game-agnostic; no FF7 address is used.",
+  "tier": 2,
+  "boot": { "disc": 1, "from": "title" },
+  "input": [
+    { "segment": "title-to-new-game" },
+    { "wait": { "stillFrames": 60, "timeout": 20000 }, "metric": "first_still" }
+  ],
+  "assert": [
+    { "sameState": "rerun", "metric": "match" }
+  ],
+  "metrics": ["first_still", "frames", "match", "boot_stage", "run_ms", "fps"]
+}

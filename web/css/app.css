@@ -119,6 +119,7 @@ body {
   color: var(--fg);
 }
 .status[data-kind="error"] { color: var(--error); }
+.status:not([hidden]) { cursor: pointer; }
 
 /* Virtual gamepad */
 .pad {

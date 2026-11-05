@@ -9,6 +9,8 @@
 //                      (for a harness/baselines/ PR; this never writes files)
 //   --baselines DIR    baseline directory (default harness/baselines)
 //   --fixtures DIR     fixture directory (default harness/fixtures)
+//   --disc PATH        disc image for scenarios that boot a disc ("boot":
+//                      {"disc": ...}); see resolveDisc
 //   --verbose          forward core info logs to stderr
 //
 // Exit status: 0 pass, 1 fail, 2 invalid scenario or usage error.
@@ -23,6 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { createBackend } from './backend.js';
+import { DiscError, openDisc } from './disc.js';
 import { ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { validate } from './schema.js';
@@ -50,6 +53,7 @@ export const BUILTIN_METRICS = ['frames', 'failed_assertions', 'run_ms', 'fps'];
 export class ScenarioError extends Error {}
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+const sha1 = (buf) => createHash('sha1').update(buf).digest('hex');
 
 /** Little-endian unsigned value, or the hex bytes for type "bytes". */
 function decode(loc, bytes) {
@@ -120,8 +124,34 @@ export function loadScenario(doc, { allowTier2 = false } = {}) {
     return { from: s.from, to, port: s.port ?? 0, mask: padMask(s.buttons) };
   });
 
-  const asserts = (doc.assert ?? []).map((a, i) => {
-    const where = `assert[${i}]`;
+  const disc = doc.boot.disc ?? null;
+  const declared = new Map(); // metric name -> where
+  const check = (a, where) => {
+    const metric = a.metric;
+    if (metric !== undefined) {
+      if (declared.has(metric)) fail(`${where}: metric "${metric}" is already named by ${declared.get(metric)}`);
+      declared.set(metric, where);
+    }
+    if ('discFile' in a) {
+      if (!disc) fail(`${where}: discFile needs a disc boot`);
+      return { kind: 'discFile', path: a.discFile, sha1: a.sha1, metric };
+    }
+    if ('stillFrames' in a) {
+      inRun(a.within + a.stillFrames - 1, `${where} (within + stillFrames - 1)`);
+      return { kind: 'still', within: a.within, stillFrames: a.stillFrames, metric };
+    }
+    if ('within' in a) {
+      inRun(a.within, where);
+      const loc = memory[a.mem];
+      if (!loc) fail(`${where}: no memory location named "${a.mem}"`);
+      if ('equalsDiscFile' in a) {
+        if (!disc) fail(`${where}: equalsDiscFile needs a disc boot`);
+        if (loc.type !== 'bytes') fail(`${where}: equalsDiscFile needs a bytes location`);
+        const { path: file, offset } = a.equalsDiscFile;
+        return { kind: 'withinDisc', within: a.within, mem: a.mem, path: file, offset, metric };
+      }
+      return { kind: 'within', within: a.within, mem: a.mem, expected: expectedFor(loc, a.equals, where), metric };
+    }
     inRun(a.at, where);
     if ('mem' in a) {
       const loc = memory[a.mem];
@@ -132,6 +162,11 @@ export function loadScenario(doc, { allowTier2 = false } = {}) {
     inRun(other, where);
     if (other === a.at) fail(`${where}: compares frame ${a.at} with itself`);
     return { kind: 'frameHash', at: a.at, rel, other };
+  };
+  const asserts = (doc.assert ?? []).map((a, i) => check(a, `assert[${i}]`));
+  const probes = (doc.probes ?? []).map((p, i) => {
+    if (p.metric === undefined) fail(`probes[${i}]: a probe must name its metric`);
+    return check(p, `probes[${i}]`);
   });
   if (!asserts.length && !(doc.checkpoints ?? []).length) fail('scenario asserts nothing');
 
@@ -143,19 +178,28 @@ export function loadScenario(doc, { allowTier2 = false } = {}) {
     const where = `metrics[${i}]`;
     const builtin = BUILTIN_METRICS.includes(k);
     const loc = memory[k];
+    const named = declared.has(k);
     if (builtin && loc) fail(`${where}: "${k}" is both a built-in metric and a memory name`);
-    if (!builtin && !loc) fail(`${where}: "${k}" is neither a built-in metric (${BUILTIN_METRICS.join(', ')}) nor a memory name`);
+    if (named && (builtin || loc)) fail(`${where}: "${k}" is named by ${declared.get(k)} and is also a ${builtin ? 'built-in metric' : 'memory name'}`);
+    if (!builtin && !loc && !named) {
+      fail(`${where}: "${k}" is neither a built-in metric (${BUILTIN_METRICS.join(', ')}), a memory name, nor an assertion's or probe's metric`);
+    }
     if (loc && loc.type === 'bytes') fail(`${where}: memory "${k}" has type bytes; a metric must be a number (u8, u16 or u32)`);
   });
+  for (const [k, where] of declared) {
+    if (!metrics.includes(k)) fail(`${where}: metric "${k}" is not listed in metrics`);
+  }
 
   return {
     name: doc.name,
-    fixture: doc.boot.fixture,
+    fixture: doc.boot.fixture ?? null,
+    disc,
     frames,
     coreOptions: doc.coreOptions ?? {},
     memory,
     input,
     asserts,
+    probes,
     checkpoints,
     metrics,
   };
@@ -184,13 +228,74 @@ export async function resolveFixture(name, fixturesDir = DEFAULT_FIXTURES) {
   return { name, bytes, sha256: digest, licence: entry.licence };
 }
 
+/**
+ * The file a disc scenario boots, given the --disc image: <name>.cue next to
+ * it (the private eval mounts /disc/disc-1.cue and /disc/disc-1.bin), else
+ * <name>.bin there, else the image itself. Throws ScenarioError "no disc"
+ * when there is none; the message never holds a path.
+ */
+export function resolveDisc(name, discOpt) {
+  if (!discOpt) throw new ScenarioError('no disc: this scenario boots a disc; pass --disc');
+  const dir = path.dirname(path.resolve(discOpt));
+  for (const p of [path.join(dir, `${name}.cue`), path.join(dir, `${name}.bin`), path.resolve(discOpt)]) {
+    if (existsSync(p)) return { file: p, image: path.extname(p).toLowerCase() === '.cue' ? 'cue' : 'bin' };
+  }
+  throw new ScenarioError('no disc: the disc image does not exist');
+}
+
+/**
+ * Evaluate the disc file checks before boot, inside the run: returns
+ * Map(check -> pass) for discFile, Map(check -> bytes | null) for withinDisc.
+ * A file that is missing or unreadable fails its check; nothing about the
+ * file leaves except pass/fail.
+ */
+function discChecks(file, checks, memory) {
+  const passes = new Map();
+  const bytes = new Map();
+  const needed = checks.filter((c) => c.kind === 'discFile' || c.kind === 'withinDisc');
+  if (!needed.length) return { passes, bytes };
+  let disc;
+  try {
+    disc = openDisc(file);
+  } catch (e) {
+    if (e instanceof DiscError) throw new ScenarioError('no disc: the image has no readable ISO9660 file system');
+    throw e;
+  }
+  try {
+    const cache = new Map();
+    const read = (p) => {
+      const real = p.endsWith(':BOOT') ? disc.bootPath() : p;
+      if (!cache.has(real)) cache.set(real, disc.read(real));
+      return cache.get(real);
+    };
+    for (const c of needed) {
+      try {
+        if (c.kind === 'discFile') {
+          passes.set(c, sha1(read(c.path)) === c.sha1);
+        } else {
+          const len = memory[c.mem].len;
+          const data = read(c.path);
+          bytes.set(c, c.offset + len <= data.length ? Buffer.from(data.subarray(c.offset, c.offset + len)) : null);
+        }
+      } catch (e) {
+        if (!(e instanceof DiscError)) throw e;
+        if (c.kind === 'discFile') passes.set(c, false);
+        else bytes.set(c, null);
+      }
+    }
+  } finally {
+    disc.close();
+  }
+  return { passes, bytes };
+}
+
 function readBaseline(dir, name) {
   const p = path.join(dir, `${name}.json`);
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null;
 }
 
 /** The scenario's listed metrics, as numbers the Tier 2 validator accepts. */
-export function metricValues(sc, { frames, failed, runMs, finalMem }) {
+export function metricValues(sc, { frames, failed, runMs, finalMem, named = new Map() }) {
   const builtin = {
     frames,
     failed_assertions: failed,
@@ -198,13 +303,15 @@ export function metricValues(sc, { frames, failed, runMs, finalMem }) {
     // At most 3 decimals and below 1e6, as the validator (#34) requires.
     fps: runMs > 0 ? Math.min(Math.round((frames * 1e6) / runMs) / 1000, 999999) : 999999,
   };
-  return Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) : builtin[k]]));
+  return Object.fromEntries(sc.metrics.map((k) => [k, sc.memory[k] ? finalMem.get(k) : named.has(k) ? named.get(k) : builtin[k]]));
 }
 
 /** Run a loaded scenario. Returns the result object (status pass or fail). */
 export async function runScenario(sc, opts = {}) {
-  const fixture = await resolveFixture(sc.fixture, opts.fixturesDir);
+  const fixture = sc.fixture ? await resolveFixture(sc.fixture, opts.fixturesDir) : null;
+  const disc = sc.disc ? resolveDisc(sc.disc, opts.disc) : null;
   const baseline = readBaseline(opts.baselinesDir ?? DEFAULT_BASELINES, sc.name);
+  const checks = [...sc.asserts, ...sc.probes];
 
   const memAt = new Map(); // frame -> [assert]
   const hashFrames = new Set(sc.checkpoints);
@@ -212,15 +319,28 @@ export async function runScenario(sc, opts = {}) {
     if (a.kind === 'mem') {
       if (!memAt.has(a.at)) memAt.set(a.at, []);
       memAt.get(a.at).push(a);
-    } else {
+    } else if (a.kind === 'frameHash') {
       hashFrames.add(a.at);
       hashFrames.add(a.other);
     }
   }
+  // within checks: watched every frame until they hold or their frame passes.
+  const watches = checks.filter((c) => c.kind === 'within' || c.kind === 'withinDisc');
+  const stills = checks.filter((c) => c.kind === 'still');
+  const stillEnd = Math.max(0, ...stills.map((c) => c.within + c.stillFrames - 1));
+  const first = new Map(); // within/still check -> first frame (absent: never)
 
-  const dir = mkdtempSync(path.join(tmpdir(), 'ff7-scenario-'));
-  const exe = path.join(dir, `${fixture.name}.exe`);
-  writeFileSync(exe, fixture.bytes);
+  const { passes: discPass, bytes: discBytes } = disc ? discChecks(disc.file, checks, sc.memory) : { passes: new Map(), bytes: new Map() };
+
+  let dir = null;
+  let program;
+  if (fixture) {
+    dir = mkdtempSync(path.join(tmpdir(), 'ff7-scenario-'));
+    program = path.join(dir, `${fixture.name}.exe`);
+    writeFileSync(program, fixture.bytes);
+  } else {
+    program = disc.file;
+  }
   const backend = await createBackend({ coreOptions: sc.coreOptions, verbose: opts.verbose });
   const hashes = new Map();
   const actual = new Map(); // assert -> value
@@ -228,12 +348,42 @@ export async function runScenario(sc, opts = {}) {
   const finalMem = new Map(); // metric key -> value at the end of the last frame
   let runMs = 0;
   try {
-    backend.loadProgram(exe);
+    backend.loadProgram(program);
+    let runHash = null;
+    let runStart = 0;
+    const uniform = new Map(); // frame hash -> picture is one colour
     backend.onFrameEnd(({ frame }) => {
-      if (hashFrames.has(frame)) hashes.set(frame, backend.frameHash());
+      const needHash = hashFrames.has(frame) || frame <= stillEnd;
+      const h = needHash ? backend.frameHash() : null;
+      if (hashFrames.has(frame)) hashes.set(frame, h);
       for (const a of memAt.get(frame) ?? []) {
         const loc = sc.memory[a.mem];
         actual.set(a, decode(loc, backend.readMem(loc.addr, loc.len)));
+      }
+      for (const c of watches) {
+        if (first.has(c) || frame > c.within) continue;
+        const loc = sc.memory[c.mem];
+        const got = backend.readMem(loc.addr, loc.len);
+        let ok;
+        if (c.kind === 'within') {
+          ok = decode(loc, got) === c.expected;
+        } else {
+          const want = discBytes.get(c);
+          ok = want !== null && want !== undefined && Buffer.from(got).equals(want);
+        }
+        if (ok) first.set(c, frame);
+      }
+      if (frame <= stillEnd) {
+        if (h !== runHash) {
+          runHash = h;
+          runStart = frame;
+        }
+        const len = frame - runStart + 1;
+        for (const c of stills) {
+          if (first.has(c) || len !== c.stillFrames || runStart > c.within) continue;
+          if (!uniform.has(h)) uniform.set(h, backend.frameIsUniform());
+          if (!uniform.get(h)) first.set(c, runStart);
+        }
       }
       if (frame === sc.frames) {
         for (const k of metricMem) finalMem.set(k, decode(sc.memory[k], backend.readMem(sc.memory[k].addr, sc.memory[k].len)));
@@ -250,7 +400,7 @@ export async function runScenario(sc, opts = {}) {
     runMs = performance.now() - t0;
   } finally {
     backend.close();
-    rmSync(dir, { recursive: true, force: true });
+    if (dir) rmSync(dir, { recursive: true, force: true });
   }
   const build = backend.buildInfo();
   const core = build && {
@@ -259,21 +409,44 @@ export async function runScenario(sc, opts = {}) {
     wasm_sha256: build.wasm_sha256,
   };
 
-  const assertions = sc.asserts.map((a) => {
-    if (a.kind === 'mem') {
-      const loc = sc.memory[a.mem];
-      const got = actual.get(a);
-      return {
-        at: a.at,
-        mem: a.mem,
-        expected: fmtValue(loc, a.expected),
-        actual: fmtValue(loc, got),
-        pass: got === a.expected,
-      };
+  // What a check reports. Disc checks report pass/fail and frame numbers
+  // only, never disc bytes or hashes.
+  const report = (a) => {
+    switch (a.kind) {
+      case 'mem': {
+        const loc = sc.memory[a.mem];
+        const got = actual.get(a);
+        return {
+          at: a.at,
+          mem: a.mem,
+          expected: fmtValue(loc, a.expected),
+          actual: fmtValue(loc, got),
+          pass: got === a.expected,
+        };
+      }
+      case 'frameHash': {
+        const same = hashes.get(a.at) === hashes.get(a.other);
+        return { at: a.at, frameHash: { [a.rel]: a.other }, pass: a.rel === 'sameAs' ? same : !same };
+      }
+      case 'discFile':
+        return { discFile: a.path, pass: discPass.get(a) === true };
+      case 'within':
+        return { within: a.within, mem: a.mem, expected: fmtValue(sc.memory[a.mem], a.expected), firstFrame: first.get(a) ?? 0, pass: first.has(a) };
+      case 'withinDisc':
+        return { within: a.within, mem: a.mem, equalsDiscFile: { path: a.path, offset: a.offset }, firstFrame: first.get(a) ?? 0, pass: first.has(a) };
+      case 'still':
+        return { within: a.within, stillFrames: a.stillFrames, firstFrame: first.get(a) ?? 0, pass: first.has(a) };
+      default:
+        throw new Error(`unknown check ${a.kind}`);
     }
-    const same = hashes.get(a.at) === hashes.get(a.other);
-    return { at: a.at, frameHash: { [a.rel]: a.other }, pass: a.rel === 'sameAs' ? same : !same };
-  });
+  };
+  const assertions = sc.asserts.map(report);
+  const probes = sc.probes.map((p) => ({ ...report(p), metric: p.metric }));
+  const named = new Map();
+  for (const c of checks) {
+    if (c.metric === undefined) continue;
+    named.set(c.metric, c.kind === 'discFile' ? (discPass.get(c) ? 1 : 0) : first.get(c) ?? 0);
+  }
 
   const unverified = [];
   let checkpoints = sc.checkpoints.map((frame) => ({ frame, hash: hashes.get(frame) }));
@@ -294,25 +467,29 @@ export async function runScenario(sc, opts = {}) {
 
   const failed = assertions.filter((a) => !a.pass).length + checkpoints.filter((c) => c.pass === false).length;
   const pass = failed === 0;
+  const source = fixture
+    ? { fixture: { name: fixture.name, sha256: fixture.sha256, licence: fixture.licence } }
+    : { disc: { name: sc.disc, image: disc.image } };
   const result = {
     runner: 'ff7-web/scenario',
     format: 1,
     scenario: sc.name,
     status: pass ? 'pass' : 'fail',
     core,
-    fixture: { name: fixture.name, sha256: fixture.sha256, licence: fixture.licence },
+    ...source,
     frames: sc.frames,
     assertions,
+    ...(probes.length ? { probes } : {}),
     ...(checkpoints.length ? { checkpoints } : {}),
     ...(unverified.length ? { unverified } : {}),
   };
-  if (sc.metrics.length) result.metrics = metricValues(sc, { frames: sc.frames, failed, runMs, finalMem });
+  if (sc.metrics.length) result.metrics = metricValues(sc, { frames: sc.frames, failed, runMs, finalMem, named });
   if (opts.record) {
     result.record = {
       format: 1,
       scenario: sc.name,
       core,
-      fixture: { name: fixture.name, sha256: fixture.sha256 },
+      ...(fixture ? { fixture: { name: fixture.name, sha256: fixture.sha256 } } : { disc: { name: sc.disc } }),
       checkpoints: Object.fromEntries(checkpoints.map((c) => [String(c.frame), c.hash])),
     };
   }
@@ -320,7 +497,7 @@ export async function runScenario(sc, opts = {}) {
 }
 
 async function main() {
-  const usage = 'usage: node runner/scenario.js [--record] [--baselines DIR] [--fixtures DIR] [--verbose] <scenario.json>';
+  const usage = 'usage: node runner/scenario.js [--record] [--baselines DIR] [--fixtures DIR] [--disc PATH] [--verbose] <scenario.json>';
   let values;
   let positionals;
   try {
@@ -331,6 +508,7 @@ async function main() {
         record: { type: 'boolean', default: false },
         baselines: { type: 'string' },
         fixtures: { type: 'string' },
+        disc: { type: 'string' },
         verbose: { type: 'boolean', default: false },
       },
     }));
@@ -352,6 +530,7 @@ async function main() {
       record: values.record,
       baselinesDir: values.baselines,
       fixturesDir: values.fixtures,
+      disc: values.disc,
       verbose: values.verbose,
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

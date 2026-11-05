@@ -30,8 +30,9 @@
 // and "name" equal to the file name. A file the builder would reject stops
 // the eval before this program runs, so here it is skipped.
 //
-// --disc is required by the contract and passed on to scenarios; format 1
-// scenarios boot fixtures, so nothing reads it yet (disc boot is #36).
+// --disc is required by the contract and passed on to scenarios. A scenario
+// with "boot": {"disc": "disc-1"} boots /disc/disc-1.cue when it is there
+// (#36; scenario.js resolveDisc); fixture scenarios ignore it.
 //
 // Exit status: 0 results written (or no tier 2 scenarios), 1 the results
 // could not be written, 2 usage error.
@@ -167,11 +168,11 @@ export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, bas
 }
 
 /** The child: run one scenario and print { status, metrics } as one line. */
-async function runOne(file, { fixtures, baselines }) {
+async function runOne(file, { disc, fixtures, baselines }) {
   let line;
   try {
     const sc = loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true });
-    const result = await runScenario(sc, { fixturesDir: fixtures ?? DEFAULT_FIXTURES, baselinesDir: baselines ?? DEFAULT_BASELINES });
+    const result = await runScenario(sc, { disc, fixturesDir: fixtures ?? DEFAULT_FIXTURES, baselinesDir: baselines ?? DEFAULT_BASELINES });
     line = { status: result.status, ...(result.metrics ? { metrics: result.metrics } : {}) };
   } catch {
     // An invalid scenario or a runtime failure: report error, never the message.

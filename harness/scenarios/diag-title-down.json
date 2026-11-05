@@ -1,0 +1,40 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "diag-title-down",
+  "description": "#74 attempt 2 diagnostic, removed before merge. From the title boot point (no card): Down every 30 frames until a 60-frame still picture. still 60: Down changed nothing; above 60: the picture changed, then stood still; 0: it kept changing for 600 frames. Game-agnostic; no FF7 address is used.",
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "from": "title"
+  },
+  "input": [
+    {
+      "wait": {
+        "stillFrames": 60,
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "down"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "still"
+    }
+  ],
+  "assert": [
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "still",
+    "frames",
+    "match",
+    "boot_stage",
+    "fps"
+  ]
+}

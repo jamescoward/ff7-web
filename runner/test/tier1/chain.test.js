@@ -169,6 +169,17 @@ describe('chain equals scratch (pad-echo, in process)', () => {
     assert.deepEqual(b, { scenario: 'chain-b', status: 'error', error: 'no snapshot' });
   });
 
+  test('a chain rooted in a boot point with a blank card: every instance gets the card, and chain equals scratch', async () => {
+    const withCard = (d) => ({ ...d, boot: { fixture: 'pad-echo', from: 'pad-echo-ready-card' } });
+    const [a, b, c] = await runSequence([load(withCard(docA())), load(docB()), load(withCard(docC()))]);
+    for (const r of [a, b, c]) assert.equal(r.status, 'pass', JSON.stringify(r));
+    assert.equal(b.metrics.match_boot, 1);
+    assert.deepEqual(pick(b.metrics, MEM_METRICS), pick(c.metrics, MEM_METRICS));
+    // pad-echo never reads the card, so the results equal the run with no card.
+    const [, bNoCard] = await runSequence([load(docA()), load(docB())]);
+    assert.deepEqual(pick(b.metrics, MEM_METRICS), pick(bNoCard.metrics, MEM_METRICS));
+  });
+
   test('order decides what exists: B before A reports "no snapshot"', async () => {
     const [b, a] = await runSequence([load(docB()), load(docA())]);
     assert.deepEqual(b, { scenario: 'chain-b', status: 'error', error: 'no snapshot' });

@@ -1,0 +1,41 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "diag-title-1min",
+  "description": "#74 attempt 2 diagnostic, removed before merge. From the title boot point (no card): title-to-new-game, 60 s of no input, then the frames until a 60-frame still picture (60: still at once; 0: it kept changing for 600 frames, as a movie would). Game-agnostic; no FF7 address is used.",
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "from": "title"
+  },
+  "input": [
+    {
+      "segment": "title-to-new-game"
+    },
+    {
+      "wait": {
+        "frames": 3600
+      }
+    },
+    {
+      "wait": {
+        "stillFrames": 60,
+        "timeout": 600
+      },
+      "metric": "still"
+    }
+  ],
+  "assert": [
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "still",
+    "frames",
+    "match",
+    "boot_stage",
+    "fps"
+  ]
+}

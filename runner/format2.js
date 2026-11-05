@@ -29,6 +29,7 @@ import { BOOT_POINTS, POWER_ON, scriptFrames } from './bootpoints.js';
 import { DiscError, openDisc } from './disc.js';
 import { RAM_SIZE } from './memmap.js';
 import { padMask } from './pad.js';
+import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
 import {
   BOOT_STAGES, ScenarioError, decode, expectedFor, fmtValue, readBuildInfo, resolveDisc, resolveFixture,
@@ -108,12 +109,27 @@ export function loadBootPoint(name, source, points = BOOT_POINTS) {
   const same = bp.source.disc !== undefined ? source.disc === bp.source.disc : source.fixture === bp.source.fixture;
   if (!same) throw new ScenarioError(`boot.from: boot point "${name}" boots ${JSON.stringify(bp.source)}, not ${JSON.stringify(source)}`);
   const verify = bp.verify ?? null;
+  if (bp.card !== undefined && bp.card !== 'blank') throw new ScenarioError(`boot point "${name}": card must be "blank"`);
   return {
     name,
     steps: loadScript(bp.script, {}, `bootpoints.${name}.script`, { allowUntil: false }),
     frames: scriptFrames(bp.script),
     verify: verify && { addr: verify.addr, len: verify.len, equals: verify.equals ?? null, equalsDiscFile: verify.equalsDiscFile ?? null },
+    card: bp.card ?? null,
   };
+}
+
+/**
+ * A new core instance for a start point: with a blank, formatted memory card
+ * in slot 1 when the (root) boot point has card "blank". Save states do not
+ * hold the card (notes/31-card-and-snapshots.md), so every instance that
+ * restores such a snapshot gets the same blank card first.
+ */
+async function newBackend(bp, { verbose } = {}) {
+  const card = bp?.card === 'blank';
+  const b = await createBackend({ verbose, memoryCard: card });
+  if (card) b.setCard(blankCard());
+  return b;
 }
 
 /** Throw unless `name` can name a snapshot: not a boot point and not power-on. */
@@ -333,7 +349,7 @@ function verifyBytes(bp, discFile, setStage) {
  */
 async function bootThrough(bp, program, want, { verbose } = {}) {
   const t0 = performance.now();
-  const backend = await createBackend({ verbose });
+  const backend = await newBackend(bp, { verbose });
   try {
     backend.loadProgram(program);
     if (bp === null) return { backend, reached: true, bootMs: performance.now() - t0 };
@@ -467,7 +483,7 @@ export async function runScenario2(sc, opts = {}) {
   /** A backend at the start point (power-on or boot point), plus the snapshot used. */
   const restoreInto = async (bytes) => {
     const t0 = performance.now();
-    const b = track(await createBackend({ verbose: opts.verbose }));
+    const b = track(await newBackend(bp, { verbose: opts.verbose }));
     b.loadProgram(src.program);
     if (bytes) b.loadState(bytes);
     return { backend: b, ms: performance.now() - t0 };

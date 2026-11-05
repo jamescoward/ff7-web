@@ -32,4 +32,21 @@ Status (2026-11-05): Tier 1 passes locally. Tier 2 attempt 1 is on CI. Results a
 - `diag-new-game-first-still` (temporary, removed before merge): New Game, then no input until the first 1 s still picture. If the value is small, New Game did not start.
 
 ## Results
-(Filled in after each Tier 2 run.)
+
+### Attempt 1 (`072ddb3`, tier2 check: 5 pass, 1 fail)
+| scenario | status | metrics |
+|---|---|---|
+| diag-new-game-first-still | pass | first_still 60, frames 300, match 1 |
+| new-game-to-reactor-entrance | pass | still_wait **300**, frames 540, match 1, snapshot_frames 1250, fps 1833 |
+| reactor-entrance-equals-scratch | **fail** | match_rerun 1, **match_boot 0**, snapshot_frames 1790, saved_ms 3783 |
+| disc-boot-smoke, title-determinism, title-snapshot-equals-boot | pass | unchanged (title_frame 1231; match 1) |
+
+Reading:
+- **The chain did not reach a field.** still_wait 300 is the minimum: the picture was already still at T + 241 and stayed still for 5 s while Circle was pressed 5 times. The diagnostic agrees: no input after the New Game presses, and a still picture at once. So from T + 241 to T + 540, a static screen ignored Circle. It is either the title menu ignoring input, or a still movie frame (an empty starfield is possible). The scenario "passed" only because the check is weak, so attempt 1 does **not** count as reaching reactor-entrance.
+- **Restoring at T + 540 is not the same as running on.** The run from the kept snapshot ended in the same state twice (match_rerun 1), but not in the state of the chain replayed from power-on (match_boot 0). The same comparison at the title snapshot passes (title-snapshot-equals-boot). On Tier 1 the chain logic gives match_boot 1 (pad-echo), so the difference is in what a restore at that point brings back, not in the replay order. Not explained yet.
+
+### Attempt 2 (materially different: a memory card, and a one-minute lead)
+The browser build, which the owner used to play the disc on the iPhone, always has a memory card in slot 1 (`web/js/backend.js` sets `pcsx_rearmed_memcard1`). The headless runner has had none. Hypothesis: with no card, the game (or the HLE BIOS card code) sits on the title. Changes:
+- boot point `title-card`: `title` plus a blank formatted card (`runner/synth/blank-card.js`, original code), given to every core instance of the chain, because states don't hold the card;
+- `new-game-to-reactor-entrance` starts from `title-card`. After the New Game presses it presses Circle every second for one more minute (segment `circle-every-second-1min`), so a late-responding title menu still gets New Game, and only then waits for the 5 s still picture;
+- diagnostics (removed before merge): `diag-title-down` / `diag-title-card-down` (does Down change the picture at the title, without and with a card?), `diag-title-1min` / `diag-title-card-1min` (60 s after New Game: still or moving?), `diag-chain-title-a`/`-b` (chain vs scratch at the title, where restores are known good), and `reactor-entrance-one-frame` (does a restore at reactor-entrance differ after a single frame?).

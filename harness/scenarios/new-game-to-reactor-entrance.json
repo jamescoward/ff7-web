@@ -2,11 +2,12 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "name": "new-game-to-reactor-entrance",
-  "description": "#74 Tier 2 acceptance, first link of the chain: from the title snapshot (boot point \"title\", T = 1250), New Game, then through the opening movie to the first controllable field, judged only by a game-agnostic check: a still, non-blank picture for 5 s while Circle is pressed every second (segments title-to-new-game and opening-to-reactor-entrance). still_wait is the frames that wait took (0 on a timeout); frames is the script's length, so the still picture was reached at frame T + frames. The end state is kept in memory as the snapshot \"reactor-entrance\" for the next scenario in this run. match: the same script, played again from the title snapshot in a new core instance, ends in the same state (main RAM and picture, compared by hash inside the sandbox, reported only as 1/0). No FF7 address is used or claimed.",
+  "description": "#74 Tier 2 acceptance, first link of the chain: from the title snapshot with a blank memory card (boot point \"title-card\", T = 1250), New Game (segment title-to-new-game), Circle every second for one more minute so that a late title menu still gets New Game (circle-every-second-1min), then through the opening movie to the first controllable field, judged only by a game-agnostic check: a still, non-blank picture for 5 s while Circle is pressed every second (opening-to-reactor-entrance). still_wait is the frames that last wait took (0 on a timeout); frames is the script's length, so the still picture was reached at frame T + frames. The end state is kept in memory as the snapshot \"reactor-entrance\" for later scenarios in this run. match: the same script, played again from the title snapshot in a new core instance, ends in the same state (main RAM and picture, compared by hash inside the sandbox, reported only as 1/0). No FF7 address is used or claimed.",
   "tier": 2,
-  "boot": { "disc": 1, "from": "title" },
+  "boot": { "disc": 1, "from": "title-card" },
   "input": [
     { "segment": "title-to-new-game" },
+    { "segment": "circle-every-second-1min" },
     { "segment": "opening-to-reactor-entrance" }
   ],
   "assert": [

@@ -19,12 +19,17 @@
 //           { path, offset } } (the bytes are compared inside the run and
 //           never reported). If it fails, scenarios from this boot point
 //           fail at boot_stage 5.
+//   card    optional "blank": a blank, formatted memory card in slot 1 from
+//           power-on (runner/synth/blank-card.js, original code; held in
+//           core memory, never a file). Snapshots don't hold the card, so
+//           every scenario from this boot point, or from a chain rooted
+//           in it, gets the same blank card (#74).
 //   note    provenance.
 //
 // "power-on" is reserved: no boot point, the scenario starts at power-on.
 //
-// Issue #74 extends this with chained boot points (a boot point that starts
-// from another) and named input segments; both fit the same script steps.
+// Chains of named snapshots (#74) start from a boot point and continue
+// through scenarios' scripts; see runner/format2.js.
 
 /** Steps that hold `buttons` for `hold` frames every `every` frames, from frame `first`, `count` times. */
 function repeatPress({ first, every, hold, count, buttons }) {
@@ -65,6 +70,18 @@ export const BOOT_POINTS = Object.freeze({
     verify: { addr: 0x801d2b58, len: 4096, equalsDiscFile: { path: 'MENU/SAVEMENU.MNU', offset: 0x2b58 } },
     note: 'FF7 disc 1, title screen; #36 press script, T = 1250',
   }),
+  // The same, with a blank formatted memory card in slot 1, as the browser
+  // build always has (web/js/backend.js sets pcsx_rearmed_memcard1). #74
+  // found that with no card the picture stays still after T and ignores
+  // Circle; this tests whether a card changes that (hypothesis). Same
+  // script, T and verify as "title".
+  'title-card': Object.freeze({
+    source: { disc: 1 },
+    card: 'blank',
+    script: TITLE_SCRIPT,
+    verify: { addr: 0x801d2b58, len: 4096, equalsDiscFile: { path: 'MENU/SAVEMENU.MNU', offset: 0x2b58 } },
+    note: 'FF7 disc 1, title screen with a blank memory card; #36 press script, T = 1250',
+  }),
   // Homebrew boot point for Tier 1 tests and the format 2 example: pad-echo
   // after 30 frames, having seen Cross held on frames 10-20.
   'pad-echo-ready': Object.freeze({
@@ -73,6 +90,14 @@ export const BOOT_POINTS = Object.freeze({
     // "PADE": the program has started (harness/fixtures/pad-echo.js MARKER).
     verify: { addr: 0x800f0004, len: 4, equals: '50414445' },
     note: 'pad-echo homebrew, frame 30 (Tier 1)',
+  }),
+  // The same with a blank card in slot 1, for Tier 1 tests of the card path.
+  'pad-echo-ready-card': Object.freeze({
+    source: { fixture: 'pad-echo' },
+    card: 'blank',
+    script: [{ wait: { frames: 9 } }, { buttons: ['cross'], frames: 11 }, { wait: { frames: 10 } }],
+    verify: { addr: 0x800f0004, len: 4, equals: '50414445' },
+    note: 'pad-echo homebrew with a blank memory card, frame 30 (Tier 1)',
   }),
 });
 

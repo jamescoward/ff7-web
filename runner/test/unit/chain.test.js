@@ -8,7 +8,7 @@ import path from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { checkChain, playScript, runScenario2 } from '../../format2.js';
+import { checkChain, loadBootPoint, playScript, runScenario2 } from '../../format2.js';
 import { padMask } from '../../pad.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, ScenarioError, loadScenario } from '../../scenario.js';
@@ -146,6 +146,13 @@ describe('loader: named snapshots', () => {
     });
   }
 
+  test('boot point card: only "blank"', () => {
+    assert.equal(loadBootPoint('title-card', { disc: 1 }).card, 'blank');
+    assert.equal(loadBootPoint('title', { disc: 1 }).card, null);
+    const points = { odd: { source: { fixture: 'pad-echo' }, card: 'full', script: [{ wait: { frames: 1 } }] } };
+    assert.throws(() => loadBootPoint('odd', { fixture: 'pad-echo' }, points), /card must be "blank"/);
+  });
+
   test('a snapshot that is the one the scenario starts from', () => {
     const d = docB();
     d.snapshot = 'pe-a';
@@ -241,15 +248,17 @@ describe('segments', () => {
     }
   });
 
-  test('the committed chain: the scenario that keeps reactor-entrance comes first in the run, and both load', () => {
+  test('committed chains: every named snapshot used is kept by an earlier scenario in the run, and all load', () => {
     const found = findTier2Scenarios(SCENARIOS);
+    const where = JSON.stringify(found.map((s) => [s.name, s.after, s.snapshot]));
     const keep = found.findIndex((s) => s.snapshot === 'reactor-entrance');
-    const use = found.findIndex((s) => s.after === 'reactor-entrance');
-    assert.ok(keep >= 0 && use > keep, JSON.stringify(found.map((s) => [s.name, s.after, s.snapshot])));
-    for (const s of [found[keep], found[use]]) {
+    assert.ok(keep >= 0, where);
+    assert.match(found[keep].from, /^title/);
+    assert.ok(found.some((s) => s.after === 'reactor-entrance'), where);
+    found.forEach((s, i) => {
+      if (s.after) assert.ok(found.slice(0, i).some((k) => k.snapshot === s.after), `${s.name}: ${where}`);
       assert.doesNotThrow(() => loadScenario(JSON.parse(readFileSync(s.file, 'utf8')), { allowTier2: true }), s.name);
-    }
-    assert.equal(found[keep].from, 'title');
+    });
   });
 });
 

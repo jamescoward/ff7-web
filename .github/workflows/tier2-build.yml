@@ -1,0 +1,94 @@
+# Tier 2, untrusted half (issue #35; docs/AUTOMATION.md, Tier 2;
+# docs/SECURITY.md, trust boundary).
+#
+# Runs the PR's own code with a read-only token and no secrets, so nothing
+# here is trusted:
+# - private-eval-tests: the Tier 1 tests of the trusted side (sandbox attack
+#   tests, validator, eval) on GitHub's runner, with Docker required
+#   (SANDBOX_REQUIRE=1). This is also how the sandbox gets checked on
+#   ubuntu-24.04 (cgroup v2, seccomp, AppArmor) before it carries the disc.
+# - build: same-repo PRs only. Builds the pinned core and the runner, and
+#   uploads them with harness/ (scenarios, fixtures, schema, saves) as the
+#   `tier2-build` artifact.
+#
+# When this workflow succeeds for a PR, tier2-eval.yml (always the copy on
+# main) runs the artifact in the sandbox next to the disc. No game data is
+# involved here, and the artifact never holds any.
+
+name: tier2-build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tier2-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  private-eval-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Build core and runner (the sandbox's scenario test needs them)
+        run: |
+          core/build.sh
+          runner/build.sh
+      - name: Sandbox, validator and eval tests (Docker required)
+        env:
+          SANDBOX_REQUIRE: '1'
+        run: >-
+          node --test
+          harness/private-eval/sandbox/test/sandbox.test.js
+          harness/private-eval/validate/test/validate.test.js
+          harness/private-eval/eval/test/eval.test.js
+          harness/private-eval/eval/test/workflows.test.js
+
+  build:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Build core (pinned upstream and emsdk)
+        run: core/build.sh
+      - name: Build runner
+        run: runner/build.sh
+      - name: Assemble the build
+        run: |
+          out="$RUNNER_TEMP/tier2-build"
+          mkdir "$out" "$out/harness"
+          cp -r runner "$out/runner"
+          rm -rf "$out/runner/test"
+          for d in scenarios fixtures schema saves baselines; do
+            [ -d "harness/$d" ] && cp -r "harness/$d" "$out/harness/$d"
+          done
+          find "$out" -type l -delete
+      - name: Asset guard on the build
+        run: node tools/asset-guard/check.js --root "$RUNNER_TEMP/tier2-build" --walk --max-binary-bytes 2097152
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tier2-build
+          path: ${{ runner.temp }}/tier2-build
+          if-no-files-found: error
+          retention-days: 1

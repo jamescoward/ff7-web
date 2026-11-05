@@ -40,6 +40,34 @@ const dockerTest = (name, opts, fn) => test(name, { ...opts, skip: missing ? `sk
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
+/**
+ * Read a file from a sandbox output directory the way trusted code does
+ * (#34's validator): /out is 0700 and owned by the sandbox uid, so a
+ * non-root host user (GitHub's runner) reads it through sudo.
+ */
+function readOut(file) {
+  if (process.getuid() === 0) return readFileSync(file, 'utf8');
+  const r = spawnSync('sudo', ['-n', 'cat', '--', file], { encoding: 'utf8', maxBuffer: 1 << 24 });
+  if (r.status !== 0) throw new Error(`cannot read ${file}`);
+  return r.stdout;
+}
+
+/** Whether a path exists in an output directory, checked as root (existsSync is false on EACCES too). */
+function outExists(file) {
+  if (process.getuid() === 0) return existsSync(file);
+  const r = spawnSync('sudo', ['-n', 'test', '-e', file]);
+  if (r.status !== 0 && r.status !== 1) throw new Error(`cannot check ${file}`);
+  return r.status === 0;
+}
+
+/** Try to write a file in an output directory as root; returns the error text, or null if it worked. */
+function writeOutAsRoot(file) {
+  const cmd = ['sh', '-c', 'echo x > "$1"', 'sh', file];
+  const r = process.getuid() === 0 ? spawnSync(cmd[0], cmd.slice(1), { encoding: 'utf8' })
+    : spawnSync('sudo', ['-n', ...cmd], { encoding: 'utf8' });
+  return r.status === 0 ? null : r.stderr;
+}
+
 // One scratch area for the whole file; the disc is world-writable on the
 // host, so only the read-only mount can stop a write to it.
 const SCRATCH = mkdtempSync(path.join(os.tmpdir(), 'ff7-sandbox-test-'));
@@ -55,7 +83,7 @@ async function inSandbox(command, limits = {}, work = HOSTILE) {
   const file = path.join(out, 'result.json');
   let result = null;
   try {
-    result = JSON.parse(readFileSync(file, 'utf8'));
+    result = JSON.parse(readOut(file));
   } catch {
     /* no or partial result */
   }
@@ -223,8 +251,8 @@ dockerTest('after the run: a detached child cannot write later, and /out is read
   assert.equal(report.exit_code, 0);
   assert.equal(result.child, true);
   await new Promise((r) => setTimeout(r, 3000));
-  assert.ok(!existsSync(path.join(out, 'late.txt')), 'the late write landed');
-  assert.throws(() => writeFileSync(path.join(out, 'host.txt'), 'x'), /EROFS/);
+  assert.ok(!outExists(path.join(out, 'late.txt')), 'the late write landed');
+  assert.match(writeOutAsRoot(path.join(out, 'host.txt')) ?? 'written', /Read-only file system/);
 });
 
 dockerTest("the program's stdout and stderr never reach the sandbox's own output", { timeout: 60000 }, () => {
@@ -257,5 +285,5 @@ dockerTest('a normal Tier 1 scenario gives byte-identical output inside and outs
   const { report, out } = await inSandbox(['sh', '-c', `node runner/scenario.js ${scenario} > /out/result.json`], { timeoutS: 240 }, work);
   assert.equal(report.exit_code, 0);
   assert.deepEqual(report.limits_hit, []);
-  assert.equal(readFileSync(path.join(out, 'result.json'), 'utf8'), outside.stdout);
+  assert.equal(readOut(path.join(out, 'result.json')), outside.stdout);
 });

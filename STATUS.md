@@ -19,11 +19,11 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M1.5 (private eval)** was filed as #31–#40 (reasoning in `notes/m1.5-issue-drafts.md`) and **rescoped on 2026-11-04** (`notes/m1.5-rescope.md`, owner-approved). It ends when the disc boot smoke test (#36) passes.
 - **Done:** #31 (card slot + snapshots), #32 (save generator; its checksum and some header fields are hypotheses for #38), #33 (sandbox and attack tests: the stop condition is met), #34 (validator), #39 (reviewer subagent: merging needs a PASS marker comment on the head commit), #40 (CI benchmark tests), #43 (pad-echo baseline).
-- **Ready, needs the owner:** #35 (Tier 2 workflows). The R2 secrets are in an environment, and the PR touches protected paths.
+- **In review, needs the owner:** #35 (Tier 2 workflows), PR #54. It touches protected paths. After it merges: a throwaway bootstrap PR confirms a red `tier2` check. The in-sandbox entry point `runner/tier2.js` is #55 (blocked on #35; #36 needs it).
 - **Blocked:** #36, on #35.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), blocked on #36; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents** (#35 needs the owner's review anyway): #50 (flaky WebKit audio test), then #23 (drag-to-walk) and #24 (border crop).
+**Next for agents** (while #54 waits for the owner): #23 (drag-to-walk), then #24 (border crop). #50 (flaky WebKit audio test) is done (#53).
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

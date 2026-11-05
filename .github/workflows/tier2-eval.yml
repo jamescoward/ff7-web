@@ -1,0 +1,198 @@
+# Tier 2, trusted half (issue #35; docs/AUTOMATION.md, Tier 2;
+# docs/SECURITY.md, trust boundary).
+#
+# `workflow_run` always runs this file as it is on main, so a PR can't
+# change it. Thin by design: every decision is in
+# harness/private-eval/eval/ (trusted, owner-reviewed, Tier 1 tested).
+#
+# - gate: no secrets. Only a successful tier2-build run for a same-repo PR,
+#   by people with write access, with exactly one `tier2-build` artifact
+#   under the size cap, goes on. Forks never do.
+# - inspect: no secrets. Downloads the PR's artifact into a fresh empty
+#   directory and checks it (runner/ and harness/ at the top, regular files
+#   only, size caps, execute bits cleared; nothing from it runs on the
+#   host). Re-uploads the checked tree as `tier2-checked`, with its digest.
+#   The untrusted archive is only ever unpacked here.
+# - eval: environment `tier2-private` (deployment branches: main only; it
+#   holds the read-only R2 token). Downloads the checked tree, which trusted
+#   code packed, and requires the same digest. Reads the tier 2 scenario
+#   names, fetches the disc only if there is a scenario to run, runs the
+#   build in the sandbox (#33), validates the output (#34), and posts the
+#   `tier2` check run. The log holds only the summary. The disc is deleted
+#   at the end, even on failure; it never goes into the Actions cache or
+#   artifacts.
+#
+# workflow_dispatch re-runs the check for an open PR (input: its number),
+# for example after a fix to this side merges. It only works from main: the
+# environment's secrets aren't available to any other ref.
+
+name: tier2-eval
+
+on:
+  workflow_run:
+    workflows: [tier2-build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to re-check
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: tier2-eval-${{ github.event.workflow_run.head_sha || inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      build_run_id: ${{ steps.gate.outputs.build_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Gate
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TIER2_PR: ${{ inputs.pr }}
+        run: node harness/private-eval/eval/tier2.js gate
+
+  inspect:
+    # Unpacks the untrusted archive. No environment, so no secrets: the job's
+    # secrets are handed to the runner when the job starts, and code that
+    # escaped an archive could read them from memory. Passes on only a tree
+    # it checked, re-uploaded by trusted code, plus that tree's digest.
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      digest: ${{ steps.work.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Prepare empty directories
+        run: node harness/private-eval/eval/tier2.js prepare --root "$RUNNER_TEMP/tier2"
+      - name: Download the build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tier2-build
+          run-id: ${{ needs.gate.outputs.build_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/tier2/work
+      - name: Check the build
+        id: work
+        run: node harness/private-eval/eval/tier2.js check-work --root "$RUNNER_TEMP/tier2"
+      # Defence in depth against a crafted archive writing outside its
+      # directory: the trusted checkout must be exactly as fetched.
+      - name: Trusted checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Pass on the checked build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tier2-checked
+          path: ${{ runner.temp }}/tier2/work
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+      - name: Delete the build
+        if: always()
+        run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"
+
+  eval:
+    needs: [gate, inspect]
+    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: tier2-private
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Start the tier2 check
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: node harness/private-eval/eval/tier2.js check-start --sha "$HEAD_SHA"
+      - name: Prepare empty directories
+        run: |
+          echo "T2=$RUNNER_TEMP/tier2" >> "$GITHUB_ENV"
+          node harness/private-eval/eval/tier2.js prepare --root "$RUNNER_TEMP/tier2"
+      - name: Record a rejected build
+        if: needs.inspect.result != 'success'
+        run: node harness/private-eval/eval/tier2.js record-error --root "$T2" --code artifact-rejected
+      - name: Download the checked build
+        if: needs.inspect.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tier2-checked
+          path: ${{ runner.temp }}/tier2/work
+      - name: Check it is the inspected build, and list its tier 2 scenarios
+        id: work
+        if: needs.inspect.result == 'success'
+        env:
+          DIGEST: ${{ needs.inspect.outputs.digest }}
+        run: node harness/private-eval/eval/tier2.js check-work --root "$T2" --digest "$DIGEST"
+      - name: Trusted checkout unchanged
+        id: clean
+        if: steps.work.outcome == 'success'
+        run: test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Fetch the disc
+        if: steps.clean.outcome == 'success' && steps.work.outputs.scenarios != '0'
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_EC2_METADATA_DISABLED: 'true'
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          aws s3 cp "s3://ff7-web-assets/disc-1.bin" "$T2/disc/disc.part" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors --no-progress
+          chmod 0644 "$T2/disc/disc.part"
+          mv "$T2/disc/disc.part" "$T2/disc/disc.bin"
+      - name: Run in the sandbox and validate
+        if: always() && steps.work.outcome == 'success' && steps.clean.outcome == 'success'
+        run: node harness/private-eval/eval/tier2.js evaluate --root "$T2"
+      - name: Finish the tier2 check
+        if: always() && steps.check.outputs.check_id != ''
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CHECK_ID: ${{ steps.check.outputs.check_id }}
+        run: node harness/private-eval/eval/tier2.js check-finish --id "$CHECK_ID" --root "$RUNNER_TEMP/tier2"
+      - name: Delete the disc and the build
+        if: always()
+        run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"

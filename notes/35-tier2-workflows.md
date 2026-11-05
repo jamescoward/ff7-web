@@ -25,7 +25,7 @@ Two workflows and one trusted script. PR code meets the disc only inside the san
    3. **Trusted checkout unchanged**: `git status` must be clean. This is defence in depth against an archive that writes outside its directory.
    4. Re-uploads the checked tree as `tier2-checked` (`include-hidden-files: true`, kept for 1 day). Trusted code builds that zip from a tree of regular files only.
    5. Deletes the tree (`if: always()`).
-4. **tier2-eval / eval** (environment `tier2-private`, `checks: write`). It runs whenever the gate said run, even if `inspect` failed, so the check is always completed.
+4. **tier2-eval / eval** (environment `tier2-private`, `checks: write`). It runs whenever the gate said run, even if `inspect` failed, so the check is always completed. A cancelled workflow (`!cancelled()`) posts nothing.
    1. Creates the `tier2` check run (in progress) on the PR head.
    2. `prepare`. If `inspect` failed, `record-error` writes an `artifact-rejected` summary, and every later step up to `check-finish` is skipped.
    3. Downloads `tier2-checked` from this run. `check-work --digest` checks the tree again and requires the digest from `inspect`, then reads the tier 2 scenarios into `expect.json`.
@@ -35,7 +35,9 @@ Two workflows and one trusted script. PR code meets the disc only inside the san
    7. `check-finish` completes the check: `success` for `pass` and `no-scenarios`, otherwise `failure`. A missing summary is `failure` (`internal`).
    8. **Delete the disc and the build** (`if: always()`) releases the mount and removes `$RUNNER_TEMP/tier2`.
 
-**Why `inspect` is a separate job (reviewer, round 1).** A job's referenced secrets reach the runner when the job starts; that is how they are masked in every step's log. With passwordless sudo, code running in any step of that job could read them from the runner's memory. So the untrusted zip is unpacked only in a job with no environment. The job holding the token unpacks only a zip that trusted code packed, and checks that its digest matches.
+**Why `inspect` is a separate job (reviewer, round 1).** A job's referenced secrets reach the runner when the job starts; that is how they are masked in every step's log. With passwordless sudo, code running in any step of that job could read them from the runner's memory. So the PR's zip is unpacked only in a job with no environment. Normally, the job holding the token then unpacks only a zip that trusted code in `inspect` packed, and checks that its digest matches.
+
+**Limit (reviewer, round 2).** `inspect` produces both the re-uploaded tree and its digest. If a crafted archive got code execution in `inspect`, it could forge both. The eval job would then unzip an attacker-chosen zip before the digest check runs. So the eval job still relies on `download-artifact`'s path-traversal protection, as `inspect` does. The split stops a *non-executing* archive problem from reaching the job with the token, and adds a second check of the tree. It is not a full isolation boundary.
 
 ## Contracts this PR fixes for later issues
 
@@ -77,7 +79,11 @@ This was reproduced here as a non-root user with passwordless sudo and Docker ac
 - `existsSync(late.txt)` was false on `EACCES` too, so as non-root the "late write never lands" check passed whatever happened. It now checks as root (`outExists`);
 - the "host write gets EROFS" check writes as root (`writeOutAsRoot`), because as non-root it got `EACCES` first.
 
-After the fix: 48 pass as non-root (sandbox + eval), and 14 pass as root (sandbox), with 1 skipped in each run (no local runner build).
+After the fix, the local runs were:
+- as non-root, the full private-eval suite: 90 pass, and 1 fails (`SANDBOX_REQUIRE=1` with no local runner build);
+- as root: 90 pass, 1 skipped.
+
+**On GitHub** (`tier2-build / private-eval-tests`, run 41989553707, at `d1ffee3`), with `SANDBOX_REQUIRE=1`: **91 pass, 0 fail, 0 skipped**, including the pad-echo scenario test. That covers the cgroup v2 runner check asked for in `notes/33-sandbox.md`.
 
 ## Not verified (needs GitHub)
 
@@ -90,7 +96,7 @@ After the fix: 48 pass as non-root (sandbox + eval), and 14 pass as root (sandbo
 
 ## Residual risks
 
-- **Artifact unpacking.** `download-artifact` unpacks a zip that PR code controls. Path traversal was fixed in v4.1.7; this pins v8.0.2. That happens only in `inspect`, which holds no secrets and no disc. Afterwards the trusted checkout must be unchanged and the tree must hold only regular files. A crafted archive that escaped there could at most affect that one runner, whose output the eval job re-checks by digest.
+- **Artifact unpacking.** `download-artifact` unpacks a zip that PR code controls. Path traversal was fixed in v4.1.7; this pins v8.0.2. That happens only in `inspect`, which holds no secrets and no disc. Afterwards the trusted checkout must be unchanged and the tree must hold only regular files. An archive that escaped there and gained code execution could forge both `tier2-checked` and its digest (see "Limit" above). The job holding the token would then depend on `download-artifact`'s own protection for that zip.
 - **Secrets within the eval job.** Every step of the eval job could read the token from the runner's memory (with sudo), not only the disc step. What runs there is trusted code from `main`, `aws`, Docker, and the sandboxed build; the sandbox gets no environment and no network.
 - **Leaks through the summary.** As accepted in #34 (≈8.6 kbit per run, numbers and statuses only).
 - **Dispatch from a branch.** A same-repo branch can carry an edited `tier2-eval.yml` and dispatch it. The environment's `main`-only rule is what keeps the secrets out of reach (owner-confirmed, 2026-11-04).

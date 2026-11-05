@@ -124,7 +124,7 @@ jobs:
 
   eval:
     needs: [gate, inspect]
-    if: always() && needs.gate.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: tier2-private

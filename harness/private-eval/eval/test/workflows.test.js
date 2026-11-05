@@ -85,7 +85,7 @@ test('eval: secrets appear only in the disc step, which runs only in the main-on
   const ev = job(evalWf, 'eval');
   assert.ok(!gate.includes('secrets.') && !gate.includes('environment:'), 'the gate holds no secrets');
   assert.match(ev, /environment: tier2-private/);
-  assert.match(ev, /if: always\(\) && needs\.gate\.outputs\.run == 'true'\n/);
+  assert.match(ev, /if: \$\{\{ !cancelled\(\) && needs\.gate\.outputs\.run == 'true' \}\}\n/);
   assert.match(ev, /needs: \[gate, inspect\]/);
 });
 

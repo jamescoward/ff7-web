@@ -2,7 +2,7 @@
 // discs built here from the documented layouts. No core, no game data.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -64,15 +64,33 @@ const image = () => ram([
 ]);
 
 describe('address table', () => {
-  test('the shipped table is valid, applies to the USA executable, and confirms nothing yet', () => {
+  test('the shipped table is valid, applies to the USA executable, and confirms only what a committed Tier 2 scenario checks', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
+    // #76 confirmed these; everything else is still a hypothesis.
+    const confirmed = ['gameState', 'prevGameState', 'movieFrame'];
+    const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+    const tier2 = (file) => {
+      const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
+      assert.equal(doc.tier, 2, file);
+      return doc;
+    };
     for (const e of ADDRESS_TABLE.entries) {
-      assert.equal(e.status, 'hypothesis', e.name);
+      assert.equal(e.status, confirmed.includes(e.name) ? 'confirmed' : 'hypothesis', e.name);
       assert.equal(e.exe, EXE_USA_SHA1, e.name);
       assert.ok(e.source.length > 10, `${e.name} has a source`);
+      if (e.status !== 'confirmed') continue;
+      // The scenario exists, is tier 2, and reads this entry's address.
+      const files = [e.scenario, ...Object.values(e.confirmedValues ?? {})];
+      for (const f of files) {
+        const doc = tier2(f);
+        const addrs = Object.values(doc.memory ?? {}).map((m) => Number(m.addr));
+        assert.ok(addrs.includes(e.address), `${e.name}: ${f} reads 0x${e.address.toString(16)}`);
+      }
+      for (const raw of Object.keys(e.confirmedValues ?? {})) assert.ok(raw in e.values, `${e.name}: confirmed value ${raw} has a label`);
     }
+    assert.deepEqual(Object.keys(ADDRESS_TABLE.entries.find((e) => e.name === 'gameState').confirmedValues), ['1', '2', '5']);
     const state = ADDRESS_TABLE.entries.find((e) => e.name === 'gameState');
     assert.equal(state.address, 0x8009c560);
     assert.equal(state.type, 's16');
@@ -152,10 +170,10 @@ describe('readers on a synthetic memory image', () => {
     assert.deepEqual(await layer.mode(), { value: null, confirmed: false, reason: 'read failed' });
   });
 
-  test('the shipped table: mode reads its hypothesis; the rest answer "no address"', async () => {
+  test('the shipped table: mode reads its confirmed address; the rest answer "no address"', async () => {
     const b = ram([[0x8009c560, 's16', 1], [0x800965ec, 's16', 5]]);
     const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
-    assert.deepEqual(await layer.mode(), { value: { mode: 'field', raw: 1, previous: 'menu' }, confirmed: false });
+    assert.deepEqual(await layer.mode(), { value: { mode: 'field', raw: 1, previous: 'menu' }, confirmed: true });
     for (const name of ['fieldId', 'playerPosition', 'menuCursor', 'party']) {
       assert.deepEqual(await layer[name](), { value: null, confirmed: false, reason: 'no address' }, name);
     }

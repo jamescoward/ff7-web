@@ -1,0 +1,66 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "movie-2-playing",
+  "description": "#76: movie, playing. From movie-start, 10 s of Circle every second (ignored by the movie). Stframe_no must have advanced to between 30 and 400 (3 to 40 movie frames a second; a PS1 movie streams at 15): movie_ok. g_GameState still reads field (mode_ok). fps is the unthrottled speed, low while the core decodes the movie. match: a rerun from the same snapshot. Keeps \"movie-playing\".",
+  "tier": 2,
+  "boot": {
+    "from": "movie-start"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16, read as u16): field 1, battle 2, menu 5. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "prev_state": {
+      "addr": "0x800965ec",
+      "type": "u16",
+      "description": "g_PrevGameState (s16, read as u16): the mode before. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "movie_frame": {
+      "addr": "0x80071740",
+      "type": "u32",
+      "description": "Stframe_no, the streaming library's movie frame number: advances while a movie plays, holds its last value after (#76). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "segment": "circle-every-second-10s"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "movie_frame",
+        "in": [
+          30,
+          400
+        ]
+      },
+      "metric": "movie_ok"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      },
+      "metric": "mode_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "snapshot": "movie-playing",
+  "metrics": [
+    "movie_ok",
+    "mode_ok",
+    "match",
+    "game_state",
+    "movie_frame",
+    "snapshot_frames",
+    "frames",
+    "fps"
+  ]
+}

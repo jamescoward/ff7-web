@@ -1,0 +1,81 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "movie-3-end",
+  "description": "#76: movie, its end. From movie-playing, Circle every second until Stframe_no reaches the opening's last frame number (1790, measured on Tier 2): movie_end is the first frame it does. Then 5 s more, and it must still read 1790 (stopped_ok: the counter holds, no movie plays) with g_GameState field (mode_ok). match: a rerun from the same snapshot.",
+  "tier": 2,
+  "boot": {
+    "from": "movie-playing"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16, read as u16): field 1, battle 2, menu 5. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "prev_state": {
+      "addr": "0x800965ec",
+      "type": "u16",
+      "description": "g_PrevGameState (s16, read as u16): the mode before. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "movie_frame": {
+      "addr": "0x80071740",
+      "type": "u32",
+      "description": "Stframe_no, the streaming library's movie frame number: advances while a movie plays, holds its last value after (#76). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "movie_frame",
+          "equals": 1790
+        },
+        "timeout": 9000,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "movie_end"
+    },
+    {
+      "wait": {
+        "frames": 300
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "movie_frame",
+        "equals": 1790
+      },
+      "metric": "stopped_ok"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      },
+      "metric": "mode_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "movie_end",
+    "stopped_ok",
+    "mode_ok",
+    "match",
+    "game_state",
+    "movie_frame",
+    "snapshot_frames",
+    "frames"
+  ]
+}

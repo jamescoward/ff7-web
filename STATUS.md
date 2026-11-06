@@ -4,11 +4,32 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
-**M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** This replaces the order given under "Next for agents" below. **Done:** #37 (format 2: title boot point T = 1250, a shared in-memory snapshot, ordered scripts with `wait.until`; PR #84; `notes/37-format2.md`) and #75 (semantic layer, address table with provenance, hash gate; PR #83; `notes/75-semantic-layer.md`). Runner code must import only from inside `runner/`: the Tier 2 build and the sandbox ship only `runner/` and `harness/` (that is why the shared disc reader is `runner/iso9660.js`). **In flight:** #74 (chained snapshots and input segments, PR #85); #79 (debug overlay, PR #86, `needs-owner-device`: the iPhone checklist is on the PR). Then #76 (mode) → #77 (field ID, position) and #78 (cursor, party) → #38 (generated saves) → #80 (world map, minigame) → #81 (M2 exit). #24 and #25 become ready for M3 when #81 is done.
+**M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-06.
 
-**#74 (chained snapshots, segments)** merged (PR #85). The chain title → New Game → `reactor-entrance` (frame 11095) is deterministic on reruns. A restored mid-run snapshot is not identical to running on: #88.
+**Next for agents, in this order** (each is `status:ready`; take the oldest first, per `docs/CONTINUITY.md`):
+1. **#77**: confirm field ID and player position in Tier 2. It unblocks #38. Start from the `reactor-entrance` chain (`notes/74-chained-snapshots.md`, `notes/76-confirm-mode.md`).
+2. **#78**: confirm menu cursor and party (including party HP). It is independent of #77 and can run in parallel.
+3. **#92** (light, `model:sonnet` candidate): `mode()` honours per-value confirmation (world 3 is still a hypothesis) and reports movies from `movieFrame`.
+4. **#93** (light, Tier 3): the debug overlay covers the game's own menu text. Batch its iPhone check with the next request.
 
-**#76 (game mode) in PR #89; Tier 2 passes.** `gameState` is confirmed for field 1, menu 5 and battle 2, observed along a chain from `reactor-entrance`: menu open and close, the first guard battle (walk up), and back to the field. `prevGameState` is confirmed. The movie case is the new `movieFrame` entry (Stframe_no 0x80071740): `gameState` reads field during movies, and the counter advances while one plays. `g_MovieLock` was rejected. The transition frames are the same in three runs. Caveat: #88. `layer.js` doesn't yet use per-value confirmation or `movieFrame` (follow-up). See `notes/76-confirm-mode.md`.
+Then **#38** (boot from a generated save; blocked on #77) → **#80** (world map, minigame) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
+
+**Done in M2:**
+- **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
+- **#75** (PR #83): the semantic layer (`semantic/`), the address table with provenance, and the USA boot-executable hash gate.
+- **#74** (PR #85): named snapshots, `boot.from`, input segments and still-picture waits. The chain title → New Game → `reactor-entrance` (frame 11095) is deterministic.
+- **#76** (PR #89): `gameState` is confirmed for field 1, menu 5 and battle 2, and `prevGameState` is confirmed. Movies are detected by the new confirmed `movieFrame` entry (Stframe_no), because `gameState` reads field during a movie.
+- **#88** (PR #91, owner-merged): a snapshot restored mid-run now equals running on, at title + 60 and at `reactor-entrance`. The cause was root-counter phase and the CPU cycle fraction not round-tripping. It is fixed in `core/patches/0002-savestate-round-trip.patch`. Tier 2 metrics `same_ram`/`same_cpu`/… compare save-state parts.
+- **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
+
+**Things a new agent must know:**
+- Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
+- The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
+- Limits: 32 scenarios per run and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+
+**Needs the owner:**
+- **PR #94** (#90, `needs-owner`, `.github/`): run the `web` CI job in the pinned Playwright image. A slow Ubuntu mirror cancelled `web` twice during the apt install.
+- **The pad-echo baseline:** #91 changed `core.wasm` (`bd639924…`), so `harness/baselines/pad-echo-buttons.json` reports "recorded with a different core build". Its hashes still match. Re-recording it is a separate `needs-owner` PR (`harness/baselines/`).
 
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 
@@ -28,11 +49,11 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **#35 (Tier 2 workflows):** merged in #54. The owner closed it (2026-11-05) after the bootstrap passed (evidence on #35 and #55).
 - **Tier 2 works end to end on GitHub** (2026-11-05). The throwaway bootstrap PR #58 gave a red `tier2` check. The only output from the sandboxed run in its log was the validator's summary; the other lines were the trusted steps' fixed words. The gate, the artifact round trip, the R2 fetch of `disc-1.bin`, the sandbox and the cleanup all ran for the first time (details in #55).
 - **Done:** #36 (PR #64). Disc 1 boots in Tier 2, the boot executable matches the USA hash, and the title code is resident at frame 1231 with Start pressed every 2 s. Unthrottled speed is about 1000 fps on GitHub's runner. Details are in `notes/36-disc-boot.md`.
-  - The scenario boots the bin, not the cue: the R2 `disc-1.cue` names another file. **The project no longer uses cue files** (owner decision, 2026-11-05): FF7's discs are single data tracks, so the bin is enough. The private eval still fetches and mounts `disc-1.cue`. Removing that is PR #71 (`needs-owner`, `.github/` and `harness/private-eval/`). Until it merges, keep `disc-1.cue` in R2, or the eval's disc fetch fails.
+  - The scenario boots the bin, not the cue: the R2 `disc-1.cue` names another file. **The project no longer uses cue files** (owner decision, 2026-11-05): FF7's discs are single data tracks, so the bin is enough. The private eval no longer fetches or mounts `disc-1.cue` (PR #71, merged).
   - Format 1 gained `boot.disc`, disc file checks, `within`/`stillFrames` checks, `probes` and the `boot_stage`/`disc_error` metrics.
 - **Moved to M2:** #37 (format 2: disc boot, title snapshot, input scripts with `wait.until`), now unblocked. Frames to the title depend on input: without input the intro holds the game for more than 5400 frames; #38 (boot from a generated save + first boot point), blocked on #37 and confirmed title, mode and field addresses.
 
-**Next for agents:** #24 (border crop) is **parked** (`status:blocked`, owner decision, 2026-11-05). A pixel-based crop can't tell borders apart from scenes where black is the picture (text on black, Cloud alone on black). The attempt is on branch `issue-24-border-crop` (closed PR #72) for reuse once mode detection exists. Next: #25 (context-aware controls; labelled `status:blocked` until its field, battle and menu addresses are confirmed with Tier 2 probes). #37 (title snapshot) and #38 come in when #25 needs them. A process-by-risk proposal (a lighter process for `web/`-only work) is awaiting the owner in PR #70. #50 (flaky WebKit audio test) is done (#53). #23 (drag-to-walk) is done (#63) and passed the owner's iPhone check. Running latches and the joystick centre trails the thumb, after the owner's feedback. #66 (status notices that never cleared) is done (#67).
+**Earlier notes (M1 era):** #24 (border crop) is parked (`status:blocked`, owner decision, 2026-11-05): a pixel-based crop can't tell borders from black scenes. The attempt is on branch `issue-24-border-crop` (closed PR #72), for reuse once mode detection exists; with #76 done, it waits for M3 (#81). #25 (context-aware controls) is also for M3. #23 (drag-to-walk, #63), #50 (#53) and #66 (#67) are done. The process-by-risk proposal (full and light PR classes) merged as #70.
 
 Wiring checks into CI (`.github/workflows/`) and adding baselines (`harness/baselines/`) touch protected paths. Each goes in its own PR labelled `needs-owner`.
 

@@ -61,6 +61,9 @@ Reading:
 - **`g_IsFieldLoading` reads 2 in a settled field, not 0**, so "loading = 0" is not the field-loaded condition. Attempt 2 records it across a map change.
 - **The exit:** 90 s of Up + Circle after the battle did not leave md1stin. Either the exit is not straight up, or Circle kept starting something. Attempt 2 tries several directions without Circle.
 
+### Attempt 1, second run (`32a0734`, a test-only change; tier2: 18 pass, 5 fail)
+Every scenario's status and every deterministic metric (all but fps, run_ms, saved_ms) equal the first run's, all 23 scenarios (compared field by field). So the field ID, the still check and the four walk directions are deterministic across two Tier 2 runs.
+
 ### Attempt 2 plan (materially different: acceptance checks on the found addresses, and an exit search without Circle)
 - `reactor-field-1-id`: g_FieldCurrentMap = 0x74 (id_ok) and the savemap copy = 0x74, game_state 1, match.
 - `reactor-field-2-still`: PosX/PosY of entity 0 unchanged for 120 frames; g_PlayerModelId = 0; match.

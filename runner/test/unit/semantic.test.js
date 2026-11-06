@@ -214,7 +214,8 @@ describe('readers on a synthetic memory image', () => {
     assert.deepEqual(await layer.menuCursor(), { value: 2, confirmed: true });
     assert.deepEqual(await layer.party(), { value: [0, null, null], confirmed: true });
     assert.deepEqual(await layer.partyHp(), { value: [287, 0, -1], confirmed: false }, 'slots 1 and 2 are hypotheses');
-    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4],
+    // mode() also reads movieFrame (Stframe_no), to tell a movie from the field (#92).
+    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x80071740, 4], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4],
       [0x8009a0d3, 1], [0x8009cbdc, 1], [0x8009cbdd, 1], [0x8009cbde, 1], [0x8009d85c, 2], [0x8009dc9c, 2], [0x8009e0dc, 2]]);
   });
 

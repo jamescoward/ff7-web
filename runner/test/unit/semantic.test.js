@@ -70,8 +70,9 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76 and #77 confirmed these; everything else is still a hypothesis.
-    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY', 'fieldLoading'];
+    // #76, #77 and #78 confirmed these; everything else is still a hypothesis.
+    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY', 'fieldLoading',
+      'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -98,12 +99,26 @@ describe('address table', () => {
     assert.equal(state.type, 's16');
   });
 
-  test('entries without a known address say so instead of inventing one', () => {
-    for (const name of ['menuCursor', 'partySlot0']) {
+  test('menu cursor and party are at the addresses #78 checked in Tier 2; HP of slots 1 and 2 stays a hypothesis', () => {
+    const want = {
+      menuCursor: [0x8009a0d3, 's8', 'reactor-mode-2d-cursor-sequence'],
+      partySlot0: [0x8009cbdc, 'u8', 'reactor-mode-4a-party-slots'],
+      partySlot1: [0x8009cbdd, 'u8', 'reactor-mode-4a-party-slots'],
+      partySlot2: [0x8009cbde, 'u8', 'reactor-mode-4a-party-slots'],
+      partyHp0: [0x8009d85c, 's16', 'reactor-mode-4c-party-hp-damage'],
+    };
+    for (const [name, [address, type, scenario]] of Object.entries(want)) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
-      assert.equal(e.address, null, name);
-      assert.match(e.source, /no RAM address known/, name);
+      assert.deepEqual([e.address, e.type, e.status, e.scenario], [address, type, 'confirmed', `harness/scenarios/${scenario}.json`], name);
+      assert.ok(existsSync(path.join(ROOT, e.scenario)), `${name}: its scenario file exists`);
     }
+    // g_ActiveCharacters (0x8009D84C, 0x440 per party slot), hp at +0x10: slots 1 and 2 follow the layout but were
+    // never seen holding a character, so they stay hypotheses.
+    for (const i of [1, 2]) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === `partyHp${i}`);
+      assert.deepEqual([e.address, e.type, e.status], [0x8009d84c + i * 0x440 + 0x10, 's16', 'hypothesis'], e.name);
+    }
+    for (const e of ADDRESS_TABLE.entries) assert.notEqual(e.address, null, `${e.name} has an address`);
   });
 
   test('field ID, position and field load state are confirmed at the addresses #77 checked in Tier 2', () => {
@@ -188,16 +203,19 @@ describe('readers on a synthetic memory image', () => {
     assert.deepEqual(await layer.mode(), { value: null, confirmed: false, reason: 'read failed' });
   });
 
-  test('the shipped table: mode, field ID and position read their confirmed addresses; the rest answer "no address"', async () => {
-    const b = ram([[0x8009c560, 's16', 1], [0x800965ec, 's16', 5], [0x8009a05c, 's16', 0x74], [0x80074eb0, 's32', -70000], [0x80074eb4, 's32', 123456]]);
+  test('the shipped table: every reader reads its addresses, badged by their status', async () => {
+    const b = ram([[0x8009c560, 's16', 1], [0x800965ec, 's16', 5], [0x8009a05c, 's16', 0x74], [0x80074eb0, 's32', -70000], [0x80074eb4, 's32', 123456],
+      [0x8009a0d3, 'u8', 2], [0x8009cbdc, 'u8', 0], [0x8009cbdd, 'u8', 0xff], [0x8009cbde, 'u8', 0xff],
+      [0x8009d85c, 's16', 287], [0x8009dc9c, 's16', 0], [0x8009e0dc, 's16', -1]]);
     const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
     assert.deepEqual(await layer.mode(), { value: { mode: 'field', raw: 1, previous: 'menu' }, confirmed: true });
     assert.deepEqual(await layer.fieldId(), { value: 0x74, confirmed: true });
     assert.deepEqual(await layer.playerPosition(), { value: { x: -70000, y: 123456 }, confirmed: true });
-    for (const name of ['menuCursor', 'party']) {
-      assert.deepEqual(await layer[name](), { value: null, confirmed: false, reason: 'no address' }, name);
-    }
-    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4]], 'no address means no read');
+    assert.deepEqual(await layer.menuCursor(), { value: 2, confirmed: true });
+    assert.deepEqual(await layer.party(), { value: [0, null, null], confirmed: true });
+    assert.deepEqual(await layer.partyHp(), { value: [287, 0, -1], confirmed: false }, 'slots 1 and 2 are hypotheses');
+    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4],
+      [0x8009a0d3, 1], [0x8009cbdc, 1], [0x8009cbdd, 1], [0x8009cbde, 1], [0x8009d85c, 2], [0x8009dc9c, 2], [0x8009e0dc, 2]]);
   });
 
   test('the layer never calls writeMem', async () => {

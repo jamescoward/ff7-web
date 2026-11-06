@@ -1,0 +1,116 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-mode-4b-party-hp",
+  "description": "#78: Cloud's HP/MP at the first guard battle. From battle, 1 frame. g_ActiveCharacters[0] (party slot 0): current and max HP in 1..9999, current MP in 0..999; the savemap character record of Cloud in the same ranges. Only 1/0 leaves.",
+  "boot": {
+    "from": "battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): menu 5. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "hp0": {
+      "addr": "0x8009d85c",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] + 0x010 current HP (s16)"
+    },
+    "mp0": {
+      "addr": "0x8009d860",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] + 0x014 current MP (s16)"
+    },
+    "maxhp0": {
+      "addr": "0x8009d85e",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] + 0x012 max HP (s16)"
+    },
+    "cloud_hp": {
+      "addr": "0x8009c764",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 character record 0 (Cloud, size 0x84) + 0x2C curHP. ff7-flat-wiki Savemap character record"
+    },
+    "cloud_mp": {
+      "addr": "0x8009c768",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 (Cloud) + 0x30 curMP"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 1
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "hp0",
+        "in": [
+          1,
+          9999
+        ]
+      },
+      "metric": "hp0_ok"
+    },
+    {
+      "expect": {
+        "mem": "mp0",
+        "in": [
+          0,
+          999
+        ]
+      },
+      "metric": "mp0_ok"
+    },
+    {
+      "expect": {
+        "mem": "maxhp0",
+        "in": [
+          1,
+          9999
+        ]
+      },
+      "metric": "max0_ok"
+    },
+    {
+      "expect": {
+        "mem": "cloud_hp",
+        "in": [
+          1,
+          9999
+        ]
+      },
+      "metric": "save_hp_ok"
+    },
+    {
+      "expect": {
+        "mem": "cloud_mp",
+        "in": [
+          0,
+          999
+        ]
+      },
+      "metric": "save_mp_ok"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 2
+      },
+      "metric": "battle_ok"
+    }
+  ],
+  "metrics": [
+    "hp0_ok",
+    "mp0_ok",
+    "max0_ok",
+    "save_hp_ok",
+    "save_mp_ok",
+    "battle_ok"
+  ]
+}

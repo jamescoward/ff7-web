@@ -24,6 +24,9 @@ const SHIPPED_MODE_BADGE = ['gameState', 'prevGameState']
 const shippedBadge = (...names) => (names.every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis');
 const SHIPPED_FIELD_BADGE = shippedBadge('fieldId');
 const SHIPPED_POS_BADGE = shippedBadge('fieldX', 'fieldY');
+const SHIPPED_CURSOR_BADGE = shippedBadge('menuCursor');
+const SHIPPED_PARTY_BADGE = shippedBadge('partySlot0', 'partySlot1', 'partySlot2');
+const SHIPPED_HP_BADGE = shippedBadge('partyHp0', 'partyHp1', 'partyHp2');
 
 const pw = loadPlaywright();
 let server;
@@ -173,7 +176,7 @@ for (const name of BROWSERS) {
       }
     });
 
-    test('gate on, real table: off by default; values and "no address" rows; updates with memory; marks the status from the shipped table', async (t) => {
+    test('gate on, real table: off by default; a value in every row; updates with memory; marks the status from the shipped table', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser);
       try {
@@ -183,6 +186,13 @@ for (const name of BROWSERS) {
           window.fake.set(0x8009a05c, 'Int16', 0x74); // fieldId (#77)
           window.fake.set(0x80074eb0, 'Int32', -70000); // fieldX (#77)
           window.fake.set(0x80074eb4, 'Int32', 123456); // fieldY (#77)
+          window.fake.set(0x8009a0d3, 'Int8', 2); // menuCursor (#78)
+          window.fake.set(0x8009cbdc, 'Uint8', 0); // partySlot0..2 (#78): Cloud, empty, empty
+          window.fake.set(0x8009cbdd, 'Uint8', 0xff);
+          window.fake.set(0x8009cbde, 'Uint8', 0xff);
+          window.fake.set(0x8009d85c, 'Int16', 287); // partyHp0..2 (#78)
+          window.fake.set(0x8009dc9c, 'Int16', 0);
+          window.fake.set(0x8009e0dc, 'Int16', 0);
           window.fake.load(true, 'real');
         });
         assert.equal(await visible(page, '#debug-btn'), true);
@@ -196,9 +206,10 @@ for (const name of BROWSERS) {
         assert.deepEqual(r.mode, { val: 'field (1), was menu', badge: SHIPPED_MODE_BADGE, reason: null });
         assert.deepEqual(r.fieldId, { val: '116', badge: SHIPPED_FIELD_BADGE, reason: null });
         assert.deepEqual(r.position, { val: 'x -70000, y 123456', badge: SHIPPED_POS_BADGE, reason: null });
-        for (const key of ['menuCursor', 'party', 'partyHp']) {
-          assert.deepEqual(r[key], { val: '—', badge: null, reason: 'no address' }, key);
-        }
+        // #78 gave the menu cursor and the party addresses: every row now reads the shipped table's address.
+        assert.deepEqual(r.menuCursor, { val: '2', badge: SHIPPED_CURSOR_BADGE, reason: null });
+        assert.deepEqual(r.party, { val: '#0 empty empty', badge: SHIPPED_PARTY_BADGE, reason: null });
+        assert.deepEqual(r.partyHp, { val: '287 / 0 / 0', badge: SHIPPED_HP_BADGE, reason: null });
 
         await page.evaluate(() => window.fake.set(0x8009c560, 'Int16', 2));
         await until(async () => (await rows(page)).mode?.val === 'battle (2), was menu', { what: 'the mode to update' });
@@ -347,10 +358,11 @@ for (const name of BROWSERS) {
         assert.match(r.mode.val, /^\w+ \(-?\d+\), was \w+$/);
         assert.equal(r.mode.badge, SHIPPED_MODE_BADGE);
         // #77 confirmed the field ID's address: the row is a live read of whatever the homebrew
-        // left there, badged as the shipped table says. Rows still without an address say so.
+        // left there, badged as the shipped table says; so is the menu cursor's (#78).
         assert.match(r.fieldId.val, /^-?\d+$/);
         assert.deepEqual({ badge: r.fieldId.badge, reason: r.fieldId.reason }, { badge: SHIPPED_FIELD_BADGE, reason: null });
-        assert.deepEqual(r.menuCursor, { val: '\u2014', badge: null, reason: 'no address' });
+        assert.match(r.menuCursor.val, /^-?\d+$/);
+        assert.deepEqual({ badge: r.menuCursor.badge, reason: r.menuCursor.reason }, { badge: SHIPPED_CURSOR_BADGE, reason: null });
         // Toggling off tells the worker to stop (no more state messages).
         await page.click('#debug-btn');
         assert.equal(await visible(page, '#debug'), false);

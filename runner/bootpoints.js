@@ -102,3 +102,9 @@ export const BOOT_POINTS = Object.freeze({
 });
 
 export const POWER_ON = 'power-on';
+
+// A boot from a generated save (#38: boot { disc: 1, save, slot: 1 }) starts
+// from this boot point unless it names another with a card: the title
+// screen with a memory card in slot 1, whose blank card is replaced by the
+// generated one when the snapshot is restored.
+export const SAVE_BOOT_POINT = 'title-card';

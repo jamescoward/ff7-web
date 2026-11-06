@@ -16,7 +16,7 @@ import { blankCard, sealFrame } from '../synth/blank-card.js';
 import { validate } from '../schema.js';
 import { savemapChecksum } from './checksum.js';
 import {
-  BANK_BASE, BANK_SIZE, BLOCK_HEADER, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FRAME_SIZE,
+  BANK_BASE, BANK_SIZE, BLOCK_HEADER, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FF_TEXT_END, FRAME_SIZE,
   ICON_FLAG_STATIC_1, MODULE_AUX_FIELD, MODULE_FIELD, SAVEMAP, SAVEMAP_IN_BLOCK, SAVEMAP_SIZE,
   TYPE_SIZE, fileName,
 } from './layout.js';
@@ -49,6 +49,11 @@ export function planWrites(desc) {
   const w = [];
   const put = (name, value) => w.push({ name, ...SAVEMAP[name], value });
   const { field, party } = desc;
+  // The preview's leader name and location are FF Text strings the
+  // description can't hold (no free text): write empty strings, so the load
+  // menu draws nothing there whatever the baseline holds (#38).
+  put('previewNameEnd', FF_TEXT_END);
+  put('previewPlaceEnd', FF_TEXT_END);
   put('module', MODULE_FIELD);
   put('moduleAux', MODULE_AUX_FIELD);
   put('fieldId', field.id);
@@ -164,9 +169,19 @@ function writeDirectory(card, slot) {
 /**
  * Generate a card from a baseline savemap and a save description. Returns
  * { card, block, savemap, writes }; nothing is written to disk.
+ * opts.checksum "wrong" stores the checksum inverted (low word XOR 0xFFFF,
+ * so it always differs from the right one), for the Tier 2 check that the
+ * game rejects a bad checksum (#38).
  */
-export function generateCard(baseline, desc) {
+export function generateCard(baseline, desc, opts = {}) {
+  if (opts.checksum !== undefined && opts.checksum !== 'right' && opts.checksum !== 'wrong') {
+    throw new Error(`checksum must be "right" or "wrong", not ${JSON.stringify(opts.checksum)}`);
+  }
   const { savemap, writes } = buildSavemap(baseline, desc);
+  if (opts.checksum === 'wrong') {
+    const view = new DataView(savemap.buffer);
+    writeValue(view, { ...SAVEMAP.checksum, value: view.getUint32(SAVEMAP.checksum.offset, true) ^ 0xffff });
+  }
   const block = buildBlock(savemap, desc.label);
   const card = blankCard();
   if (card.length !== CARD_SIZE) throw new Error('blank card has the wrong size');

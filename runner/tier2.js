@@ -63,9 +63,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { POWER_ON } from './bootpoints.js';
+import { POWER_ON, SAVE_BOOT_POINT } from './bootpoints.js';
 import { makeSnapshot } from './format2.js';
-import { DEFAULT_BASELINES, DEFAULT_FIXTURES, loadScenario, runScenario } from './scenario.js';
+import { DEFAULT_BASELINES, DEFAULT_FIXTURES, loadScenario, runScenario, savesDirFor } from './scenario.js';
 import { segmentsDirFor } from './segments.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -126,7 +126,8 @@ export function findTier2Scenarios(dir) {
     const metrics = Array.isArray(doc.metrics) ? doc.metrics.filter((k) => typeof k === 'string' && METRIC_RE.test(k)) : [];
     const f2 = doc.format === 2 && doc.boot !== null && typeof doc.boot === 'object';
     const nameOf = (v) => (typeof v === 'string' && NAME_RE.test(v) ? v : null);
-    const bootFrom = f2 ? nameOf(doc.boot.from) : null;
+    // A save boot (#38) with no "from" starts from SAVE_BOOT_POINT.
+    const bootFrom = f2 ? nameOf(doc.boot.from ?? (doc.boot.save !== undefined ? SAVE_BOOT_POINT : undefined)) : null;
     const hasSource = f2 && (doc.boot.disc !== undefined || doc.boot.fixture !== undefined);
     const from = hasSource && bootFrom !== POWER_ON ? bootFrom : null;
     const after = f2 && !hasSource ? bootFrom : null;
@@ -302,7 +303,7 @@ async function readStdin() {
 }
 
 /** Load a scenario file as a run does: segments come from segments/ beside it. */
-const loadFile = (file) => loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true, segmentsDir: segmentsDirFor(file) });
+const loadFile = (file) => loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true, segmentsDir: segmentsDirFor(file), savesDir: savesDirFor(file) });
 
 /**
  * The child: run one scenario and print { status, metrics } as one line.

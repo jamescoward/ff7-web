@@ -19,16 +19,18 @@
 // power-on with no snapshot at all.
 
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 import { createBackend } from './backend.js';
-import { BOOT_POINTS, POWER_ON, scriptFrames } from './bootpoints.js';
+import { BOOT_POINTS, POWER_ON, SAVE_BOOT_POINT, scriptFrames } from './bootpoints.js';
 import { DiscError, openDisc } from './disc.js';
 import { RAM_SIZE } from './memmap.js';
 import { padMask } from './pad.js';
+import { BaselineError, baselineFromDisc } from './savegen/baseline.js';
+import { descriptionProblems, generateCard } from './savegen/index.js';
 import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
@@ -117,6 +119,10 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
     const w = `${where}[${i}]`;
     if (s.buttons) return { kind: 'press', mask: padMask(s.buttons), port: s.port ?? 0, frames: s.frames ?? 1 };
     if (s.segment !== undefined) throw new ScenarioError(`${w}: segment "${s.segment}" was not expanded`);
+    if (s.mark !== undefined) {
+      if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no marks`);
+      return { kind: 'mark', name: s.mark, index: i };
+    }
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);
     const press = loadPress(s.wait.press, `${w}.wait.press`);
@@ -146,16 +152,56 @@ export function loadBootPoint(name, source, points = BOOT_POINTS) {
 }
 
 /**
- * A new core instance for a start point: with a blank, formatted memory card
- * in slot 1 when the (root) boot point has card "blank". Save states do not
- * hold the card (notes/31-card-and-snapshots.md), so every instance that
- * restores such a snapshot gets the same blank card first.
+ * A new core instance for a start point: with a memory card in slot 1 when
+ * the (root) boot point has card "blank": `card` (a generated card, #38) or
+ * a blank, formatted one. Save states do not hold the card
+ * (notes/31-card-and-snapshots.md), so every instance that restores such a
+ * snapshot gets the same card first; restoring also flags the card as new,
+ * so the game looks at it again.
  */
-async function newBackend(bp, { verbose } = {}) {
-  const card = bp?.card === 'blank';
-  const b = await createBackend({ verbose, memoryCard: card });
-  if (card) b.setCard(blankCard());
+async function newBackend(bp, { verbose } = {}, card = null) {
+  const withCard = bp?.card === 'blank';
+  const b = await createBackend({ verbose, memoryCard: withCard });
+  if (withCard) b.setCard(card ?? blankCard());
   return b;
+}
+
+/** Largest save description read. */
+const MAX_SAVE_BYTES = 64 * 1024;
+const SAVE_NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/**
+ * Read and check a save description, <dir>/<name>.json
+ * (harness/schema/save.schema.json). Throws ScenarioError.
+ */
+export function loadSaveDescription(name, dir) {
+  if (!SAVE_NAME_RE.test(name)) throw new ScenarioError(`boot.save: "${name}" is not a valid save description name`);
+  if (!dir) throw new ScenarioError(`boot.save: no saves directory for "${name}"`);
+  const file = path.join(dir, `${name}.json`);
+  let desc;
+  try {
+    const st = lstatSync(file);
+    if (!st.isFile()) throw new Error('not a regular file');
+    if (st.size > MAX_SAVE_BYTES) throw new Error(`larger than ${MAX_SAVE_BYTES} bytes`);
+    desc = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (e) {
+    if (e.code === 'ENOENT') throw new ScenarioError(`boot.save: no save description named "${name}" (saves/${name}.json)`);
+    throw new ScenarioError(`boot.save: save description "${name}": ${e.message}`);
+  }
+  const problems = descriptionProblems(desc);
+  if (problems.length) throw new ScenarioError(`boot.save: save description "${name}" is not valid: ${problems.join('; ')}`);
+  return desc;
+}
+
+/**
+ * The card a save boot puts in slot 1 (#38): the New Game baseline read from
+ * the disc (runner/savegen/baseline.js), the description applied by the
+ * #32 generator, and the checksum right or deliberately wrong. Held in
+ * memory only. Throws DiscError or BaselineError.
+ */
+export function saveBootCard(save, discFile) {
+  const baseline = baselineFromDisc(discFile);
+  return generateCard(baseline, save.desc, { checksum: save.checksum }).card;
 }
 
 /** Throw unless `name` can name a snapshot: not a boot point and not power-on. */
@@ -172,7 +218,7 @@ function checkSnapshotName(name, where, points) {
  * `doc` already matched the schema; `input` is its script with segments
  * expanded (default doc.input). Returns the normalised scenario.
  */
-export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
+export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {}) {
   const points = bootPoints ?? BOOT_POINTS;
   const fail = (msg) => {
     throw new ScenarioError(msg);
@@ -186,7 +232,16 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
     fromSnapshot = doc.boot.from;
   } else {
     source = doc.boot.disc !== undefined ? { disc: doc.boot.disc } : { fixture: doc.boot.fixture };
-    bootPoint = loadBootPoint(doc.boot.from, source, points);
+    bootPoint = loadBootPoint(doc.boot.from ?? SAVE_BOOT_POINT, source, points);
+  }
+  // A boot from a generated save (#38): the boot point's card is replaced
+  // by one generated from the description, so the boot point must have one.
+  let save = null;
+  if (doc.boot.save !== undefined) {
+    if (bootPoint === null || bootPoint.card !== 'blank') {
+      fail(`boot.save: boot point "${doc.boot.from ?? SAVE_BOOT_POINT}" has no memory card to replace (card "blank")`);
+    }
+    save = { name: doc.boot.save, desc: loadSaveDescription(doc.boot.save, savesDir), checksum: doc.boot.checksum ?? 'right', slot: doc.boot.slot };
   }
   const snapshotName = doc.snapshot ?? null;
   if (snapshotName !== null) {
@@ -202,6 +257,12 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
   };
   const steps = loadScript(input ?? doc.input, memory, 'input');
   steps.forEach((s) => (s.kind === 'until' || s.kind === 'still') && name(s.metric, `input[${s.index}]`));
+  const marks = new Set();
+  for (const s of steps) {
+    if (s.kind !== 'mark') continue;
+    if (marks.has(s.name)) fail(`input[${s.index}]: mark "${s.name}" is already set by an earlier step`);
+    marks.add(s.name);
+  }
   const asserts = doc.assert.map((a, i) => {
     const where = `assert[${i}]`;
     name(a.metric, where);
@@ -210,7 +271,9 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
       const loc = memory[a.change.mem];
       if (!loc) fail(`${where}.change: no memory location named "${a.change.mem}"`);
       if (!NUMERIC.has(loc.type)) fail(`${where}.change: a change check needs a u8, u16 or u32 location, "${a.change.mem}" is ${loc.type}`);
-      return { kind: 'change', mem: a.change.mem, is: a.change.is, signed: a.change.signed === true, metric: a.metric };
+      const { since } = a.change;
+      if (since !== undefined && !marks.has(since)) fail(`${where}.change: no mark step named "${since}" in the script`);
+      return { kind: 'change', mem: a.change.mem, is: a.change.is, signed: a.change.signed === true, ...(since !== undefined ? { since } : {}), metric: a.metric };
     }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
@@ -242,6 +305,7 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
     fixture: source?.fixture ?? null,
     disc: source && source.disc !== undefined ? `disc-${source.disc}` : null,
     bootPoint,
+    save,
     fromSnapshot,
     snapshotName,
     memory,
@@ -262,13 +326,23 @@ class StopRun extends Error {
 /** The press a wait holds on its i-th frame (from 1): { mask, port }. */
 const pressAt = (press, i) => (press && (i - 1) % press.every < press.hold ? press : null);
 
+/** The value of every u8/u16/u32 location now: Map(name -> value). */
+function readAll(backend, memory) {
+  const out = new Map();
+  for (const [k, loc] of Object.entries(memory)) if (NUMERIC.has(loc.type)) out.set(k, decode(loc, backend.readMem(loc.addr, loc.len)));
+  return out;
+}
+
 /**
- * Play script steps on a backend. Returns { frames, waits: Map(step -> frames waited, 0 = timed out), timedOut }.
- * A timed-out wait stops the script.
+ * Play script steps on a backend. Returns { frames, waits: Map(step ->
+ * frames waited, 0 = timed out), marks: Map(mark name -> Map(memory name ->
+ * value)), timedOut }. A timed-out wait stops the script; marks after it
+ * are not reached.
  */
 export function playScript(backend, steps, memory) {
   let frames = 0;
   const waits = new Map();
+  const marks = new Map();
   const frame = (mask = 0, port = 0) => {
     backend.setPad(port === 0 ? mask : 0, 0);
     backend.setPad(port === 1 ? mask : 0, 1);
@@ -280,7 +354,9 @@ export function playScript(backend, steps, memory) {
     frame(p ? p.mask : 0, p ? p.port : 0);
   };
   for (const s of steps) {
-    if (s.kind === 'press') {
+    if (s.kind === 'mark') {
+      marks.set(s.name, readAll(backend, memory));
+    } else if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
       for (let i = 0; i < s.frames; i++) frame();
@@ -295,7 +371,7 @@ export function playScript(backend, steps, memory) {
         }
       }
       waits.set(s, waited);
-      if (!waited) return { frames, waits, timedOut: true };
+      if (!waited) return { frames, waits, marks, timedOut: true };
     } else {
       // still: the same picture, not one colour, for stillFrames frames in a row.
       let waited = 0;
@@ -319,10 +395,10 @@ export function playScript(backend, steps, memory) {
         }
       }
       waits.set(s, waited);
-      if (!waited) return { frames, waits, timedOut: true };
+      if (!waited) return { frames, waits, marks, timedOut: true };
     }
   }
-  return { frames, waits, timedOut: false };
+  return { frames, waits, marks, timedOut: false };
 }
 
 /**
@@ -512,6 +588,7 @@ export async function runScenario2(sc, opts = {}) {
   let runMs = 0;
   let digest = null;
   let kept = null; // { bytes, frames, bootMs } at the end of the main run, for "snapshot"
+  let card = null; // a generated card for a save boot (#38), in memory only
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
   const actual = new Map(); // expect or change check -> value at the end of the script
@@ -546,7 +623,7 @@ export async function runScenario2(sc, opts = {}) {
   /** A backend at the start point (power-on or boot point), plus the snapshot used. */
   const restoreInto = async (bytes) => {
     const t0 = performance.now();
-    const b = track(await newBackend(bp, { verbose: opts.verbose }));
+    const b = track(await newBackend(bp, { verbose: opts.verbose }, card));
     b.loadProgram(src.program);
     if (bytes) b.loadState(bytes);
     return { backend: b, ms: performance.now() - t0 };
@@ -561,6 +638,13 @@ export async function runScenario2(sc, opts = {}) {
     let reachedHere = r.reached;
     let frames = bp ? bp.frames : 0;
     const t0 = performance.now();
+    if (card && reachedHere) {
+      // As a restore does: the generated card in place of the blank one,
+      // then the state at T loaded again (which flags the card as new).
+      const st = r.backend.saveState();
+      r.backend.setCard(card);
+      r.backend.loadState(st);
+    }
     for (const c of chain) {
       if (!reachedHere) break;
       const p = playScript(r.backend, c.steps, c.memory);
@@ -576,8 +660,12 @@ export async function runScenario2(sc, opts = {}) {
       want = verifyBytes(bp, src.discFile, (n) => {
         stage = n;
       });
+      if (root.save) card = saveBootCard(root.save, src.discFile);
       stage = BOOT_STAGES.checks;
     } catch (e) {
+      // A disc that can't be read, or (save boot) a kernel archive that is
+      // not as documented: stop before booting.
+      if (e instanceof BaselineError) throw new StopRun(e);
       if (!(e instanceof DiscError)) throw e;
       discError = e.reason;
       throw new StopRun();
@@ -631,12 +719,16 @@ export async function runScenario2(sc, opts = {}) {
 
     try {
       for (const a of sc.asserts) {
-        if (a.kind !== 'change') continue;
+        if (a.kind !== 'change' || a.since !== undefined) continue;
         const loc = sc.memory[a.mem];
         startValues.set(a, decode(loc, main.backend.readMem(loc.addr, loc.len)));
       }
       const p = play(main.backend);
       ({ run, digest } = p);
+      for (const a of sc.asserts) {
+        // "since": the value at the mark step, if the script reached it.
+        if (a.kind === 'change' && a.since !== undefined && run.marks.has(a.since)) startValues.set(a, run.marks.get(a.since).get(a.mem));
+      }
       mainParts = p.parts;
       runMs = p.ms;
       if (sc.snapshotName !== null && !run.timedOut) {
@@ -702,7 +794,11 @@ export async function runScenario2(sc, opts = {}) {
     if (a.kind === 'change') {
       const have = startValues.has(a) && actual.has(a);
       const out = have ? changeOutcome(a, sc.memory[a.mem], startValues.get(a), actual.get(a)) : { sign: 0, holds: false };
-      return { change: { mem: a.mem, is: a.is, ...(a.signed ? { signed: true } : {}) }, pass: ok(out.holds), sign: ok(have) ? out.sign : 0 };
+      return {
+        change: { mem: a.mem, is: a.is, ...(a.signed ? { signed: true } : {}), ...(a.since !== undefined ? { since: a.since } : {}) },
+        pass: ok(out.holds),
+        sign: ok(have) ? out.sign : 0,
+      };
     }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
@@ -737,7 +833,7 @@ export async function runScenario2(sc, opts = {}) {
   const core = build && { pcsx_rearmed_commit: build.pcsx_rearmed_commit, emsdk_version: build.emsdk_version, wasm_sha256: build.wasm_sha256 };
   const from = named
     ? { snapshot: sc.fromSnapshot, chain: chain.map((c) => c.name), frames: snapshotFrames }
-    : bp ? { boot_point: bp.name, frames: bp.frames, reached } : { boot_point: 'power-on' };
+    : bp ? { boot_point: bp.name, frames: bp.frames, reached, ...(sc.save ? { save: sc.save.name, checksum: sc.save.checksum } : {}) } : { boot_point: 'power-on' };
   const result = {
     runner: 'ff7-web/scenario',
     format: 2,

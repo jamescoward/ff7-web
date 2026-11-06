@@ -7,10 +7,9 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-06.
 
 **Next for agents, in this order** (each is `status:ready`; take the oldest first, per `docs/CONTINUITY.md`):
-1. **#92** (light, `model:sonnet` candidate): `mode()` honours per-value confirmation (world 3 is still a hypothesis) and reports movies from `movieFrame`.
-2. **#93** (light, Tier 3): the debug overlay covers the game's own menu text. Batch its iPhone check with the next request.
-3. **#99**: player position follows `g_PlayerModelId` instead of field model 0.
-4. **#101** (unblocked by #38): a boot point with Barret in the party, from a generated save (`notes/38-generated-save-boot.md`, "Barret").
+1. **#93** (light, Tier 3): the debug overlay covers the game's own menu text. Batch its iPhone check with the next request.
+2. **#99**: player position follows `g_PlayerModelId` instead of field model 0.
+3. **#101** (unblocked by #38): a boot point with Barret in the party, from a generated save (`notes/38-generated-save-boot.md`, "Barret").
 
 Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
 
@@ -23,6 +22,7 @@ Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → *
 - **#77** (PR #98): the field ID (`fieldId` = g_FieldCurrentMap: md1stin 0x74, then md1_1 0x75 after walking up-left), the player position (`fieldX`/`fieldY` = g_FieldEntity[0] PosX/PosY, checked by direction only) and the field load state (`fieldLoading`) are confirmed in Tier 2, deterministically over two runs. Format 2 gained a `change` check (end vs start of the script, reported as a sign) so directions are checked without coordinates leaving the sandbox. New snapshot `after-battle`.
 - **#78** (PR #100): the main-menu cursor (`menuCursor` = g_PartyMenuTables[0].row, 0x8009A0D3: 0 → 1 → 2 → 1 → 0 with Down, Down, Up, Up), the party slots (`partySlot0..2` = Savemap partyID) and Cloud's current HP (`partyHp0` = g_ActiveCharacters[0].hp, which falls while the guards attack) are confirmed in Tier 2, deterministically over two runs. **Cloud is alone** at reactor-entrance and at the first guard battle (partyID 0x00, 0xFF, 0xFF), not with Barret as the contract expected; Barret was not found in md1_1 within 150 s of exploring, so `partyHp1`/`partyHp2` stay hypotheses (`notes/78-menu-party.md`).
 - **#38** (PR #102): scenarios boot from a generated save: `boot: { disc: 1, save, slot: 1 }`. Inside the sandbox the runner rebuilds the New Game savemap from the disc's `INIT/KERNEL.BIN` (`runner/savegen/baseline.js`), generates the card, swaps it in as the title snapshot is restored, and the script loads save 1 by Circle until field mode, then waits for the field to load (#77's rule). The first boot point is `harness/saves/disc1-md1stin.json` (md1stin at progress 6, triangle 12: the values the game holds after the first battle; not a save point, since no reachable source documents save points or progress values). Field ID, triangle and a live walk pass; an inverted checksum leaves the game at the title. The checksum, its range, the directory name and the header are confirmed (`notes/32-save-format.md`). New in format 2: `mark` steps and `change` … `since`.
+- **#92** (PR #103): `mode()` is confirmed only for the raw values in `confirmedValues` (field 1, battle 2, menu 5; world 3 is a hypothesis, anything unlabelled is `unknown`), and reports `movie` when `gameState` reads field and `movieFrame` advanced over the last 5 calls, skipping single 0 reads (`notes/76-confirm-mode.md`, "Known limit").
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

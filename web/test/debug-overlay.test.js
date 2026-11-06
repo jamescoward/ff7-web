@@ -17,7 +17,8 @@ import { ADDRESS_TABLE as SHIPPED_TABLE } from '../js/semantic/addresses.js';
 import { BROWSERS, CORE_BUILT, WEB, launch, loadPlaywright, serveWeb, until } from './helpers.js';
 
 // The Mode row's badge for the shipped table: mode() reads gameState and
-// prevGameState, so it is confirmed only when both entries are. Taken from the
+// prevGameState, so it is confirmed only when both entries are (and, since #92,
+// only for their confirmed values: the real-worker test checks that). Taken from the
 // table, not hard-coded, so these tests follow address confirmations (#76).
 const SHIPPED_MODE_BADGE = ['gameState', 'prevGameState']
   .every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis';
@@ -355,8 +356,14 @@ for (const name of BROWSERS) {
         await page.click('#debug-btn');
         await until(async () => (await rows(page)).mode, { what: 'the first sample from the worker' });
         const r = await rows(page);
-        assert.match(r.mode.val, /^\w+ \(-?\d+\), was \w+$/);
-        assert.equal(r.mode.badge, SHIPPED_MODE_BADGE);
+        const [, label, raw, previous] = r.mode.val.match(/^(\w+) \((-?\d+)\), was (\w+)$/);
+        // #92: mode() is confirmed only for a confirmed raw value (field, battle, menu) and a
+        // confirmed previous one; whatever the homebrew leaves there is most likely "unknown".
+        const state = SHIPPED_TABLE.entries.find((e) => e.name === 'gameState');
+        const prev = SHIPPED_TABLE.entries.find((e) => e.name === 'prevGameState');
+        const prevOk = Object.keys(prev.confirmedValues).some((v) => prev.values[v] === previous);
+        const modeOk = label === 'movie' ? raw === '1' : raw in state.confirmedValues;
+        assert.equal(r.mode.badge, SHIPPED_MODE_BADGE === 'confirmed' && modeOk && prevOk ? 'confirmed' : 'hypothesis');
         // #77 confirmed the field ID's address: the row is a live read of whatever the homebrew
         // left there, badged as the shipped table says; so is the menu cursor's (#78).
         assert.match(r.fieldId.val, /^-?\d+$/);

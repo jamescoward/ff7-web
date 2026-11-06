@@ -8,6 +8,8 @@
 // Every reader is async and returns { value, confirmed, reason? }:
 //   value      the decoded state, or null when it can't be read
 //   confirmed  true only if every address it used has status "confirmed"
+//              and, for an enumeration, the raw value read is a labelled one
+//              and listed in the entry's confirmedValues when it has them (#92)
 //   reason     set when value is null: 'inactive' (the hash gate is off),
 //              'no address' (no candidate known), or 'read failed'
 // Unconfirmed values are still returned: callers decide whether to trust a
@@ -39,6 +41,38 @@ export function evaluateGate(table, exeSha1) {
   if (typeof exeSha1 !== 'string') return { active: false, reason: 'no boot executable hash' };
   if (exeSha1.toLowerCase() !== table.exe) return { active: false, reason: 'boot executable is not the one the address table describes' };
   return { active: true, reason: null };
+}
+
+/**
+ * How many mode() samples the movie test looks back over. movieFrame
+ * advances once every 4 game frames (15 a second) and can read 0 on a single
+ * frame mid-movie (#76), so one read can't tell a movie; five samples always
+ * span an advance, even when sampled every frame. At the overlay's 4 Hz the
+ * report lags a movie's start by one sample and its end by about a second.
+ */
+export const MOVIE_WINDOW = 5;
+
+/** Raw g_GameState while a movie plays: the field module plays movies (#76). */
+const MOVIE_GAME_STATE = 1;
+
+/**
+ * Is a movie playing, judging by movieFrame samples (oldest first, null when
+ * a read failed)? Yes if, skipping 0 and null reads, some sample is greater
+ * than the one before it. A counter stuck at one value (1790 after the
+ * opening) is no movie, even with a stray 0 in between.
+ */
+export function movieAdvancing(samples) {
+  const seen = samples.filter((v) => v !== null && v !== 0);
+  for (let i = 1; i < seen.length; i++) if (seen[i] > seen[i - 1]) return true;
+  return false;
+}
+
+/** Does this entry confirm this raw value? (status, then the enumeration's labels and confirmedValues) */
+export function valueConfirmed(e, raw) {
+  if (e.status !== 'confirmed') return false;
+  if (e.values && !(raw in e.values)) return false;
+  if (e.confirmedValues && !(raw in e.confirmedValues)) return false;
+  return true;
 }
 
 const DECODERS = {
@@ -73,25 +107,41 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       } catch {
         return { reason: 'read failed' };
       }
-      confirmed &&= e.status === 'confirmed';
+      confirmed &&= valueConfirmed(e, values[name]);
     }
     return { values, confirmed };
   }
 
   const fail = (r) => ({ value: null, confirmed: false, reason: r.reason });
   const label = (name, raw) => entries.get(name)?.values?.[raw] ?? 'unknown';
+  const movieSamples = []; // the last MOVIE_WINDOW movieFrame reads, oldest first
 
   return {
     active: gate.active,
     inactiveReason: gate.reason,
     table,
 
-    /** { value: 'field'|'battle'|'world'|'menu'|'unknown', raw, previous } */
+    /**
+     * { value: { mode: 'field'|'battle'|'world'|'menu'|'movie'|'unknown', raw, previous } }
+     * confirmed only for confirmed raw values (#76: field 1, battle 2, menu 5;
+     * world 3 is a hypothesis; an unlabelled value is 'unknown', never
+     * confirmed). 'movie' is reported while gameState reads field and
+     * movieFrame advanced over the last MOVIE_WINDOW calls; raw stays 1. Each
+     * call is one sample, so call it at a steady rate (the overlay: 4 Hz).
+     */
     async mode() {
       const r = await read(['gameState', 'prevGameState']);
       if (!r.values) return fail(r);
+      // A table without movieFrame (or a failed read) just never reports a movie.
+      const m = await read(['movieFrame']);
+      movieSamples.push(m.values ? m.values.movieFrame : null);
+      if (movieSamples.length > MOVIE_WINDOW) movieSamples.shift();
       const { gameState: raw, prevGameState: prev } = r.values;
-      return { value: { mode: label('gameState', raw), raw, previous: label('prevGameState', prev) }, confirmed: r.confirmed };
+      const previous = label('prevGameState', prev);
+      if (raw === MOVIE_GAME_STATE && m.values && movieAdvancing(movieSamples)) {
+        return { value: { mode: 'movie', raw, previous }, confirmed: r.confirmed && m.confirmed };
+      }
+      return { value: { mode: label('gameState', raw), raw, previous }, confirmed: r.confirmed };
     },
 
     /** { value: field id } */

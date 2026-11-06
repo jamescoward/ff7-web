@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "title-chain-b-equals-scratch",
+  "description": "#74 Tier 2: from the snapshot \"title-plus-60\" that title-chain-a-keep kept earlier in this run, one frame of no input. match_boot: the same state as power-on, the title boot point's presses, title-chain-a-keep's script and this one in one core instance with no snapshot (main RAM, and the picture when the core delivered a new one during the script; compared by hash inside the sandbox, reported only as 1/0). match_rerun: the same state when restored again. No FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": { "from": "title-plus-60" },
+  "input": [{ "wait": { "frames": 1 } }],
+  "assert": [
+    { "sameState": "boot", "metric": "match_boot" },
+    { "sameState": "rerun", "metric": "match_rerun" }
+  ],
+  "metrics": ["match_boot", "match_rerun", "snapshot_frames", "frames", "saved_ms", "boot_stage"]
+}

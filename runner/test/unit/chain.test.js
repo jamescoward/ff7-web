@@ -8,7 +8,7 @@ import path from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { checkChain, loadBootPoint, playScript, runScenario2 } from '../../format2.js';
+import { checkChain, loadBootPoint, playScript, runScenario2, stateDigest } from '../../format2.js';
 import { padMask } from '../../pad.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, ScenarioError, loadScenario } from '../../scenario.js';
@@ -328,6 +328,18 @@ describe('still waits and presses during waits (fake backend)', () => {
     const r = playScript(b, [s], { m: loc });
     assert.equal(r.waits.get(s), 4);
     assert.deepEqual(b.pads.map(([p]) => (p ? 1 : 0)), [1, 0, 0, 1]);
+  });
+});
+
+describe('state digest and the host-side picture', () => {
+  const fake = (ram, pic) => ({ readMem: () => Uint8Array.from(ram), frameHash: () => pic.repeat(64).slice(0, 64) });
+  test('the picture counts unless the script got no new picture; RAM always counts', () => {
+    const a = fake([1, 2], 'a');
+    const b = fake([1, 2], 'b');
+    assert.notEqual(stateDigest(a), stateDigest(b));
+    assert.equal(stateDigest(a, { picture: false }), stateDigest(b, { picture: false }));
+    assert.notEqual(stateDigest(a, { picture: false }), stateDigest(fake([1, 3], 'a'), { picture: false }));
+    assert.notEqual(stateDigest(a, { picture: false }), stateDigest(a));
   });
 });
 

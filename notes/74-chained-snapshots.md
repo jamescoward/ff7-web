@@ -49,4 +49,23 @@ Reading:
 The browser build, which the owner used to play the disc on the iPhone, always has a memory card in slot 1 (`web/js/backend.js` sets `pcsx_rearmed_memcard1`). The headless runner has had none. Hypothesis: with no card, the game (or the HLE BIOS card code) sits on the title. Changes:
 - boot point `title-card`: `title` plus a blank formatted card (`runner/synth/blank-card.js`, original code), given to every core instance of the chain, because states don't hold the card;
 - `new-game-to-reactor-entrance` starts from `title-card`. After the New Game presses it presses Circle every second for one more minute (segment `circle-every-second-1min`), so a late-responding title menu still gets New Game, and only then waits for the 5 s still picture;
-- diagnostics (removed before merge): `diag-title-down` / `diag-title-card-down` (does Down change the picture at the title, without and with a card?), `diag-title-1min` / `diag-title-card-1min` (60 s after New Game: still or moving?), `diag-chain-title-a`/`-b` (chain vs scratch at the title, where restores are known good), and `reactor-entrance-one-frame` (does a restore at reactor-entrance differ after a single frame?).
+- diagnostics (now removed): `diag-title-down` / `diag-title-card-down` (does Down change the picture at the title, without and with a card?), `diag-title-1min` / `diag-title-card-1min` (60 s after New Game: still or moving?), `diag-chain-title-a`/`-b` (chain vs scratch at the title, where restores are known good), and `reactor-entrance-one-frame` (does a restore at reactor-entrance differ after a single frame?).
+
+Results (`7b59dbf`, tier2 check: 7 pass, 5 fail):
+| scenario | status | metrics |
+|---|---|---|
+| diag-title-down / diag-title-card-down | fail | still 0: with Down every 30 frames the picture kept changing for 600 frames (the match 0 is only the timeout failing every check) |
+| diag-title-1min / diag-title-card-1min | pass | still 60: 60 s after the Circle presses the picture is still at once, with or without a card |
+| new-game-to-reactor-entrance (title-card) | pass | still_wait **300** again, frames 4140, match 1 |
+| diag-chain-title-a / -b | pass / **fail** | from a snapshot kept at the title + 60 frames, one frame: match_boot **0** |
+| reactor-entrance-one-frame, reactor-entrance-equals-scratch | fail | match_rerun 1, match_boot 0 (snapshot_frames 5390) |
+| disc-boot-smoke, title-determinism, title-snapshot-equals-boot | pass | unchanged |
+
+Reading:
+- **The title reads the pad (Down moves the picture), but Circle doesn't start New Game, with or without a card.** The card was not the cause. The likeliest explanation is the cursor not being on New Game when Circle arrives (for example, it starts on the other entry). This is a hypothesis.
+- **match_boot 0 is a runner bug, not an emulator limit.** It fails even at the title, one frame after a restore. The last picture is host-side (`runner/frontend.c` `video_cb` keeps the last non-NULL frame and counts NULL frames as duplicates), and a snapshot doesn't hold it. A freshly restored core has no picture until the core sends a new frame, while the core that ran on still holds an older one. On a static screen the core can send only duplicates, so the digests differ even when RAM is the same. The runner change: `sameState` compares the picture only when the core delivered a new frame during the script, and main RAM always. Both sides play the same frames, so they agree on whether one arrived. Hypothesis: RAM was equal all along. Attempt 3's `title-chain-b-equals-scratch` tests that.
+
+### Attempt 3 (last: a cursor-independent New Game, and the digest fix)
+- `title-to-new-game`, 720 frames: Circle, Cross, Cross (backs out of what Circle opened if the cursor was on the other entry), Down, Circle. The rest is unchanged: `title-card`, a minute of Circle, then the 5 s still wait.
+- The diagnostics are removed. The permanent cheap check is `title-chain-a-keep` → `title-chain-b-equals-scratch` (chain vs scratch one frame after a title-level restore).
+- **Reading still_wait:** 300 means a still screen from the first frame, which is **not** a field. A real arrival shows a still_wait well above 300, after the movie (minutes).

@@ -288,10 +288,25 @@ export function playScript(backend, steps, memory) {
   return { frames, waits, timedOut: false };
 }
 
-/** SHA-256 over main RAM and the last picture: compared inside the run, never reported. */
-export function stateDigest(backend) {
-  return sha256(Buffer.concat([Buffer.from(backend.readMem(0x80000000, RAM_SIZE)), Buffer.from(backend.frameHash(), 'hex')]));
+/**
+ * SHA-256 over main RAM and the last picture: compared inside the run, never
+ * reported. With picture false, a fixed marker stands for the picture.
+ */
+export function stateDigest(backend, { picture = true } = {}) {
+  const pic = picture ? Buffer.from(backend.frameHash(), 'hex') : Buffer.from('no new picture');
+  return sha256(Buffer.concat([Buffer.from(backend.readMem(0x80000000, RAM_SIZE)), pic]));
 }
+
+/**
+ * Whether the core delivered a new picture in the frames since `dupesBefore`
+ * (backend.stats().duplicateFrames). The last picture is host-side and not
+ * part of a snapshot: an instance that restored one has no picture until the
+ * core sends a new frame, while an instance that ran on still holds an older
+ * one. So a state comparison takes the picture into account only when one
+ * was delivered during the script; both sides of the comparison play the
+ * same frames, so they agree on that (#74).
+ */
+const newPicture = (backend, dupesBefore, frames) => backend.stats().duplicateFrames - dupesBefore < frames;
 
 /**
  * Resolve what a scenario or boot point boots: { program, discFile, cleanup }.
@@ -476,9 +491,11 @@ export async function runScenario2(sc, opts = {}) {
 
   /** Play the script from a started backend; returns { run, ms, digest }. */
   const play = (backend) => {
+    const dupes = needDigest ? backend.stats().duplicateFrames : 0;
     const t0 = performance.now();
     const r = playScript(backend, sc.steps, sc.memory);
-    return { run: r, ms: performance.now() - t0, digest: needDigest ? stateDigest(backend) : null };
+    const ms = performance.now() - t0;
+    return { run: r, ms, digest: needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null };
   };
   /** A backend at the start point (power-on or boot point), plus the snapshot used. */
   const restoreInto = async (bytes) => {

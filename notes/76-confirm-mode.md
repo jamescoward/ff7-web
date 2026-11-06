@@ -97,5 +97,5 @@ Reading:
 ### What "movie" means now
 A movie is playing when `gameState` reads field and `movieFrame` advances (15 per second) over a window of a few frames. A single read can be 0 mid-movie, so there is no single-read movie value. The layer's `mode()` reader (`semantic/layer.js`, outside this issue's paths) doesn't use it yet. A reader that compares two reads belongs to #79 or a follow-up.
 
-### Known limit
-`semantic/layer.js` marks `mode()` as `confirmed` whenever the address is confirmed, so a raw 3 (world) also comes back "confirmed". `confirmedValues` records which labels are confirmed. Making the reader use it is a follow-up, because `layer.js` is outside #76's paths.
+### Known limit (fixed in #92)
+`semantic/layer.js` used to mark `mode()` as `confirmed` whenever the address was confirmed, so a raw 3 (world) also came back "confirmed". Since #92 (PR #103) a reader is confirmed only for raw values its entries' `confirmedValues` list, and an unlabelled value (`unknown`) is never confirmed. `mode()` also reports `movie` (raw still 1) when `gameState` reads field and `movieFrame` advanced over the last `MOVIE_WINDOW` (5) calls; 0 reads are skipped, so a transient 0 mid-movie still counts and a counter held at 1790 does not. Each call is one sample: at the overlay's 4 Hz, "movie" shows one sample after the counter starts and lingers about 1 s after it stops. Tests: `runner/test/unit/semantic-mode.test.js` (synthetic counters only; no Tier 2 scenario drives `mode()` through a movie).

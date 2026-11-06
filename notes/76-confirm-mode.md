@@ -1,6 +1,6 @@
 # #76: confirm the game mode in Tier 2 (field, menu, battle, movie)
 
-Status: attempts 1 (`9a01627`) and 2 (`93e1388`) ran on Tier 2; attempt 2 passed 13/13. A refinement of `movie-1-start` is pushed as the determinism run.
+Status (2026-11-06): done. Tier 2 passed 13/13 on `93e1388` and on `6b938fe`. Field, menu and battle are confirmed in `g_GameState`; `g_PrevGameState` is confirmed; the movie is confirmed by `Stframe_no` (`movieFrame`). Attempts used: 2 of 3 materially distinct approaches. Approach 1 was the gameState probes plus g_MovieLock as the movie candidate; approach 2 was Stframe_no. `6b938fe` only moved where the movie-start wait begins.
 
 ## Candidates (hypotheses, reference only)
 All from the symbol list of Xeeynamo/ff7-decomp at `9411173034bde2ae4c9b0312167e79c3645ca1be`, `config/symbols.main.us.txt`. Only names and addresses were read from that one file; no source file was opened and no code was copied (CLAUDE.md, AGPL).
@@ -80,6 +80,19 @@ Reading:
 Reading:
 - **Determinism across runs:** every field, menu and battle transition frame equals attempt 1's (1, 1, 130, 32, 93, 839, 1293, 587; still_wait 5525). Each rerun from the same snapshot matched.
 - **The movie counter can read 0 mid-movie.** Attempt 1 read 0 at script frame 1920; attempt 2 read 223 at 1921, on the same inputs from the same boot point (both runs were deterministic). So 0 is a transient reading on some frames, and `movie_start 1` here measured nothing. The rates agree: 1790 frames at 15 a second is 7160 game frames, ending at 8196, so the movie started at about script frame 1036. That fits attempt 1's 822 at 4320 ((4320 - 1036) / 4 = 821). The refinement starts the wait right after `title-to-new-game` (frame 720), before the movie, so `movie_start` measures the real start (expected about 316).
+
+### Run 3 (`6b938fe`, tier2: 13 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| movie-1-start | **movie_start 312** (script frame 1032 from the title; frame 2282 from power-on), movie_frame 1, mode_ok 1, game_state 1, prev_state 0, fps 589, match 1 |
+| movie-2-playing | movie_frame 151 (+150 in 600 frames), movie_ok 1, mode_ok 1, fps 348, match 1 |
+| movie-3-end | movie_end 6564, snapshot_frames 2882, so the movie ends at frame **9446** from power-on (attempt 2: 3771 + 5675 = 9446), stopped_ok 1, mode_ok 1, match 1 |
+| reactor-mode-1..5 | identical to attempts 1 and 2: field_wait 1, menu_wait 1, menu_still 130, close_wait 32, field_still 93, battle_wait 839, end_wait 1293, field_still 587; every check 1, every match 1 |
+
+### Determinism (acceptance)
+- **Field, menu and battle:** the same transition frames in three Tier 2 runs (`9a01627`, `93e1388`, `6b938fe`), and every scenario's rerun from the same snapshot matched.
+- **Movie:** the end is at frame 9446 from power-on in two runs with different start scripts. The start (312) was measured once, with its rerun matching. Movie length: 9446 - 2282 = 7164 frames for 1790 movie frames, 4.0 per movie frame (15 a second).
+- **Caveat (#88):** these are reruns from the same in-memory snapshot, not a run from power-on with no restore. On the disc a restored mid-run snapshot is not byte-identical to running on, so a player who never restored could in principle see slightly different frames.
 
 ### What "movie" means now
 A movie is playing when `gameState` reads field and `movieFrame` advances (15 per second) over a window of a few frames. A single read can be 0 mid-movie, so there is no single-read movie value. The layer's `mode()` reader (`semantic/layer.js`, outside this issue's paths) doesn't use it yet. A reader that compares two reads belongs to #79 or a follow-up.

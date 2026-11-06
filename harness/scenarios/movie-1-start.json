@@ -2,7 +2,7 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "name": "movie-1-start",
-  "description": "#76: movie, its start. From the title boot point with a blank card (title-card), the same inputs as new-game-to-reactor-entrance for 1920 frames (New Game, then Circle every second; movie_frame still reads 0 there, attempt 1), then Circle every second until Stframe_no (movie_frame) is no longer 0: movie_start is the first frame it is not. The opening movie is played by the field module, so g_GameState reads field (1) during it (mode_ok; attempt 1 read 1 at four points of the opening). match: a rerun from the same snapshot. Keeps \"movie-start\".",
+  "description": "#76: movie, its start. From the title boot point with a blank card (title-card), New Game (title-to-new-game, 720 frames, as in new-game-to-reactor-entrance), then Circle every second until Stframe_no (movie_frame) is no longer 0: movie_start is the first frame it is not, counted from the end of title-to-new-game. Stframe_no reads 0 from New Game until the opening movie streams its first frame (it can also read 0 on single frames later in the movie, attempt 1 at script frame 1920; the first non-zero read is the start). The opening movie is played by the field module, so g_GameState reads field (1) during it (mode_ok). match: a rerun from the same snapshot. Keeps \"movie-start\".",
   "tier": 2,
   "boot": {
     "disc": 1,
@@ -30,18 +30,12 @@
       "segment": "title-to-new-game"
     },
     {
-      "segment": "circle-every-second-10s"
-    },
-    {
-      "segment": "circle-every-second-10s"
-    },
-    {
       "wait": {
         "until": {
           "mem": "movie_frame",
           "differs": 0
         },
-        "timeout": 6000,
+        "timeout": 7200,
         "press": {
           "buttons": [
             "circle"

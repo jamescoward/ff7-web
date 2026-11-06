@@ -1,6 +1,6 @@
 # #78: confirm menu cursor and party data in Tier 2
 
-Status (2026-11-06): attempt 2 pushed. Attempt 1 found the cursor (candidate 1) and showed Cloud alone at the first battle.
+Status (2026-11-06): attempt 3 pushed (the last). Attempt 2 passed every acceptance scenario; only the Barret search failed.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (names and addresses), `include/game.h` (layouts: `MenuTable`, `SaveWork`, `SavePartyMember` record, `ActiveCharacterData`), and the indexing seen in `src/menu/savemenu.c` `UpdateSaveHeader` (it reads `g_ActiveCharacters[i]` for party slot `i`, where `Savemap.partyID[i]` is not 0xFF). Only offsets, names and indexing were read.
@@ -48,3 +48,25 @@ Reading:
 - `reactor-mode-4c-party-hp-damage`: 1800 frames of battle with no input; g_ActiveCharacters[0].hp decreases (sign) and max HP is unchanged. This identifies the field as the current HP, which a range alone cannot.
 - `reactor-next-3-barret-up`, `-up-right` (diagnostic): from after-battle, walk to md1_1 and wait for the load, then hold up (or up+right) with Circle until partyID[1] reads Barret (0x01), 9000-frame timeout; then 1/0 for partyID[1], g_ActiveCharacters[1].id and HP.
 - `semantic/addresses.js`: menuCursor (s8, 0x8009A0D3), partySlot0..2 (Savemap partyID, 0x8009CBDC..DE) and partyHp0 (g_ActiveCharacters[0].hp, 0x8009D85C) confirmed; partyHp1/2 stay hypotheses (same layout one stride on, never seen holding a character). Reader tests updated (`runner/test/unit/semantic.test.js`, `semantic-party-hp.test.js`, `web/test/debug-overlay.test.js`).
+
+## Attempt 2 results (`f020888`, tier2: 30 pass, 2 fail; the fails are the Barret search)
+| scenario | status | metrics |
+|---|---|---|
+| reactor-mode-2d-cursor-sequence | pass | w_down1 1, w_down2 1, w_up1 1, w_up0 1, cursor_ok 1, match 1 (second run, identical) |
+| reactor-mode-2e-party-menu | pass | s0_cloud 1, s1_empty 1, s2_empty 1, a0_cloud 1, hp0_ok 1, mp0_ok 1, max0_ok 1, menu_ok 1 |
+| reactor-mode-4a-party-slots | pass | s0_cloud 1, s1_empty 1, s2_empty 1, a0_cloud 1, battle_ok 1 |
+| reactor-mode-4b-party-hp | pass | hp0_ok 1, mp0_ok 1, max0_ok 1, save_hp_ok 1, save_mp_ok 1, battle_ok 1 |
+| reactor-mode-4c-party-hp-damage | pass | **hp_dir -1**, max_dir 0, battle_ok 1, match 1 |
+| reactor-next-3-barret-up / -up-right | fail (diag) | barret_wait 0 (9000-frame timeout), s1_barret 0, a1_barret 0, hp1_ok 0, map_cur 117, game_state 1, loading 2 |
+| every other scenario | pass | unchanged from attempt 1 (and from #77) |
+
+Reading:
+- **Cloud is alone at reactor-entrance and at the first guard battle**: partyID = [0x00, 0xFF, 0xFF], in the menu and in battle.
+- **g_ActiveCharacters[0].hp is the current HP**: it falls during 30 s of the guards attacking, while max HP stays the same.
+- The cursor sequence passed again, identically: two runs.
+- **No Barret yet**: 150 s of up (or up-right) with Circle in md1_1 left Cloud in md1_1 with slot 1 still not Barret.
+
+## Attempt 3 plan (the last; a different exploration, and the second run of every acceptance check)
+- Acceptance scenarios unchanged: their second Tier 2 run.
+- `reactor-next-3-barret-up`, `-up-left` (diagnostic): from md1_1 (as attempt 2), 150 rounds of a 60-frame pattern: direction + Circle, direction alone, then Circle, Start and Select (in case Circle alone was stuck in dialogue or a name entry). End checks: partyID[1] = Barret, g_ActiveCharacters[1].id = Barret, its HP in range; map_cur reported.
+- If neither finds Barret, they are removed in a final commit (they are this PR's own diagnostics), Barret's ID stays documented but unobserved, and partyHp1/2 stay hypotheses.

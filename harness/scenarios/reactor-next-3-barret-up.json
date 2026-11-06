@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-next-3-barret-up",
-  "description": "#78 (diagnostic): where Barret joins. From after-battle, walk up-left to md1_1 (0x75) and wait for it to load (#77), then hold up with Circle (15 of every 20 frames, for dialogue) until Savemap partyID[1] reads Barret (0x01): barret_wait, 0 on a 9000-frame timeout. Reports where it ended and 1/0 checks on the slot-1 data.",
+  "description": "#78 attempt 3 (diagnostic): where Barret joins. From after-battle, walk up-left to md1_1 (0x75) and wait for it to load (#77), then 150 rounds (9000 frames) of segment md1-1-explore-up (up, Circle, Start, Select: attempt 2's up + Circle stayed in md1_1 without Barret). At the end, 1/0 for Savemap partyID[1] = Barret (0x01), g_ActiveCharacters[1].id = Barret and its HP in range; map_cur says where it ended.",
   "boot": {
     "from": "after-battle"
   },
@@ -76,22 +76,454 @@
       }
     },
     {
-      "wait": {
-        "until": {
-          "mem": "slot1",
-          "equals": 1
-        },
-        "timeout": 9000,
-        "press": {
-          "buttons": [
-            "up",
-            "circle"
-          ],
-          "every": 20,
-          "hold": 15
-        }
-      },
-      "metric": "barret_wait"
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
+    },
+    {
+      "segment": "md1-1-explore-up"
     },
     {
       "wait": {
@@ -126,7 +558,6 @@
     }
   ],
   "metrics": [
-    "barret_wait",
     "s1_barret",
     "a1_barret",
     "hp1_ok",

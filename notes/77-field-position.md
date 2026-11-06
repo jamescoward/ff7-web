@@ -71,3 +71,27 @@ Every scenario's status and every deterministic metric (all but fps, run_ms, sav
 - `reactor-next-0-after-battle`: from `battle`, back to the field and a still picture (as reactor-mode-5); keeps `after-battle`.
 - `reactor-next-1..5-{up-left,left,up-right,right,down}` (diagnostic): hold the direction without Circle until g_FieldCurrentMap differs from 0x74, then until g_IsFieldLoading reads 2 again. Looks for the exit to md1_1 (0x75) and the field-loaded condition.
 - Removed: `reactor-next-field` (attempt 1's Up + Circle) and the entity-1/Z probes.
+
+### Attempt 2 results (`2f5b4d5`, tier2: 24 pass, 4 fail; the fails are exit-search diagnostics)
+| scenario | status | metrics |
+|---|---|---|
+| reactor-field-1-id | pass | id_ok 1, match 1, map_cur 116, map_save 116, map_preload 117, loading 2, game_state 1, player_model 0 |
+| reactor-field-2-still | pass | still_x 0, still_y 0, match 1, player_model 0 |
+| reactor-field-3-walk-right | pass | x_dir 1, match 1 |
+| reactor-field-4-walk-left | pass | x_dir -1, match 1 |
+| reactor-field-5-walk-up | pass | x_dir 1, y_dir 1, match 1 |
+| reactor-field-6-walk-down | pass | x_dir -1, y_dir -1, match 1 |
+| reactor-next-0-after-battle | pass | end_wait 1297, field_still 588, map_cur 116, loading 2, match 1 |
+| reactor-next-1-up-left | **pass** | **next_wait 495, map_cur 117** (0x75, md1_1), map_save 116, map_preload 116, prev_field 116, **loading 1**, settle_wait 1, game_state 1 |
+| reactor-next-2..5 (left, up-right, right, down) | fail (diag) | next_wait 0 (60 s timeout), map_cur 116 |
+
+Reading:
+- **The four position checks pass** with the signs attempt 1 measured, in a third Tier 2 run.
+- **Walking up-left leaves md1stin for md1_1 (0x75), the documented next field**, 495 frames after the battle's still picture. Straight left, up-right, right and down don't in 60 s.
+- **The field ID changes before the new field has loaded.** One frame after the change `g_IsFieldLoading` still read 2 (settle_wait 1). 120 frames later it read 1 and the savemap copy still read 116. So the load starts after the ID changes. "Field mode and a valid field ID" is not enough for #38; attempt 3 checks that `g_IsFieldLoading` returns to 2.
+
+### Attempt 3 (last: the exit as an acceptance check, the load sequence, and the table)
+- `reactor-next-1-walk-off`: up-left until the ID differs from 0x74, 10 s idle; map_cur = 0x75 (next_ok), field mode, match.
+- `reactor-next-2-load-sequence`: up-left until the ID changes; until `g_IsFieldLoading` leaves 2 (load_start), then until it reads 2 again (load_done); then check ID 0x75, field mode, loading 2.
+- `semantic/addresses.js`: `fieldId` = g_FieldCurrentMap (s16), `fieldX`/`fieldY` = g_FieldEntity[0] PosX/PosY (s32), all **confirmed**; new `fieldLoading` = g_IsFieldLoading, hypothesis until load_done passes. Tests updated (`runner/test/unit/semantic.test.js`, `web/test/debug-overlay.test.js`, which now take the field badges from the shipped table, as #96 did for Mode).
+- Known limit: the position entries read model index 0, which is the player at md1stin (g_PlayerModelId 0). Other fields may put the player at another index; a reader that indexes by g_PlayerModelId is a follow-up.

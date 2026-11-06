@@ -26,7 +26,8 @@
 //
 // Changing an entry to "confirmed" needs a Tier 2 scenario that checks it
 // (issues #76 to #78). #76 confirmed gameState (field, battle, menu),
-// prevGameState and movieFrame (notes/76-confirm-mode.md).
+// prevGameState and movieFrame (notes/76-confirm-mode.md). #77 confirmed
+// fieldId, fieldX and fieldY (notes/77-field-position.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -132,26 +133,37 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   },
   {
     name: 'fieldId',
-    address: null,
-    type: 'u16',
-    meaning: 'current location (field ID); documented IDs 0x0000 to 0x0312',
-    source: noAddress(`${SAVEMAP_NOTE}: savemap +0x0B96 is the saved copy; its RAM base is not in the repo. Issue #77`),
-    status: 'hypothesis',
+    address: 0x8009a05c,
+    type: 's16',
+    meaning: 'current location (field ID, g_FieldCurrentMap); documented IDs 0x0000 to 0x0312 (ff7-flat-wiki Field_ID). It changes as soon as the player walks through an exit, before the new field has loaded (see fieldLoading)',
+    source: `${DECOMP} config/symbols.main.us.txt and include/game.h: g_FieldCurrentMap. Tier 2 (#77, notes/77-field-position.md): md1stin (0x74) at reactor-entrance, md1_1 (0x75) after walking up-left off it, as the wiki documents; the savemap copy (0x8009C6E4 + 0x0B96) reads the same at md1stin. ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-field-1-id'),
   },
   {
     name: 'fieldX',
-    address: null,
-    type: 's16',
-    meaning: 'player field X position',
-    source: noAddress(`${SAVEMAP_NOTE}: savemap +0x0B9A is the saved copy, not a live address. Issue #77`),
-    status: 'hypothesis',
+    address: 0x80074eb0,
+    type: 's32',
+    meaning: 'player field X position (g_FieldEntity[0].PosX, raw units). Index 0 is the player at md1stin (g_PlayerModelId 0); in other fields the player may be another model index (not yet checked). At md1stin screen right raises it and left lowers it',
+    source: `${DECOMP} config/symbols.main.us.txt (g_FieldEntity at 0x80074EA4) and include/game.h (FieldEntity, size 0x84, PosX at +0x0C). Tier 2 (#77): unchanged for 120 frames without input; +1 sign walking right and up, -1 walking left and down, in two runs; ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-field-3-walk-right'),
   },
   {
     name: 'fieldY',
-    address: null,
+    address: 0x80074eb4,
+    type: 's32',
+    meaning: 'player field Y position (g_FieldEntity[0].PosY, raw units); same index caveat as fieldX. At md1stin screen up raises it and down lowers it',
+    source: `${DECOMP} include/game.h (FieldEntity, PosY at +0x10). Tier 2 (#77): unchanged for 120 frames without input; +1 sign walking up, -1 walking down, in two runs; ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-field-5-walk-up'),
+  },
+  {
+    name: 'fieldLoading',
+    address: 0x800965e8,
     type: 's16',
-    meaning: 'player field Y position',
-    source: noAddress(`${SAVEMAP_NOTE}: savemap +0x0B9C is the saved copy, not a live address. Issue #77`),
+    meaning: 'field load state (g_IsFieldLoading): 2 in a settled field, other values while a new field loads. Field loaded = gameState field, a valid fieldId and fieldLoading 2 (hypothesis)',
+    source: `${DECOMP} config/symbols.main.us.txt: g_IsFieldLoading. Tier 2 (#77): 2 at md1stin, 1 120 frames after the field ID changed to md1_1`,
     status: 'hypothesis',
   },
   {

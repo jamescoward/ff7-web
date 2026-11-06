@@ -21,6 +21,9 @@ import { BROWSERS, CORE_BUILT, WEB, launch, loadPlaywright, serveWeb, until } fr
 // table, not hard-coded, so these tests follow address confirmations (#76).
 const SHIPPED_MODE_BADGE = ['gameState', 'prevGameState']
   .every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis';
+const shippedBadge = (...names) => (names.every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis');
+const SHIPPED_FIELD_BADGE = shippedBadge('fieldId');
+const SHIPPED_POS_BADGE = shippedBadge('fieldX', 'fieldY');
 
 const pw = loadPlaywright();
 let server;
@@ -177,6 +180,9 @@ for (const name of BROWSERS) {
         await page.evaluate(() => {
           window.fake.set(0x8009c560, 'Int16', 1);
           window.fake.set(0x800965ec, 'Int16', 5);
+          window.fake.set(0x8009a05c, 'Int16', 0x74); // fieldId (#77)
+          window.fake.set(0x80074eb0, 'Int32', -70000); // fieldX (#77)
+          window.fake.set(0x80074eb4, 'Int32', 123456); // fieldY (#77)
           window.fake.load(true, 'real');
         });
         assert.equal(await visible(page, '#debug-btn'), true);
@@ -188,7 +194,9 @@ for (const name of BROWSERS) {
         await page.waitForSelector('#debug .dbg-row');
         let r = await rows(page);
         assert.deepEqual(r.mode, { val: 'field (1), was menu', badge: SHIPPED_MODE_BADGE, reason: null });
-        for (const key of ['fieldId', 'position', 'menuCursor', 'party', 'partyHp']) {
+        assert.deepEqual(r.fieldId, { val: '116', badge: SHIPPED_FIELD_BADGE, reason: null });
+        assert.deepEqual(r.position, { val: 'x -70000, y 123456', badge: SHIPPED_POS_BADGE, reason: null });
+        for (const key of ['menuCursor', 'party', 'partyHp']) {
           assert.deepEqual(r[key], { val: '—', badge: null, reason: 'no address' }, key);
         }
 
@@ -338,7 +346,11 @@ for (const name of BROWSERS) {
         const r = await rows(page);
         assert.match(r.mode.val, /^\w+ \(-?\d+\), was \w+$/);
         assert.equal(r.mode.badge, SHIPPED_MODE_BADGE);
-        assert.deepEqual(r.fieldId, { val: '\u2014', badge: null, reason: 'no address' });
+        // #77 confirmed the field ID's address: the row is a live read of whatever the homebrew
+        // left there, badged as the shipped table says. Rows still without an address say so.
+        assert.match(r.fieldId.val, /^-?\d+$/);
+        assert.deepEqual({ badge: r.fieldId.badge, reason: r.fieldId.reason }, { badge: SHIPPED_FIELD_BADGE, reason: null });
+        assert.deepEqual(r.menuCursor, { val: '\u2014', badge: null, reason: 'no address' });
         // Toggling off tells the worker to stop (no more state messages).
         await page.click('#debug-btn');
         assert.equal(await visible(page, '#debug'), false);

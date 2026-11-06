@@ -1,0 +1,66 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "diag-88-title-c-equals-scratch",
+  "description": "#88 diagnostic: from \"diag88-title-60\", the presses and waits of title-snapshot-equals-boot (Down, Up, Circle; 732 frames). match_boot: the same state as the chain replayed from power-on with no snapshot. same_PART: whether each part of the emulator state (main RAM; CPU and GTE registers with event timing; scratchpad and I/O registers; GPU and VRAM; SPU; CD-ROM drive; root counters; runner/stateparts.js) is the same in both, 1/0, compared by hash inside the sandbox. No RAM, picture or hash is reported. No FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": {
+    "from": "diag88-title-60"
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 600
+      }
+    }
+  ],
+  "assert": [
+    {
+      "sameState": "boot",
+      "metric": "match_boot"
+    }
+  ],
+  "metrics": [
+    "match_boot",
+    "same_ram",
+    "same_cpu",
+    "same_io",
+    "same_gpu",
+    "same_spu",
+    "same_cdrom",
+    "same_timers"
+  ]
+}

@@ -6,9 +6,10 @@
 #   (about a minute; no cache, so a cache can't hide a toolchain change),
 #   runs the Tier 1 tests, and runs every scenario twice and compares the
 #   outputs byte for byte.
-# - web: builds the core and the browser link, then runs the browser
-#   wrapper's tests (web/test) and the benchmark page's tests (web/bench/test)
-#   on Chromium and WebKit through Playwright.
+# - web-core + web: builds the core and the browser link on the runner, then
+#   runs the browser wrapper's tests (web/test) and the benchmark page's tests
+#   (web/bench/test) on Chromium and WebKit through Playwright, inside the
+#   pinned Playwright image (no apt install; #90).
 #   A missing browser fails the job (WEB_REQUIRE_BROWSERS=1).
 #
 # Read-only token, no secrets. Nothing from the game is involved: Tier 1
@@ -89,9 +90,17 @@ jobs:
         if: always()
         run: cat core/dist/BUILD_INFO.json runner/dist/BUILD_INFO.json 2>/dev/null || true
 
-  web:
+  # The browser core is built on the runner (web-core) and handed to the
+  # test job as an artifact. The test job runs in the official Playwright
+  # image (Apache-2.0), pinned by digest, whose Chromium, WebKit and system
+  # libraries are preinstalled: no apt install, so a slow Ubuntu mirror can't
+  # stall it (#90: two 30-minute cancels on 2026-11-05/06 during
+  # `playwright install --with-deps`).
+  web-core:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
+    outputs:
+      web: ${{ steps.has.outputs.web }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -114,16 +123,56 @@ jobs:
       - name: Link browser core
         if: steps.has.outputs.web == 'true'
         run: core/web/link.sh
+      - name: Hand the browser core to the test job
+        if: steps.has.outputs.web == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-core
+          path: web/core/
+          retention-days: 1
+          if-no-files-found: error
+
+  web:
+    needs: web-core
+    # Runs even if web-core failed (but not when the run is cancelled), and
+    # then fails itself, so a broken build never shows up as a skipped (and so
+    # passing) `web` check.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Playwright 1.63.0 on Ubuntu 24.04 (noble), pinned by its index digest.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+    steps:
+      - name: The browser core was built
+        if: needs.web-core.result != 'success'
+        run: |
+          echo "::error::web-core did not succeed (${{ needs.web-core.result }})"
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Fetch the browser core
+        if: needs.web-core.outputs.web == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-core
+          path: web/core/
       # Playwright (Apache-2.0) is a test-only tool, pinned to an exact
       # version, installed outside the repository; never shipped in the site.
-      - name: Install Playwright 1.63.0 with Chromium and WebKit
-        if: steps.has.outputs.web == 'true'
+      # It uses the image's browsers (PLAYWRIGHT_BROWSERS_PATH=/ms-playwright),
+      # which match this version; nothing is downloaded or apt-installed.
+      - name: Install Playwright 1.63.0 (browsers come with the image)
+        if: needs.web-core.outputs.web == 'true'
         run: |
           npm install --global --no-fund --no-audit playwright@1.63.0
-          playwright install --with-deps chromium webkit
           echo "NODE_PATH=$(npm root --global)" >> "$GITHUB_ENV"
       - name: Browser wrapper and benchmark page tests (Chromium, WebKit)
-        if: steps.has.outputs.web == 'true'
+        if: needs.web-core.outputs.web == 'true'
         env:
           WEB_BROWSERS: chromium,webkit
           WEB_REQUIRE_BROWSERS: '1'

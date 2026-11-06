@@ -434,7 +434,8 @@ function mutate(r) {
       const first = Array.isArray(d.scenarios) ? d.scenarios[0] : undefined;
       const target = pick([d, d.scenarios, (Array.isArray(d.scenarios) && pick(d.scenarios)) || d, first?.metrics]);
       const key = pick(['format', 'scenarios', 'name', 'status', 'metrics', 'x', 'frames', '__proto__', 0, 1, 40]);
-      if (target && typeof target === 'object') target[key] = pick(HOSTILE_VALUES);
+      // A copy: the hostile [] and {} are shared, and assigning one into itself made a cycle.
+      if (target && typeof target === 'object') target[key] = structuredClone(pick(HOSTILE_VALUES));
     }
     // Up to 80 unique names (more than MAX_SCENARIOS = 64, #109), then duplicates.
     if (r() < 0.2) d.scenarios = Array.from({ length: Math.floor(r() * 160) }, (_, i) => ({ name: `s${i % 80}`, status: pick(STATUSES) }));

@@ -33,7 +33,7 @@ Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → *
 - Limits: 32 scenarios per run and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
-- **Measured values in save descriptions:** `harness/saves/disc1-md1stin.json` holds progress 6 and triangle 12, which were measured in Tier 2. `docs/SECURITY.md` describes description values as numbers "the author chose". Confirm this pattern before #80 builds more boot points the same way.
+- ~~**Measured values in save descriptions:**~~ Decided (owner, 2026-11-06, planning session): values measured in Tier 2 may go in save descriptions, as `harness/saves/disc1-md1stin.json` does. #80 and #101 can build boot points the same way. `docs/SECURITY.md` still says "the author chose"; aligning its wording is an optional `needs-owner` PR.
 - **The Tier 2 scenario limit:** Tier 2 is at its limit of 32 scenarios per run. #80 and #101 must replace or split scenarios. Raising the limit would change `harness/private-eval/`, so it needs a `needs-owner` issue.
 - **Optional:** the owner accepted #38's boot point (md1stin, not a save point) in the coordinator session. The coordinator recorded this on #38 (comment 6694044922) from the shared account. A reply from the owner there would make it unambiguous.
 - Done since the last update: PR #94 (the `web` job in the pinned Playwright image) and the pad-echo baseline re-recording (#97) are both merged.

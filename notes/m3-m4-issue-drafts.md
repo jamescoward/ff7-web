@@ -49,5 +49,8 @@ Oldest ready first, as usual (`docs/CONTINUITY.md`). In practice: the M2 queue, 
 ## What M3 "done" means
 #120 green in Tier 2, plus the owner's Tier 3 batch on return. Until that check, M3 is "done headless".
 
+## Model delegation
+The owner labelled #105, #106, #113, #114, #115, #118 and #119 `model:sonnet` (2026-11-06) to make the quota go further. The Tier 2 and trust-boundary issues stay on Opus.
+
 ## Not planned yet
 Tap to walk (stretch goal), world-map controls beyond the classic pad, minigames beyond #80's one, the native shell. Agents in trip mode don't plan these; they're for the owner on return.

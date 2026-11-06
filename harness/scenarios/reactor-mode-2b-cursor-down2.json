@@ -1,0 +1,100 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-mode-2b-cursor-down2",
+  "description": "#78 attempt 1 (diagnostic; fails unless every candidate changes): from menu-open, Down twice: expect 0 -> 2. Each press is 4 frames, then 30 frames idle. Reports each main-menu cursor candidate (the row of g_PartyMenuTables[0..2]) at the end and the sign of its change from menu-open.",
+  "boot": {
+    "from": "menu-open"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): menu 5. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "row0": {
+      "addr": "0x8009a0d3",
+      "type": "u8",
+      "description": "g_PartyMenuTables[0] (0x8009A0C8, MenuTable size 0x12) + 0x0B row (s8): main-menu cursor candidate 1. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h MenuTable"
+    },
+    "row1": {
+      "addr": "0x8009a0e5",
+      "type": "u8",
+      "description": "g_PartyMenuTables[1] (0x8009A0C8, MenuTable size 0x12) + 0x0B row (s8): main-menu cursor candidate 2. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h MenuTable"
+    },
+    "row2": {
+      "addr": "0x8009a0f7",
+      "type": "u8",
+      "description": "g_PartyMenuTables[2] (0x8009A0C8, MenuTable size 0x12) + 0x0B row (s8): main-menu cursor candidate 3. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h MenuTable"
+    },
+    "sel_menu": {
+      "addr": "0x80062f94",
+      "type": "u32",
+      "description": "g_PartyMenuSelectedMenuId (s32): diagnostic. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    }
+  },
+  "input": [
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "change": {
+        "mem": "row0",
+        "is": "changed"
+      },
+      "metric": "d_row0"
+    },
+    {
+      "change": {
+        "mem": "row1",
+        "is": "changed"
+      },
+      "metric": "d_row1"
+    },
+    {
+      "change": {
+        "mem": "row2",
+        "is": "changed"
+      },
+      "metric": "d_row2"
+    }
+  ],
+  "metrics": [
+    "row0",
+    "row1",
+    "row2",
+    "d_row0",
+    "d_row1",
+    "d_row2",
+    "sel_menu",
+    "game_state"
+  ]
+}

@@ -93,7 +93,7 @@ describe('format 2 schema', () => {
     'sameState of another kind': (d) => { d.assert[1].sameState = 'snapshot'; },
     'format 1 assertion': (d) => { d.assert[0] = { at: 5, mem: 'counter', equals: 1 }; },
     'more than 8 metrics': (d) => { d.metrics = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']; },
-    'unknown property': (d) => { d.snapshot = 'x'; },
+    'unknown property': (d) => { d.snapshots = 'x'; },
   };
   for (const [name, mutate] of Object.entries(invalid)) {
     test(`rejects: ${name}`, () => {

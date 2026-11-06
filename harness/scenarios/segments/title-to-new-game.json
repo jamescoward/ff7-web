@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "title-to-new-game",
+  "description": "From the title boot point (T = 1250) to New Game, without knowing where the menu cursor starts (#74 Tier 2: Circle alone left the title on screen; Down moves the picture). Circle (New Game if the cursor is there); Cross twice, to back out of whatever Circle opened if the cursor was on the other entry; Down, to the other entry; Circle again. If the first Circle started New Game, the later presses fall on the fade-out and the opening movie, which take no input. 720 frames. Hypotheses about the game's menu, judged only by what follows; no FF7 address is used.",
+  "steps": [
+    { "wait": { "frames": 60 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 116 } },
+    { "buttons": ["cross"], "frames": 4 },
+    { "wait": { "frames": 116 } },
+    { "buttons": ["cross"], "frames": 4 },
+    { "wait": { "frames": 116 } },
+    { "buttons": ["down"], "frames": 4 },
+    { "wait": { "frames": 116 } },
+    { "buttons": ["circle"], "frames": 4 },
+    { "wait": { "frames": 176 } }
+  ]
+}

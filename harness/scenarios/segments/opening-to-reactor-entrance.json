@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "opening-to-reactor-entrance",
+  "description": "After New Game: press Circle for 4 frames every second until the picture has stayed the same, and not a single colour, for 5 s (300 frames), for at most 30000 frames (8 min 20 s). Circle does nothing in the opening movie; it advances dialogue, picks Attack and its target in a battle, and closes result screens; on a field where the player has control and stands still, it changes nothing. So the first 5 s still picture that ignores 4 or 5 presses is taken as the first controllable field (#74). Game-agnostic: no FF7 address is used. The wait's metric is still_wait, which the including scenario must list.",
+  "steps": [
+    {
+      "wait": { "stillFrames": 300, "timeout": 30000, "press": { "buttons": ["circle"], "every": 60, "hold": 4 } },
+      "metric": "still_wait"
+    }
+  ]
+}

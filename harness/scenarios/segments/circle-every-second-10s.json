@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "circle-every-second-10s",
+  "description": "Circle for 4 frames at the start of every second, ten times: 600 frames.",
+  "steps": [
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } },
+    { "buttons": ["circle"], "frames": 4 }, { "wait": { "frames": 56 } }
+  ]
+}

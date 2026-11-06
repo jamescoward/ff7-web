@@ -1,6 +1,6 @@
 # #88: a snapshot restored mid-run differs from running on
 
-Status (2026-11-06): cause found and fixed in the core's save-state code, demonstrated on Tier 1 with homebrew. Tier 2 (the disc) is in progress: results are logged at the end.
+Status (2026-11-06): cause found and fixed in the core's save-state code (core/patches/0002-savestate-round-trip.patch). Tier 1 demonstrates it with homebrew. On Tier 2 (the disc), chain equals scratch at title + 60 and at reactor-entrance, in every part of the state (attempt 1 of 3).
 
 ## Summary
 - **Cause (demonstrated on Tier 1):** `retro_unserialize` does not put the CPU and root counter timing back exactly.
@@ -45,12 +45,24 @@ Also seen in the code, not changed (outside this issue's evidence): the GPU lose
 - `stateparts`: the parts cover the state without overlap except the 25 bytes left out, and two saves of one moment have equal parts.
 - `same_PART` metrics (format 2): 1 for every part on a pad-echo chain, 0 where they should be on a broken chain, and a load error without a `boot` check.
 
-## Tier 2 plan (attempt 1)
-Diagnostics, each reporting `match_boot` and seven `same_PART` metrics (RAM, CPU, I/O, GPU, SPU, CD-ROM, timers) as 0/1:
-- `diag-88-title-a-keep` → `diag-88-title-b-equals-scratch`: #74's failing title chain, title + 60, then 1 frame.
-- `diag-88-title-c-equals-scratch`: the same snapshot, 732 frames with presses.
-- `diag-88-movie-a-keep` → `diag-88-movie-b-equals-scratch`: a snapshot kept 30 s after the New Game minute, hypothesised to be mid-movie (MDEC and CD streaming), then 2 s.
-- `reactor-entrance-equals-scratch`: from `reactor-entrance` (frame 11095), 2 s.
+## Tier 2 attempt 1 (`5e1adf1`, tier2 check: 11 pass, 0 fail)
+Each scenario below reports `match_boot` and seven `same_PART` metrics (RAM, CPU, I/O, GPU, SPU, CD-ROM, timers) as 0/1. All the scenarios start from a snapshot saved by a core that was itself restored from the title snapshot, so each involves two restores.
 
-## Results
-(Tier 2 attempt 1: pending.)
+| scenario | restore point | after the restore | match_boot | same_ram, cpu, io, gpu, spu, cdrom, timers |
+|---|---|---|---|---|
+| diag-88-title-b-equals-scratch | title + 60 (frame 1310) | 1 frame | **1** | all 1 |
+| diag-88-title-c-equals-scratch | title + 60 | 732 frames, Down/Up/Circle | **1** | all 1 |
+| diag-88-movie-b-equals-scratch | title-card + 6120 (frame 7370; hypothesised mid-movie) | 120 frames | **1** | all 1 |
+| reactor-entrance-equals-scratch | reactor-entrance (frame 11095) | 120 frames | **1** | all 1 |
+
+The keepers passed: diag-88-title-a-keep (match 1, frames 60) and diag-88-movie-a-keep (match 1, frames 6120, fps 195, which is consistent with movie decoding). Every other scenario on main passed with the values it had before: disc-boot-smoke (title_frame 1231), new-game-to-reactor-entrance (still_wait 5525, frames 9845, match 1), reactor-entrance-from-snapshot (match_rerun 1), title-determinism and title-snapshot-equals-boot (match 1).
+
+Reading:
+- **On the disc, a chained snapshot now equals running on.** That holds at the title + 60 (one frame after the restore, and 732 frames later) and at reactor-entrance (2 s after). The whole emulator state is equal part by part, not only RAM and the picture. Before the patch, the same title chain and the same reactor-entrance comparison gave 0 (#74 attempts 2 and 3). The only change between those runs and this one is `0002-savestate-round-trip.patch` and the part metrics. #74 attempt 3 already had the picture-aware digest.
+- **Not shown on the disc:** which of the four patch changes FF7 needed. All the parts are 1 with the patch; no Tier 2 run on the unpatched core reported parts. On Tier 1, the counter and subCycle changes are each needed. The mid-movie point is a hypothesis (no address was used), so the MDEC change is still not demonstrated.
+- Attempts used: 1 of 3.
+
+## After attempt 1
+- `diag-88-movie-*` and `diag-88-title-c-*` are removed to keep the run short. Their results are above.
+- The cheap title chain stays as a regression check, renamed `title-chain-a-keep` → `title-chain-b-equals-scratch` (snapshot `title-plus-60`; it sorts before `title-determinism`). `reactor-entrance-equals-scratch` stays as the reactor-entrance acceptance check.
+- **Rule for M2 (#76 onwards):** with the patched core, a value seen after restoring a chained snapshot equals what a run from power-on with the same input would see. That is demonstrated at the restore points above, at frames up to 11,095 plus 2 s, and on Tier 1 for chains of up to five restores. It assumes the blank card is never written (`McdFlag` above).

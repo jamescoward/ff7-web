@@ -90,6 +90,9 @@ Reading:
 - **Walking up-left leaves md1stin for md1_1 (0x75), the documented next field**, 495 frames after the battle's still picture. Straight left, up-right, right and down don't in 60 s.
 - **The field ID changes before the new field has loaded.** One frame after the change `g_IsFieldLoading` still read 2 (settle_wait 1). 120 frames later it read 1 and the savemap copy still read 116. So the load starts after the ID changes. "Field mode and a valid field ID" is not enough for #38; attempt 3 checks that `g_IsFieldLoading` returns to 2.
 
+### Attempt 2, second run (`fa37fc7`, a notes-only commit; tier2: 24 pass, 4 fail)
+All 28 scenarios equal the first run's status and deterministic metrics, including reactor-next-1-up-left (next_wait 495, map_cur 117, loading 1). So the four position checks and the walk-off to md1_1 are deterministic across two Tier 2 runs.
+
 ### Attempt 3 (last: the exit as an acceptance check, the load sequence, and the table)
 - `reactor-next-1-walk-off`: up-left until the ID differs from 0x74, 10 s idle; map_cur = 0x75 (next_ok), field mode, match.
 - `reactor-next-2-load-sequence`: up-left until the ID changes; until `g_IsFieldLoading` leaves 2 (load_start), then until it reads 2 again (load_done); then check ID 0x75, field mode, loading 2.

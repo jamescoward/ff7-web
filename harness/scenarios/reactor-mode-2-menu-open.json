@@ -1,0 +1,78 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "reactor-mode-2-menu-open",
+  "description": "#76: menu. From reactor-entrance, press Triangle (4 frames every second) until g_GameState reads menu (5): menu_wait is the first frame it does. Then wait for a picture still for 30 frames (the menu drawn; menu_still), and check it still reads 5 (menu_ok) and that g_PrevGameState reads field (1). match: a rerun from the same snapshot. Keeps \"menu-open\".",
+  "tier": 2,
+  "boot": {
+    "from": "reactor-entrance"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16, read as u16): field 1, battle 2, menu 5. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "prev_state": {
+      "addr": "0x800965ec",
+      "type": "u16",
+      "description": "g_PrevGameState (s16, read as u16): the mode before. Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "menu_wait"
+    },
+    {
+      "wait": {
+        "stillFrames": 30,
+        "timeout": 600
+      },
+      "metric": "menu_still"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      },
+      "metric": "menu_ok"
+    },
+    {
+      "expect": {
+        "mem": "prev_state",
+        "equals": 1
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "snapshot": "menu-open",
+  "metrics": [
+    "menu_wait",
+    "menu_still",
+    "menu_ok",
+    "match",
+    "game_state",
+    "prev_state",
+    "snapshot_frames",
+    "frames"
+  ]
+}

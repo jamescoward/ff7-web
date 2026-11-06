@@ -54,6 +54,8 @@ export function parseBinGzip(bytes) {
   const sections = [];
   let o = 0;
   while (o < bytes.length) {
+    // Zero bytes after the last section (padding to a sector) end the list.
+    if (bytes.subarray(o).every((b) => b === 0)) break;
     if (o + SECTION_HEADER > bytes.length) throw new BaselineError(`truncated section header at 0x${o.toString(16)}`);
     const packed = view.getUint16(o, true);
     const unpacked = view.getUint16(o + 2, true);
@@ -67,14 +69,30 @@ export function parseBinGzip(bytes) {
   return sections;
 }
 
+/** The first section of a type, read up to it only (parseBinGzip's rules); null if none. */
+function firstOfType(bytes, type) {
+  if (!(bytes instanceof Uint8Array)) throw new BaselineError('the archive must be a Uint8Array');
+  if (bytes.length > MAX_ARCHIVE_BYTES) throw new BaselineError('the archive is too large');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let o = 0; o + SECTION_HEADER <= bytes.length;) {
+    const packed = view.getUint16(o, true);
+    const offset = o + SECTION_HEADER;
+    if (packed === 0 || offset + packed > bytes.length) break;
+    if (view.getUint16(o + 4, true) === type) return { type, packed, unpacked: view.getUint16(o + 2, true), offset };
+    o = offset + packed;
+  }
+  return null;
+}
+
 /**
- * The initialization data: the first section of file type KERNEL_INIT_TYPE,
+ * The initialization data: the first section of file type KERNEL_INIT_TYPE
+ * (sections after it are not looked at),
  * decompressed. Throws BaselineError if there is none, it does not
  * decompress, its length is not the header's, or it does not fit the
  * savemap from INIT_OFFSET.
  */
 export function initData(kernel) {
-  const sec = parseBinGzip(kernel).find((s) => s.type === KERNEL_INIT_TYPE);
+  const sec = firstOfType(kernel, KERNEL_INIT_TYPE);
   if (!sec) throw new BaselineError(`no section of file type ${KERNEL_INIT_TYPE}`);
   const gz = kernel.subarray(sec.offset, sec.offset + sec.packed);
   let data;

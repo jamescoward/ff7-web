@@ -131,12 +131,13 @@ Format 2 (#37) starts from a **boot point** instead of power-on, plays an **orde
 
 ```jsonc
 { "boot": { "disc": 1, "save": "disc1-md1stin", "slot": 1 },        // optional: "from" (default "title-card"), "checksum": "wrong"
-  "input": [{ "segment": "load-slot-1-to-file-list" }, { "segment": "load-slot-1-confirm" }, ..., { "mark": "loaded" }, ...],
+  "input": [{ "wait": { "until": { "mem": "game_state", "equals": 1 }, "timeout": 3600, "press": { "buttons": ["circle"], "every": 30, "hold": 4 } } },
+            { "segment": "field-loaded" }, { "mark": "loaded" }, ...],
   "assert": [{ "change": { "mem": "pos_x", "is": "changed", "since": "loaded" } }] }
 ```
 
 - **`save`** names a description in `saves/` (`schema/save.schema.json`). Inside the run, the runner reads `INIT/KERNEL.BIN` from the disc, rebuilds the New Game savemap from it (`runner/savegen/baseline.js`), applies the description with the #32 generator and puts the card in slot 1 in place of the boot point's blank card, as the title snapshot is restored. The card is never written to a file and nothing read from the disc leaves the run. `"checksum": "wrong"` stores the savemap checksum inverted. The boot point must have a card (`title-card`).
-- **Loading it** is input: the segments `load-slot-1-to-file-list`, `load-slot-1-confirm` and `field-loaded` wait on the title menu's mode and fade state, then on field mode and #77's field-loaded rule (`notes/38-generated-save-boot.md`).
+- **Loading it** is input: from the title, Circle every 30 frames until field mode (the title cursor starts on Continue, so no press reaches New Game), then the segment `field-loaded` (#77's rule; `notes/38-generated-save-boot.md`).
 - **`mark`** steps record every numeric memory location at that point (no frames); a `change` check with `"since": MARK` compares with that value instead of the start of the script. A mark the script never reached fails the check.
 
 ## Fixtures

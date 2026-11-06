@@ -82,6 +82,16 @@ describe('baseline reader (synthetic KERNEL.BIN)', () => {
     assert.deepEqual(initData(kernelArchive(INIT, { types: [9, 3, 0] })), INIT);
   });
 
+  test('zero padding after the last section ends the list, and sections after type 3 are not needed', () => {
+    const k = kernelArchive(INIT);
+    const padded = new Uint8Array(k.length + 100);
+    padded.set(k);
+    assert.equal(parseBinGzip(padded).length, 27);
+    assert.deepEqual(initData(padded), INIT);
+    assert.throws(() => parseBinGzip(k.subarray(0, k.length - 1)), BaselineError);
+    assert.deepEqual(initData(k.subarray(0, k.length - 1)), INIT);
+  });
+
   test('a gzip member with a broken trailer is still read, and its length checked', () => {
     const k = kernelArchive(INIT);
     const s = parseBinGzip(k)[3];
@@ -91,7 +101,10 @@ describe('baseline reader (synthetic KERNEL.BIN)', () => {
 
   const bad = {
     'a truncated section header': (k) => k.subarray(0, k.length - 1).slice(0, 3),
-    'a section running past the end': (k) => k.subarray(0, k.length - 1),
+    'a type 3 section running past the end': (k) => {
+      const s = parseBinGzip(k)[3];
+      return k.slice(0, s.offset + s.packed - 1);
+    },
     'no section of type 3': () => kernelArchive(INIT, { types: [0, 1, 2, 4] }),
     'a length the header does not give': () => kernelArchive(INIT, { lie: 1 }),
     'data that is not gzip': (k) => {

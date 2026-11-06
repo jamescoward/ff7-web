@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-2-bad-checksum",
-  "description": "#38 acceptance: the same save with its checksum stored inverted (boot checksum \"wrong\"). The file is listed (slot_mask 1), Circle on it starts loading (mode 4), and the game rejects it: the menu returns to the file list (w_ruined; the game shows \"file ruined\", decomp src/menu/title.c) and does not fade out. So the checksum matters, and the right card's acceptance in save-boot-1-load confirms the algorithm and its range.",
+  "description": "#38 acceptance: the same save with its checksum stored inverted (boot checksum \"wrong\"), and the same presses as save-boot-1-load for one minute (Circle every second). The game lists the file (slot_mask 1) but never loads it: it stays at the title (g_GameState is not field). The game's load code compares the stored checksum with its own and shows \"file ruined\" when they differ (decomp src/menu/title.c), so together with save-boot-1-load this confirms the checksum, its algorithm and its range. title_mode and title_fade (title overlay g_MenuStartMode, g_TitleFadeState; hypotheses) are reported to see where the menu ends.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin",
@@ -44,45 +44,23 @@
   },
   "input": [
     {
-      "segment": "load-slot-1-to-file-list"
-    },
-    {
-      "segment": "load-slot-1-confirm"
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "title_mode",
-          "equals": 1
-        },
-        "timeout": 600
-      },
-      "metric": "w_ruined"
-    },
-    {
-      "wait": {
-        "frames": 120
-      }
+      "segment": "circle-every-second-1min"
     }
   ],
   "assert": [
     {
       "expect": {
-        "mem": "title_mode",
-        "equals": 1
-      }
-    },
-    {
-      "expect": {
-        "mem": "title_fade",
-        "equals": 1
-      }
+        "mem": "game_state",
+        "differs": 1
+      },
+      "metric": "no_field"
     },
     {
       "expect": {
         "mem": "slot_mask",
         "equals": 1
-      }
+      },
+      "metric": "listed"
     },
     {
       "sameState": "rerun",
@@ -90,12 +68,13 @@
     }
   ],
   "metrics": [
-    "w_files",
+    "boot_stage",
+    "disc_error",
+    "no_field",
+    "listed",
     "slot_mask",
-    "w_ruined",
     "title_mode",
     "title_fade",
-    "game_state",
     "match"
   ]
 }

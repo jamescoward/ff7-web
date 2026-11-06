@@ -7,7 +7,7 @@
     "id": 116,
     "x": 32767,
     "y": 0,
-    "triangle": 0,
+    "triangle": 12,
     "direction": 0
   },
   "party": [
@@ -15,5 +15,5 @@
     255,
     255
   ],
-  "progress": 0
+  "progress": 6
 }

@@ -3,23 +3,13 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-1-load",
-  "description": "#38 acceptance: boot from the generated save harness/saves/disc1-md1stin.json in slot 1. From the title, Continue, slot 1, file 1 (segments load-slot-1-*), and the save is accepted (g_TitleFadeState 2, w_accept). Then field mode and the field loaded (segment field-loaded), and three checks: the field ID is the description's (md1stin, 116); the player stands on the description's walkmesh triangle (the description's x is 0x7FFF, which tells the game to place the player at the triangle's centroid: decomp FieldEntityInitPos); and the field is live: 60 still frames, then a walk up and right changes both PosX and PosY (signs since the mark, x_dir/y_dir). slot_mask is the card's FF7 save mask (1: only save 1 is listed, which confirms the directory name). match: the same run from the title snapshot ends in the same state.",
+  "description": "#38 acceptance: boot from the generated save harness/saves/disc1-md1stin.json (md1stin, the progress value and triangle the game holds at after-battle) in slot 1. From the title, Circle every 30 frames (the title cursor starts on Continue, the slot cursor on slot 1 and the file cursor on save 1; no press reaches New Game) until the game is in field mode (g_GameState 1, confirmed #76; w_field), then the field loaded (segment field-loaded, #77's rule; load_done). Three checks: the field ID is the description's (md1stin, 116); the player stands on the description's walkmesh triangle 12 (the description's x is 0x7FFF, which makes the game place the player at that triangle's centroid: decomp FieldEntityInitPos), tri_ok; and the field is live: 60 still frames, then a walk up and right changes both PosX and PosY (signs since the mark, x_dir and y_dir). slot_mask: the FF7 saves the game listed on the card (1 = only save 1: the directory name is recognised). match: the same run again from the title snapshot ends in the same state.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin",
     "slot": 1
   },
   "memory": {
-    "title_mode": {
-      "addr": "0x801e2cf8",
-      "type": "u32",
-      "description": "g_MenuStartMode (s32), title overlay MENU/SAVEMENU.MNU: 7 title, 0 slot, 2/3 reading, 1 file list, 4 loading. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.savemenu.us.txt, src/menu/savemenu.h. Hypothesis (#38)."
-    },
-    "title_fade": {
-      "addr": "0x801e3d54",
-      "type": "u32",
-      "description": "g_TitleFadeState (s32): 0 fade in, 1 active, 2 fade out (a save was accepted, or New Game). Xeeynamo/ff7-decomp@9411173 (reference only, no code). Hypothesis (#38)."
-    },
     "slot_mask": {
       "addr": "0x80062f3c",
       "type": "u16",
@@ -63,20 +53,21 @@
   },
   "input": [
     {
-      "segment": "load-slot-1-to-file-list"
-    },
-    {
-      "segment": "load-slot-1-confirm"
-    },
-    {
       "wait": {
         "until": {
-          "mem": "title_fade",
-          "equals": 2
+          "mem": "game_state",
+          "equals": 1
         },
-        "timeout": 600
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
       },
-      "metric": "w_accept"
+      "metric": "w_field"
     },
     {
       "segment": "field-loaded"
@@ -94,7 +85,7 @@
       "wait": {
         "until": {
           "mem": "tri0",
-          "equals": 0
+          "equals": 12
         },
         "timeout": 1
       },
@@ -172,11 +163,11 @@
     }
   ],
   "metrics": [
-    "w_files",
-    "slot_mask",
-    "w_accept",
+    "boot_stage",
+    "w_field",
     "load_done",
     "tri_ok",
+    "slot_mask",
     "x_dir",
     "y_dir",
     "match"

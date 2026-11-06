@@ -71,7 +71,7 @@ describe('address table', () => {
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
     // #76 and #77 confirmed these; everything else is still a hypothesis.
-    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY'];
+    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY', 'fieldLoading'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -106,7 +106,7 @@ describe('address table', () => {
     }
   });
 
-  test('field ID and position are confirmed at the addresses #77 checked in Tier 2', () => {
+  test('field ID, position and field load state are confirmed at the addresses #77 checked in Tier 2', () => {
     const want = { fieldId: [0x8009a05c, 's16', 'reactor-field-1-id'], fieldX: [0x80074eb0, 's32', 'reactor-field-3-walk-right'], fieldY: [0x80074eb4, 's32', 'reactor-field-5-walk-up'] };
     for (const [name, [address, type, scenario]] of Object.entries(want)) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
@@ -118,7 +118,8 @@ describe('address table', () => {
     }
     const loading = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldLoading');
     assert.equal(loading.address, 0x800965e8);
-    assert.equal(loading.status, 'hypothesis');
+    assert.equal(loading.status, 'confirmed');
+    assert.deepEqual(Object.keys(loading.confirmedValues), ['2'], 'only "settled" (2) is confirmed');
   });
 
   test('validateTable rejects bad entries', () => {

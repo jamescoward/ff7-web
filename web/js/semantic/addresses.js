@@ -27,7 +27,7 @@
 // Changing an entry to "confirmed" needs a Tier 2 scenario that checks it
 // (issues #76 to #78). #76 confirmed gameState (field, battle, menu),
 // prevGameState and movieFrame (notes/76-confirm-mode.md). #77 confirmed
-// fieldId, fieldX and fieldY (notes/77-field-position.md).
+// fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -162,9 +162,12 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     name: 'fieldLoading',
     address: 0x800965e8,
     type: 's16',
-    meaning: 'field load state (g_IsFieldLoading): 2 in a settled field, other values while a new field loads. Field loaded = gameState field, a valid fieldId and fieldLoading 2 (hypothesis)',
-    source: `${DECOMP} config/symbols.main.us.txt: g_IsFieldLoading. Tier 2 (#77): 2 at md1stin, 1 120 frames after the field ID changed to md1_1`,
-    status: 'hypothesis',
+    meaning: 'field load state (g_IsFieldLoading): 2 in a settled field; another value (1 was seen) while a field loads. The field ID changes first and the load starts later (114 frames later at md1stin -> md1_1), so 2 alone does not mean loaded: a field is loaded when, after the field ID changed, this has left 2 and read 2 again (gameState field)',
+    source: `${DECOMP} config/symbols.main.us.txt: g_IsFieldLoading. Tier 2 (#77, notes/77-field-position.md): 2 at md1stin; after walking off to md1_1 it left 2 114 frames after the ID changed and read 2 again 66 frames later, in two runs; ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-next-2-load-sequence'),
+    values: Object.freeze({ 2: 'settled' }),
+    confirmedValues: Object.freeze({ 2: SC('reactor-next-2-load-sequence') }),
   },
   {
     name: 'menuCursor',

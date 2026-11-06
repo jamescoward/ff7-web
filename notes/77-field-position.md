@@ -1,6 +1,6 @@
 # #77: confirm field ID and player position in Tier 2
 
-Status (2026-11-06): attempt 1 done (`eeabb0b`, tier2: 18 pass, 5 diagnostic fails). Field ID and player position candidates found; the exit off md1stin was not reached. Attempt 2 in progress.
+Status (2026-11-06): done. Attempt 3 (`0eecadc`, rerun `f889303`) passed 25/25 Tier 2 scenarios twice, identically. Confirmed: fieldId = g_FieldCurrentMap, fieldX/fieldY = g_FieldEntity[0] PosX/PosY, fieldLoading = g_IsFieldLoading (value 2, settled). Attempts used: 3 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (names and addresses) and `include/game.h` (structure layouts: `FieldState`, `FieldEntity`, `SaveWork`, and the comment `Savemap // 0x8009C6E4`). CLAUDE.md allows the decomp as a reference for addresses and structure layouts. Only offsets and field names were read.
@@ -98,3 +98,31 @@ All 28 scenarios equal the first run's status and deterministic metrics, includi
 - `reactor-next-2-load-sequence`: up-left until the ID changes; until `g_IsFieldLoading` leaves 2 (load_start), then until it reads 2 again (load_done); then check ID 0x75, field mode, loading 2.
 - `semantic/addresses.js`: `fieldId` = g_FieldCurrentMap (s16), `fieldX`/`fieldY` = g_FieldEntity[0] PosX/PosY (s32), all **confirmed**; new `fieldLoading` = g_IsFieldLoading, hypothesis until load_done passes. Tests updated (`runner/test/unit/semantic.test.js`, `web/test/debug-overlay.test.js`, which now take the field badges from the shipped table, as #96 did for Mode).
 - Known limit: the position entries read model index 0, which is the player at md1stin (g_PlayerModelId 0). Other fields may put the player at another index; a reader that indexes by g_PlayerModelId is a follow-up.
+
+### Attempt 3 results (`0eecadc` and `f889303`: tier2 25 pass, 0 fail, both runs identical apart from timing)
+| scenario | metrics |
+|---|---|
+| reactor-field-1-id | id_ok 1, match 1, map_cur 116, map_save 116, map_preload 117, loading 2, game_state 1, player_model 0 |
+| reactor-field-2-still | still_x 0, still_y 0, match 1, player_model 0 |
+| reactor-field-3-walk-right / 4-left | x_dir 1 / -1, match 1 |
+| reactor-field-5-walk-up / 6-down | x_dir 1, y_dir 1 / x_dir -1, y_dir -1, match 1 |
+| reactor-next-0-after-battle | end_wait 1297, field_still 588, map_cur 116, loading 2, match 1 |
+| reactor-next-1-walk-off | **next_ok 1, map_cur 117** (md1_1), next_wait 495, loading 2, map_save 116, game_state 1, match 1 |
+| reactor-next-2-load-sequence | next_wait 495, **load_start 114, load_done 66**, map_cur 117, loading 2, map_save 116, prev_field 116, game_state 1 |
+
+## Outcome
+**Acceptance (#77):**
+- The field ID equals the documented ID of the first controllable field: g_FieldCurrentMap = 0x74 (md1stin) at reactor-entrance.
+- No input for 120 frames: the position does not change (still_x 0, still_y 0).
+- Scripted walks change the position in the expected direction. Right raises X and left lowers it. Up raises X and Y, down lowers both.
+- Walking off the first screen (up-left) changes the field ID to the documented next field, md1_1 (0x75).
+- Deterministic: the field ID and the walk directions over four Tier 2 runs (attempts 1-3, each run twice), and the walk-off over four (attempts 2-3); every rerun from the same snapshot matched.
+
+**Field-loaded condition for #38:** gameState field, and, after the field ID last changed, g_IsFieldLoading has left 2 and reads 2 again. A single read is not enough. The ID changes first, and the load starts 114 frames later, with g_IsFieldLoading still 2 in between. It finished 66 frames after that. For a boot from a save, where there is no earlier field, the same rule needs checking in #38.
+
+**Also seen:** the savemap copy of the field ID (0x8009C6E4 + 0x0B96) still read md1stin 10 s after reaching md1_1. It is a saved copy, updated at some later point (a save or a menu, not checked), so the semantic layer reads g_FieldCurrentMap.
+
+**Limits and follow-ups:**
+- Position reads model index 0, the player at md1stin. A reader that indexes g_FieldEntity by g_PlayerModelId is a follow-up.
+- The units of PosX/PosY (raw s32; possibly fixed point) are not interpreted; only direction is confirmed.
+- Right and left both raised Y. That is consistent with a camera at an angle; not explained.

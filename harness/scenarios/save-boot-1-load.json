@@ -1,0 +1,175 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-1-load",
+  "description": "#38 acceptance: boot from the generated save harness/saves/disc1-md1stin.json (md1stin, the progress value and triangle the game holds at after-battle) in slot 1. From the title, Circle every 30 frames (the title cursor starts on Continue, the slot cursor on slot 1 and the file cursor on save 1; no press reaches New Game) until the game is in field mode (g_GameState 1, confirmed #76; w_field), then the field loaded (segment field-loaded, #77's rule; load_done). Three checks: the field ID is the description's (md1stin, 116); the player stands on the description's walkmesh triangle 12 (the description's x is 0x7FFF, which makes the game place the player at that triangle's centroid: decomp FieldEntityInitPos), tri_ok; and the field is live: 60 still frames, then a walk up and right changes both PosX and PosY (signs since the mark, x_dir and y_dir). slot_mask: the FF7 saves the game listed on the card (1 = only save 1: the directory name is recognised). match: the same run again from the title snapshot ends in the same state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin",
+    "slot": 1
+  },
+  "memory": {
+    "slot_mask": {
+      "addr": "0x80062f3c",
+      "type": "u16",
+      "description": "g_SaveSlotMask: bit N set when the card holds BASCUS-94163FF7-S(N+1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, src/menu/savemenu.c GetSaveSlotMask. Hypothesis (#38)."
+    },
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "player_model": {
+      "addr": "0x800965e0",
+      "type": "u16",
+      "description": "g_PlayerModelId: the player's field model index (0 at md1stin, #77). Xeeynamo/ff7-decomp@9411173 (reference only, no code)."
+    },
+    "tri0": {
+      "addr": "0x80074f16",
+      "type": "u16",
+      "description": "g_FieldEntity[0].PosI (+0x72): the walkmesh triangle under the player. Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldEntity."
+    },
+    "pos_x": {
+      "addr": "0x80074eb0",
+      "type": "u32",
+      "description": "g_FieldEntity[0].PosX (s32 as u32; confirmed #77)."
+    },
+    "pos_y": {
+      "addr": "0x80074eb4",
+      "type": "u32",
+      "description": "g_FieldEntity[0].PosY (s32 as u32; confirmed #77)."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "w_field"
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "tri0",
+          "equals": 12
+        },
+        "timeout": 1
+      },
+      "metric": "tri_ok"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "player_model",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "mark": "loaded"
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 40
+    },
+    {
+      "buttons": [
+        "right"
+      ],
+      "frames": 40
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      }
+    },
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 116
+      }
+    },
+    {
+      "change": {
+        "mem": "pos_x",
+        "is": "changed",
+        "signed": true,
+        "since": "loaded"
+      },
+      "metric": "x_dir"
+    },
+    {
+      "change": {
+        "mem": "pos_y",
+        "is": "changed",
+        "signed": true,
+        "since": "loaded"
+      },
+      "metric": "y_dir"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "boot_stage",
+    "w_field",
+    "load_done",
+    "tri_ok",
+    "slot_mask",
+    "x_dir",
+    "y_dir",
+    "match"
+  ]
+}

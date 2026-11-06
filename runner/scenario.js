@@ -38,6 +38,10 @@ export const SCHEMA_PATH = path.join(HARNESS, 'schema/scenario.schema.json');
 export const DEFAULT_FIXTURES = path.join(HARNESS, 'fixtures');
 export const DEFAULT_BASELINES = path.join(HARNESS, 'baselines');
 export const DEFAULT_SEGMENTS = path.join(HARNESS, 'scenarios/segments');
+/** Save descriptions for boot.save (#38): harness/saves/<name>.json. */
+export const DEFAULT_SAVES = path.join(HARNESS, 'saves');
+/** The saves directory for a scenario file: ../saves beside its directory (harness/saves for harness/scenarios). */
+export const savesDirFor = (scenarioFile) => path.join(path.dirname(path.dirname(path.resolve(scenarioFile))), 'saves');
 
 const SIZES = { u8: 1, u16: 2, u32: 4 };
 
@@ -108,7 +112,7 @@ export const fmtValue = (loc, v) => (loc.type === 'bytes' ? v : `0x${v.toString(
  * boot point registry, for tests); their { segment } steps are expanded from
  * `segmentsDir` (default harness/scenarios/segments) first (#74).
  */
-export function loadScenario(doc, { allowTier2 = false, bootPoints, segmentsDir = DEFAULT_SEGMENTS } = {}) {
+export function loadScenario(doc, { allowTier2 = false, bootPoints, segmentsDir = DEFAULT_SEGMENTS, savesDir = DEFAULT_SAVES } = {}) {
   const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
   const errors = validate(schema, doc);
   if (errors.length) throw new ScenarioError(`scenario does not match the schema:\n  ${errors.join('\n  ')}`);
@@ -140,7 +144,7 @@ export function loadScenario(doc, { allowTier2 = false, bootPoints, segmentsDir 
   }
   if (doc.format === 2) {
     const input = expandSegments(doc.input, { dir: segmentsDir, schema });
-    return loadScenario2(doc, memory, { bootPoints, input });
+    return loadScenario2(doc, memory, { bootPoints, input, savesDir });
   }
 
   const input = (doc.input ?? []).map((s, i) => {
@@ -627,7 +631,7 @@ async function main() {
 
   let sc;
   try {
-    sc = loadScenario(JSON.parse(readFileSync(positionals[0], 'utf8')), { segmentsDir: segmentsDirFor(positionals[0]) });
+    sc = loadScenario(JSON.parse(readFileSync(positionals[0], 'utf8')), { segmentsDir: segmentsDirFor(positionals[0]), savesDir: savesDirFor(positionals[0]) });
   } catch (e) {
     console.error(`error: ${positionals[0]}: ${e.message}`);
     process.exit(2);

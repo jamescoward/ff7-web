@@ -148,6 +148,22 @@
               "required": ["from"],
               "additionalProperties": false,
               "properties": { "from": { "$ref": "#/$defs/snapshotName" } }
+            },
+            {
+              "description": "A boot from a generated save (#38): the boot point \"from\" (default \"title-card\", disc 1's title screen with a memory card in slot 1), with its blank card replaced, as the snapshot is restored, by a card generated inside the run from the save description harness/saves/<save>.json and the New Game data on the disc (runner/savegen/). The card is held in memory only and never written to a file (docs/SECURITY.md, \"Generated save boot points\"). The script then loads the save by input.",
+              "type": "object",
+              "required": ["disc", "save", "slot"],
+              "additionalProperties": false,
+              "properties": {
+                "disc": { "description": "Save descriptions are for disc 1 (USA).", "enum": [1] },
+                "from": { "description": "A boot point with a memory card (card \"blank\" in runner/bootpoints.js). Default \"title-card\".", "$ref": "#/$defs/bootPointName" },
+                "save": { "$ref": "#/$defs/saveName" },
+                "slot": { "description": "The memory card slot that holds the card; the runner has slot 1 only.", "const": 1 },
+                "checksum": {
+                  "description": "\"right\" (default), or \"wrong\": the savemap checksum is stored inverted, to check that the game rejects the save.",
+                  "enum": ["right", "wrong"]
+                }
+              }
             }
           ]
         },
@@ -354,6 +370,16 @@
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
     },
+    "saveName": {
+      "description": "A save description: harness/saves/<name>.json, matching harness/schema/save.schema.json (#32, #38).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "markName": {
+      "description": "A mark step's name (#38), unique within a script.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
     "segmentName": {
       "description": "An input segment: segments/<name>.json beside the scenario file (harness/scenarios/segments/).",
       "type": "string",
@@ -477,6 +503,16 @@
             "segment": { "$ref": "#/$defs/segmentName" },
             "note": { "type": "string" }
           }
+        },
+        {
+          "description": "Record the value of every u8/u16/u32 memory location at this point (#38), for change checks with \"since\". Takes no frames; nothing leaves the run.",
+          "type": "object",
+          "required": ["mark"],
+          "additionalProperties": false,
+          "properties": {
+            "mark": { "$ref": "#/$defs/markName" },
+            "note": { "type": "string" }
+          }
         }
       ]
     },
@@ -526,7 +562,7 @@
           }
         },
         {
-          "description": "A named u8/u16/u32 memory location at the end of the script compared with its value at the start of the script (#77): \"increased\", \"decreased\", \"unchanged\" or \"changed\". signed: compare as two's complement (s8/s16/s32). Compared inside the run; neither value leaves. metric: the sign of end - start (-1, 0 or 1), whether or not the check passes; 0 if the run stopped or a wait timed out.",
+          "description": "A named u8/u16/u32 memory location at the end of the script compared with its value at the start of the script (#77), or with \"since\" at the script's mark step of that name (#38): \"increased\", \"decreased\", \"unchanged\" or \"changed\". signed: compare as two's complement (s8/s16/s32). Compared inside the run; neither value leaves. metric: the sign of end - start (-1, 0 or 1), whether or not the check passes; 0 if the run stopped or a wait timed out.",
           "type": "object",
           "required": ["change"],
           "additionalProperties": false,
@@ -538,7 +574,11 @@
               "properties": {
                 "mem": { "type": "string" },
                 "is": { "enum": ["increased", "decreased", "unchanged", "changed"] },
-                "signed": { "type": "boolean" }
+                "signed": { "type": "boolean" },
+                "since": {
+                  "description": "Compare with the value at this mark step instead of the start of the script. If the script did not reach the mark, the check fails and its metric is 0.",
+                  "$ref": "#/$defs/markName"
+                }
               }
             },
             "metric": { "$ref": "#/$defs/metricName" },

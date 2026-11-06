@@ -10,6 +10,10 @@
 //           (core/pins.env), which reads the PS1 card format
 //   ff7tk - ff7tk API documentation, FF7SaveInfo (sithlord48.github.io/ff7tk),
 //           read as documentation only
+//   decomp - Xeeynamo/ff7-decomp @ 9411173 (reference only, no code copied):
+//           include/game.h (SaveWork, SaveHeader layouts) and the values the
+//           game itself stores (src/main/110B8.c, src/main/cd.c, src/pc/main.c,
+//           src/menu/title.c), read for facts (#38)
 //   hyp   - not found in a reachable public source; stated in the notes and
 //           to be confirmed by a Tier 2 scenario (the game must accept it)
 // No code from save editors or decompilations is used.
@@ -23,6 +27,8 @@ export const SAVEMAP_SIZE = 0x10f4;
  */
 export const SAVEMAP = Object.freeze({
   checksum: { offset: 0x0000, type: 'u32', source: 'wiki (lower word used)' },
+  previewNameEnd: { offset: 0x0008, type: 'u8', source: 'decomp SaveHeader.leader_name (FF Text; 0xFF ends a string: wiki FF_Text)' },
+  previewPlaceEnd: { offset: 0x0028, type: 'u8', source: 'decomp SaveHeader.place_name (FF Text; 0xFF ends a string)' },
   previewPortrait1: { offset: 0x0005, type: 'u8', source: 'wiki' },
   previewPortrait2: { offset: 0x0006, type: 'u8', source: 'wiki' },
   previewPortrait3: { offset: 0x0007, type: 'u8', source: 'wiki' },
@@ -33,7 +39,7 @@ export const SAVEMAP = Object.freeze({
   party3: { offset: 0x04fa, type: 'u8', source: 'wiki' },
   gil: { offset: 0x0b7c, type: 'u32', source: 'wiki' },
   seconds: { offset: 0x0b80, type: 'u32', source: 'wiki' },
-  moduleAux: { offset: 0x0b90, type: 'u8', source: 'wiki (z_4[8], low byte; 2 when module is field)' },
+  moduleAux: { offset: 0x0b90, type: 'u32', source: 'decomp SaveWork.worldmap_exit_action (InitWorldFromSavemap stores 0 in a field, 2 on the world map; the wiki says the opposite, #38)' },
   module: { offset: 0x0b94, type: 'u16', source: 'wiki (1 = field, 3 = world map)' },
   fieldId: { offset: 0x0b96, type: 'u16', source: 'wiki (current location)' },
   fieldX: { offset: 0x0b9a, type: 's16', source: 'wiki' },
@@ -48,14 +54,27 @@ export const SAVEMAP = Object.freeze({
 
 /** Module values (wiki, 0x0B94). */
 export const MODULE_FIELD = 1;
-/** z_4[8] value that goes with MODULE_FIELD (wiki, 0x0B90). */
-export const MODULE_AUX_FIELD = 2;
+/**
+ * worldmap_exit_action value that goes with MODULE_FIELD (0x0B90). The
+ * game's own save code (decomp src/main/110B8.c InitWorldFromSavemap) stores
+ * 0 when the game state is not the world map, 2 when it is; the wiki's
+ * "2 when the module is 1" was the generator's first guess (#32), replaced
+ * in #38.
+ */
+export const MODULE_AUX_FIELD = 0;
+/** FF Text end-of-string byte (wiki FF_Text), for the empty preview strings. */
+export const FF_TEXT_END = 0xff;
 
 /** Save memory bank n (1-5) starts here (mem, wiki): 0x0BA4 + 0x100 (n-1). */
 export const BANK_BASE = 0x0ba4;
 export const BANK_SIZE = 0x100;
 
-/** The checksum covers savemap[CHECKSUM_START, SAVEMAP_SIZE) (hyp). */
+/**
+ * The checksum covers savemap[CHECKSUM_START, SAVEMAP_SIZE): decomp
+ * src/menu/title.c checks Savemap.header.checksum against
+ * SaveCalcChecksum(sizeof(SaveWork) - 4, &leader_level), i.e. 0x10F0 bytes
+ * from 0x0004, compared as a u16 (#38; it was a hypothesis in #32).
+ */
 export const CHECKSUM_START = 0x0004;
 
 export const TYPE_SIZE = Object.freeze({ u8: 1, u16: 2, s16: 2, u32: 4 });
@@ -102,7 +121,8 @@ export const DIR_FREE = 0xa0; // ff7tk BLOCK_EMPTY
 
 /**
  * Directory file name of FF7 (USA, disc 1) save n: region "BA", product code
- * SCUS-94163, then "FF7-Snn" (hyp: the game lists only files it recognises,
- * so a Tier 2 scenario must confirm it).
+ * SCUS-94163, then "FF7-Snn". decomp src/menu/savemenu.c GetSaveSlotMask:
+ * "bit N set when BASCUS-94163FF7-S(N+1) is present" (the game lists only
+ * these names). To be confirmed by a Tier 2 scenario (#38).
  */
 export const fileName = (slot) => `BASCUS-94163FF7-S${String(slot).padStart(2, '0')}`;

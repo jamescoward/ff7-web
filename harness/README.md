@@ -127,6 +127,19 @@ Format 2 (#37) starts from a **boot point** instead of power-on, plays an **orde
 - **Still waits.** `{ "wait": { "stillFrames": N, "timeout": T } }` waits until the picture has stayed the same, and not a single colour, for N frames in a row (checked at the end of each frame, by frame hash). Its metric is the frames waited, 0 on a timeout; a timeout fails the scenario and stops the script, as for `until`.
 - **Presses during a wait.** Any `until` or still wait may hold `"press": { "buttons", "every", "hold", "port" }`: the buttons are held for `hold` frames (default 1, less than `every`) at the start of every `every` frames, from the wait's first frame, until the wait ends.
 
+### Boot from a generated save (#38)
+
+```jsonc
+{ "boot": { "disc": 1, "save": "disc1-md1stin", "slot": 1 },        // optional: "from" (default "title-card"), "checksum": "wrong"
+  "input": [{ "wait": { "until": { "mem": "game_state", "equals": 1 }, "timeout": 3600, "press": { "buttons": ["circle"], "every": 30, "hold": 4 } } },
+            { "segment": "field-loaded" }, { "mark": "loaded" }, ...],
+  "assert": [{ "change": { "mem": "pos_x", "is": "changed", "since": "loaded" } }] }
+```
+
+- **`save`** names a description in `saves/` (`schema/save.schema.json`). Inside the run, the runner reads `INIT/KERNEL.BIN` from the disc, rebuilds the New Game savemap from it (`runner/savegen/baseline.js`), applies the description with the #32 generator and puts the card in slot 1 in place of the boot point's blank card, as the title snapshot is restored. The card is never written to a file and nothing read from the disc leaves the run. `"checksum": "wrong"` stores the savemap checksum inverted. The boot point must have a card (`title-card`).
+- **Loading it** is input: from the title, Circle every 30 frames until field mode (the title cursor starts on Continue, so no press reaches New Game), then the segment `field-loaded` (#77's rule; `notes/38-generated-save-boot.md`).
+- **`mark`** steps record every numeric memory location at that point (no frames); a `change` check with `"since": MARK` compares with that value instead of the start of the script. A mark the script never reached fails the check.
+
 ## Fixtures
 
 Every entry in `fixtures/fixtures.json` records `licence`, `origin`, `redistributable` and a pinned `sha256`, which is checked on every run. `kind` is `generator` (an original program built from source at test time) or `file`. Only freely redistributable homebrew goes here, never game data (`docs/SECURITY.md`).

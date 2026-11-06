@@ -1,0 +1,80 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-2-bad-checksum",
+  "description": "#38 acceptance: the same save with its checksum stored inverted (boot checksum \"wrong\"), and the same presses as save-boot-1-load for one minute (Circle every second). The game lists the file (slot_mask 1) but never loads it: it stays at the title (g_GameState is not field). The game's load code compares the stored checksum with its own and shows \"file ruined\" when they differ (decomp src/menu/title.c), so together with save-boot-1-load this confirms the checksum, its algorithm and its range. title_mode and title_fade (title overlay g_MenuStartMode, g_TitleFadeState; hypotheses) are reported to see where the menu ends.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin",
+    "slot": 1,
+    "checksum": "wrong"
+  },
+  "memory": {
+    "title_mode": {
+      "addr": "0x801e2cf8",
+      "type": "u32",
+      "description": "g_MenuStartMode (s32), title overlay MENU/SAVEMENU.MNU: 7 title, 0 slot, 2/3 reading, 1 file list, 4 loading. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.savemenu.us.txt, src/menu/savemenu.h. Hypothesis (#38)."
+    },
+    "title_fade": {
+      "addr": "0x801e3d54",
+      "type": "u32",
+      "description": "g_TitleFadeState (s32): 0 fade in, 1 active, 2 fade out (a save was accepted, or New Game). Xeeynamo/ff7-decomp@9411173 (reference only, no code). Hypothesis (#38)."
+    },
+    "slot_mask": {
+      "addr": "0x80062f3c",
+      "type": "u16",
+      "description": "g_SaveSlotMask: bit N set when the card holds BASCUS-94163FF7-S(N+1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, src/menu/savemenu.c GetSaveSlotMask. Hypothesis (#38)."
+    },
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    }
+  },
+  "input": [
+    {
+      "segment": "circle-every-second-1min"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "game_state",
+        "differs": 1
+      },
+      "metric": "no_field"
+    },
+    {
+      "expect": {
+        "mem": "slot_mask",
+        "equals": 1
+      },
+      "metric": "listed"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "boot_stage",
+    "disc_error",
+    "no_field",
+    "listed",
+    "slot_mask",
+    "title_mode",
+    "title_fade",
+    "match"
+  ]
+}

@@ -1,0 +1,130 @@
+ff7-web patch for libretro/pcsx_rearmed @ 7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e (GPL-2.0).
+Why (#88): a state restored with retro_unserialize should run on exactly as
+the core that saved it would have. Four places lose or change state:
+- psxRcntFreeze (load) re-derives each root counter's start through
+  _psxRcntWcount. For counters clocked at rate > 1 (dot clock, sysclk/8) that
+  drops the part of a tick elapsed since the last increment, so the counter
+  then reads up to one lower than in a core that never restored, and the
+  loss adds up over chained restores. It is now skipped when the mode gives
+  the rate the state was saved with (the saved fields are then exact).
+- psxRegs.subCycle (the interpreter's fractional cycle count) is outside the
+  saved part of psxRegisters and was zeroed on load, so a restored core ran
+  up to one cycle behind. It is now kept in a reserved word of the misc
+  block; old states hold 0 there, which gives the old behaviour.
+- mdecFreeze reset the MDEC partial-block position on save as well as on
+  load, and restored it to the block start instead of the saved offset.
+- cdrFreeze (load) re-derived the data FIFO size from the current mode,
+  which differs from the saved one if the mode changed after the last data
+  request. A saved value the core can have set is now kept.
+Tier 1 evidence: runner/test/tier1/restore-equals-run.test.js (notes/88-snapshot-divergence.md).
+
+--- a/libpcsxcore/misc.c
++++ b/libpcsxcore/misc.c
+@@ -771,7 +771,12 @@
+ 	u32 frame_counter;
+ 	int CdromFrontendId;
+ 	u32 save_counter;
+-	u32 reserved[32];
++	// ff7-web: the interpreter's fractional cycle count (psxRegs.subCycle)
++	// lies outside the saved part of psxRegisters. Without it, a restored
++	// core counts up to one cycle less than one that never restored.
++	// Old states hold 0 here, which is what LoadState used before.
++	u32 subCycle;
++	u32 reserved[31];
+ };
+ 
+ #define EX_SCREENPIC_SIZE (128 * 96 * 3)
+@@ -809,9 +814,12 @@
+ 	misc->frame_counter = frame_counter;
+ 	misc->CdromFrontendId = CdromFrontendId;
+ 	misc->save_counter = ++save_counter;
++	misc->subCycle = 0;
+ 	memset(misc->reserved, 0, sizeof(misc->reserved));
+ 
+ 	psxCpu->Notify(R3000ACPU_NOTIFY_BEFORE_SAVE, NULL);
++	// after BEFORE_SAVE, which may step the interpreter one instruction
++	misc->subCycle = psxRegs.subCycle;
+ 
+ 	SaveFuncs.write(f, (void *)PcsxHeader, 32);
+ 	SaveFuncs.write(f, (void *)&SaveVersion, sizeof(u32));
+@@ -891,6 +899,7 @@
+ 	int Size;
+ 	char header[32];
+ 	u32 version;
++	u32 subCycle = 0;
+ 	int result = -1;
+ 	void *f;
+ 
+@@ -951,6 +960,7 @@
+ 		CdromFrontendId = misc->CdromFrontendId;
+ 		if (misc->save_counter)
+ 			save_counter = misc->save_counter;
++		subCycle = misc->subCycle;
+ 	}
+ 
+ 	if (Config.HLE)
+@@ -1002,6 +1012,8 @@
+ 		psxMemOnIsolate((psxRegs.CP0.n.SR >> 16) & 1);
+ 
+ 	psxCpu->Notify(R3000ACPU_NOTIFY_AFTER_LOAD_STATE, NULL);
++	// AFTER_LOAD_STATE clears subCycle (interpreter); put the saved one back
++	psxRegs.subCycle = subCycle & 0xffff;
+ 
+ 	result = 0;
+ cleanup:
+--- a/libpcsxcore/psxcounters.c
++++ b/libpcsxcore/psxcounters.c
+@@ -600,7 +600,16 @@
+         rcnts[3].rate = 1;
+         for( i = 0; i < CounterQuantity - 1; ++i )
+         {
++            // ff7-web: when the mode gives the rate the state was saved
++            // with, the saved cycleStart/cycle/counterState are already
++            // right. Re-deriving them through _psxRcntWcount drops the
++            // part of a tick elapsed since the last increment (rate > 1),
++            // so the counter would read up to one tick lower than in a
++            // core that never saved and restored.
++            u32 saved_rate = rcnts[i].rate;
+             _psxRcntWmode( i, rcnts[i].mode );
++            if (rcnts[i].rate == saved_rate)
++                continue;
+             count = (psxRegs.cycle - rcnts[i].cycleStart) / rcnts[i].rate;
+             if (count > 0x1000)
+                 _psxRcntWcount( i, count & 0xffff );
+--- a/libpcsxcore/mdec.c
++++ b/libpcsxcore/mdec.c
+@@ -722,9 +722,15 @@
+ 	if (mdec.block_buffer_pos)
+ 		v = mdec.block_buffer_pos - mdec.block_buffer;
+ 	gzfreeze(&v, sizeof(v));
+-	mdec.block_buffer_pos = 0;
+-	if (v && v < sizeof(mdec.block_buffer))
+-		mdec.block_buffer_pos = mdec.block_buffer;
++	// ff7-web: this ran on save as well as on load, and put the position
++	// back to the start of the block, so a save in the middle of a block
++	// changed the running core and a load lost the position. Keep the
++	// position on save; restore it (not the block start) on load.
++	if (Mode == 0) {
++		mdec.block_buffer_pos = 0;
++		if (v && v < sizeof(mdec.block_buffer))
++			mdec.block_buffer_pos = mdec.block_buffer + v;
++	}
+ 
+ 	gzfreeze(&mdec.block_buffer, sizeof(mdec.block_buffer));
+ 	gzfreeze(&mdec.pending_dma1, sizeof(mdec.pending_dma1));
+--- a/libpcsxcore/cdrom.c
++++ b/libpcsxcore/cdrom.c
+@@ -1777,7 +1777,12 @@
+ 		getCdInfo();
+ 
+ 		cdr.FifoOffset = tmp < DATA_SIZE ? tmp : DATA_SIZE;
+-		cdr.FifoSize = (cdr.Mode & MODE_SIZE_2340) ? 2340 : 2048 + 12;
++		// ff7-web: FifoSize is set when the program asks for data, from the
++		// mode at that time, and saved with cdr. Keep a saved value the
++		// core can have set (0 before the first request); derive it from
++		// the current mode only otherwise.
++		if (cdr.FifoSize != 0 && cdr.FifoSize != 2340 && cdr.FifoSize != 2048 + 12)
++			cdr.FifoSize = (cdr.Mode & MODE_SIZE_2340) ? 2340 : 2048 + 12;
+ 		if (cdr.SubqForwardSectors > SUBQ_FORWARD_SECTORS)
+ 			cdr.SubqForwardSectors = SUBQ_FORWARD_SECTORS;
+ 

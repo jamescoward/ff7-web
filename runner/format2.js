@@ -29,6 +29,7 @@ import { BOOT_POINTS, POWER_ON, scriptFrames } from './bootpoints.js';
 import { DiscError, openDisc } from './disc.js';
 import { RAM_SIZE } from './memmap.js';
 import { padMask } from './pad.js';
+import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
 import {
@@ -49,10 +50,17 @@ import {
  *   saved_ms           wall time a restore saves over getting to the start point
  *                      without it: boot_ms - restore_ms, whole milliseconds, at least 0;
  *                      0 from power-on
+ *   same_PART          diagnostics (#88), for a scenario with a sameState "boot" check:
+ *                      1 if PART of the emulator state (runner/stateparts.js PARTS:
+ *                      ram, bios, io, cpu, gpu, spu, cdrom, timers, other) is the same at
+ *                      the end of the main run and of the "boot" replay, else 0.
+ *                      Compared by hash inside the run, like "boot" itself
  * run_ms, fps and saved_ms vary between runs; the others are deterministic.
  */
+export const PART_METRICS = PARTS.map((p) => `same_${p}`);
 export const BUILTIN_METRICS_2 = [
   'frames', 'failed_assertions', 'run_ms', 'fps', 'boot_stage', 'disc_error', 'snapshot_frames', 'saved_ms',
+  ...PART_METRICS,
 ];
 
 const NUMERIC = new Set(['u8', 'u16', 'u32']);
@@ -199,6 +207,10 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
   for (const [k, where] of declared) {
     if (!metrics.includes(k)) fail(`${where}: metric "${k}" is not listed in metrics`);
   }
+  const parts = metrics.filter((k) => PART_METRICS.includes(k)).map((k) => k.slice('same_'.length));
+  if (parts.length && !asserts.some((a) => a.kind === 'sameState' && a.how === 'boot')) {
+    fail(`metrics: ${parts.map((p) => `same_${p}`).join(', ')} compare with the "boot" replay; add a { "sameState": "boot" } check`);
+  }
 
   return {
     format: 2,
@@ -212,6 +224,7 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
     steps,
     asserts,
     metrics,
+    parts,
   };
 }
 
@@ -488,14 +501,22 @@ export async function runScenario2(sc, opts = {}) {
     closeQuietly(b);
   };
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
+  const wantParts = (sc.parts ?? []).length > 0;
+  let mainParts = null; // part -> hash at the end of the main run, for same_PART
+  const partsSame = new Map(); // part -> boolean, against the "boot" replay
 
-  /** Play the script from a started backend; returns { run, ms, digest }. */
+  /**
+   * Play the script from a started backend; returns { run, ms, digest,
+   * parts }. parts (with same_PART metrics) hashes each part of a state
+   * saved at the end, after the digest.
+   */
   const play = (backend) => {
     const dupes = needDigest ? backend.stats().duplicateFrames : 0;
     const t0 = performance.now();
     const r = playScript(backend, sc.steps, sc.memory);
     const ms = performance.now() - t0;
-    return { run: r, ms, digest: needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null };
+    const digest = needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null;
+    return { run: r, ms, digest, parts: wantParts ? partDigests(backend.saveState()) : null };
   };
   /** A backend at the start point (power-on or boot point), plus the snapshot used. */
   const restoreInto = async (bytes) => {
@@ -586,6 +607,7 @@ export async function runScenario2(sc, opts = {}) {
     try {
       const p = play(main.backend);
       ({ run, digest } = p);
+      mainParts = p.parts;
       runMs = p.ms;
       if (sc.snapshotName !== null && !run.timedOut) {
         kept = { bytes: main.backend.saveState(), frames: snapshotFrames + run.frames, bootMs: startMs + p.ms };
@@ -616,7 +638,11 @@ export async function runScenario2(sc, opts = {}) {
           again = r.backend;
           ok = r.reached;
         }
-        sameStates.set(a, ok && play(again).digest === digest);
+        const p = play(again);
+        sameStates.set(a, ok && p.digest === digest);
+        if (a.how === 'boot' && mainParts && !partsSame.size) {
+          for (const part of sc.parts) partsSame.set(part, ok && p.parts[part] === mainParts[part]);
+        }
         release(again);
       }
     } catch (e) {
@@ -666,6 +692,7 @@ export async function runScenario2(sc, opts = {}) {
     disc_error: discError,
     snapshot_frames: snapshotFrames,
     saved_ms: Math.round(savedMs),
+    ...Object.fromEntries(PARTS.map((part) => [`same_${part}`, ok(partsSame.get(part) === true) ? 1 : 0])),
   };
 
   const build = readBuildInfo();

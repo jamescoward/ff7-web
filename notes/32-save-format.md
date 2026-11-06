@@ -1,5 +1,7 @@
 # #32: FF7 save format, as used by the save generator
 
+**Update (#38, 2026-11-06):** the game accepted a generated card in Tier 2, and rejected the same card with an inverted checksum. The checksum (algorithm, range, u32 slot with upper word 0), the directory file name, the directory entry and the block header are **confirmed** (the header fields as a set). 0x0B90 = 2 in a field is **rejected**: the game stores 0 there, and the generator now writes a u32 0. The generator also writes empty FF Text strings (0xFF) for the preview leader name (0x0008) and location (0x0028). The checksum post the wiki links is now reachable and agrees. Details and evidence: `notes/38-generated-save-boot.md`. The tables below are kept as written for #32, with the verdicts added.
+
 This lists every offset `runner/savegen/` writes, with its source and how sure we are. The categories follow `CLAUDE.md`: **source** means a public document says so; **hypothesis** means no reachable public source states it, so a Tier 2 scenario must confirm it (the game has to accept the card).
 
 No code from save editors or decompilations was used or read. ff7tk was read only as API documentation.
@@ -28,7 +30,7 @@ PS1 byte order is little-endian (MIPS R3000A). The wiki marks the field X/Y as s
 | 0x04F8–0x04FA | u8 ×3 | party slots (IDs 0x00–0x0B, 0xFF = none) | `party` | wiki |
 | 0x0B7C | u32 | gil | `gil` | wiki |
 | 0x0B80 | u32 | total seconds played | `seconds` | wiki |
-| 0x0B90 | u8 (low byte of a u32) | z_4[8]: 2 when the module is 1 (field), 0 when 3 | constant 2 | wiki |
+| 0x0B90 | u8 (low byte of a u32) | z_4[8]: 2 when the module is 1 (field), 0 when 3 | constant 2 | wiki; **rejected in #38**: the game stores 0 in a field (now a u32 0) |
 | 0x0B94 | u16 | current module: 1 = field, 3 = world map | constant 1 | wiki |
 | 0x0B96 | u16 | current location (field ID) | `field.id` | wiki |
 | 0x0B9A | s16 | field X | `field.x` | wiki |
@@ -45,7 +47,7 @@ The preview fields at 0x0004–0x0053 only affect the load menu (wiki: "changing
 
 Field IDs are listed in the wiki's `FF7/Field/Field_ID` page (0x0000–0x0312). `harness/saves/example-field.json` uses 116 (0x0074) as an arbitrary example. Its position and triangle are placeholders, not a checked valid spot.
 
-## Checksum (hypothesis)
+## Checksum (hypothesis in #32; confirmed in #38)
 
 - **Source:** the wiki says the slot is a DWord at 0x0000 and that only the lower word is stored. It links the algorithm to a forum post we cannot reach.
 - **Hypothesis:** the implementation follows the commonly described algorithm. It is a 16-bit CRC with polynomial 0x1021, initial value 0xFFFF, non-reflected (MSB first), and final XOR 0xFFFF, which is CRC-16/GENIBUS in the CRC catalogue. It covers savemap bytes 0x0004 to 0x10F3 (4336 bytes) and is stored little-endian, with the upper word zero.
@@ -94,6 +96,6 @@ The label (`[A-Za-z0-9 .-]`, at most 24 characters) is written as full-width Shi
 
 `web/js/memcard.js` `cardProblem()` only checks the size and the `MC` header, so passing it is a weak guarantee. The test's own XOR, directory and header checks carry the weight.
 
-The module flag at 0x0B90 is written as its low byte only. The upper 3 bytes of that u32 keep the baseline value, which in Tier 2 means the disc's new-game data. The Tier 2 scenario should check that this is harmless.
+The module flag at 0x0B90 was written as its low byte only in #32. Since #38 it is written as a full u32 (0), so no baseline byte is left there.
 
 It also checks that the generator sources contain no base64 or long byte tables. Generated cards are only ever held in memory; none is written to the repo.

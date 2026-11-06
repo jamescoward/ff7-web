@@ -8,8 +8,6 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **#74 (chained snapshots, segments) in PR #85.** On Tier 2 the chain title → New Game → the first still, Circle-ignoring picture after the opening (frame 11095, kept as `reactor-entrance`) is deterministic. Open finding for a follow-up: on the disc, a snapshot kept mid-run and restored is not identical to running on (`match_boot` 0; `notes/74-chained-snapshots.md`).
 
-**#74 (chained snapshots, segments) in PR #85.** On Tier 2 the chain title → New Game → the first still, Circle-ignoring picture after the opening (frame 11095, kept as `reactor-entrance`) is deterministic. Open finding for a follow-up: on the disc, a snapshot kept mid-run and restored is not identical to running on (`match_boot` 0; `notes/74-chained-snapshots.md`).
-
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 
 **Next:** implement the M1 issues in order:

@@ -13,7 +13,14 @@ import { build as buildPadEcho } from '../../harness/fixtures/pad-echo.js';
 import { buildIso, cueFor } from '../../runner/synth/iso9660.js';
 import { PAD } from '../js/pad.js';
 import { OVERLAY_HZ, createStatePoller, sampleState } from '../js/overlay-state.js';
+import { ADDRESS_TABLE as SHIPPED_TABLE } from '../js/semantic/addresses.js';
 import { BROWSERS, CORE_BUILT, WEB, launch, loadPlaywright, serveWeb, until } from './helpers.js';
+
+// The Mode row's badge for the shipped table: mode() reads gameState and
+// prevGameState, so it is confirmed only when both entries are. Taken from the
+// table, not hard-coded, so these tests follow address confirmations (#76).
+const SHIPPED_MODE_BADGE = ['gameState', 'prevGameState']
+  .every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis';
 
 const pw = loadPlaywright();
 let server;
@@ -163,7 +170,7 @@ for (const name of BROWSERS) {
       }
     });
 
-    test('gate on, real table: off by default; values and "no address" rows; updates with memory; marks hypothesis', async (t) => {
+    test('gate on, real table: off by default; values and "no address" rows; updates with memory; marks the status from the shipped table', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser);
       try {
@@ -180,7 +187,7 @@ for (const name of BROWSERS) {
         await page.click('#debug-btn');
         await page.waitForSelector('#debug .dbg-row');
         let r = await rows(page);
-        assert.deepEqual(r.mode, { val: 'field (1), was menu', badge: 'hypothesis', reason: null });
+        assert.deepEqual(r.mode, { val: 'field (1), was menu', badge: SHIPPED_MODE_BADGE, reason: null });
         for (const key of ['fieldId', 'position', 'menuCursor', 'party', 'partyHp']) {
           assert.deepEqual(r[key], { val: '—', badge: null, reason: 'no address' }, key);
         }
@@ -330,7 +337,7 @@ for (const name of BROWSERS) {
         await until(async () => (await rows(page)).mode, { what: 'the first sample from the worker' });
         const r = await rows(page);
         assert.match(r.mode.val, /^\w+ \(-?\d+\), was \w+$/);
-        assert.equal(r.mode.badge, 'hypothesis');
+        assert.equal(r.mode.badge, SHIPPED_MODE_BADGE);
         assert.deepEqual(r.fieldId, { val: '\u2014', badge: null, reason: 'no address' });
         // Toggling off tells the worker to stop (no more state messages).
         await page.click('#debug-btn');

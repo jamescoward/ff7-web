@@ -1,0 +1,137 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-next-3-barret-up",
+  "description": "#78 (diagnostic): where Barret joins. From after-battle, walk up-left to md1_1 (0x75) and wait for it to load (#77), then hold up with Circle (15 of every 20 frames, for dialogue) until Savemap partyID[1] reads Barret (0x01): barret_wait, 0 on a 9000-frame timeout. Reports where it ended and 1/0 checks on the slot-1 data.",
+  "boot": {
+    "from": "after-battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16): the field ID (#77). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h"
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16): 2 in a settled field, 1 shortly after a map change (#77 attempts 1-2). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "slot1": {
+      "addr": "0x8009cbdd",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x04F9 partyID[1]"
+    },
+    "act_id1": {
+      "addr": "0x8009dc8c",
+      "type": "u8",
+      "description": "g_ActiveCharacters[1] + 0x000 id"
+    },
+    "hp1": {
+      "addr": "0x8009dc9c",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] + 0x010 current HP (s16)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "differs": 116
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "up",
+            "left"
+          ],
+          "every": 60,
+          "hold": 59
+        }
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "differs": 2
+        },
+        "timeout": 600
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "equals": 2
+        },
+        "timeout": 3600
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "slot1",
+          "equals": 1
+        },
+        "timeout": 9000,
+        "press": {
+          "buttons": [
+            "up",
+            "circle"
+          ],
+          "every": 20,
+          "hold": 15
+        }
+      },
+      "metric": "barret_wait"
+    },
+    {
+      "wait": {
+        "frames": 120
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "slot1",
+        "equals": 1
+      },
+      "metric": "s1_barret"
+    },
+    {
+      "expect": {
+        "mem": "act_id1",
+        "equals": 1
+      },
+      "metric": "a1_barret"
+    },
+    {
+      "expect": {
+        "mem": "hp1",
+        "in": [
+          1,
+          9999
+        ]
+      },
+      "metric": "hp1_ok"
+    }
+  ],
+  "metrics": [
+    "barret_wait",
+    "s1_barret",
+    "a1_barret",
+    "hp1_ok",
+    "map_cur",
+    "game_state",
+    "loading"
+  ]
+}

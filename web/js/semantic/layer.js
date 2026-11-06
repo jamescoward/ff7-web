@@ -120,7 +120,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       return { value: ids, confirmed: r.confirmed };
     },
 
-    /** { value: [hp, hp, hp] } for party slots 0 to 2 (no address known yet: 'no address') */
+    /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */
     async partyHp() {
       const r = await read(['partyHp0', 'partyHp1', 'partyHp2']);
       return r.values ? { value: [r.values.partyHp0, r.values.partyHp1, r.values.partyHp2], confirmed: r.confirmed } : fail(r);

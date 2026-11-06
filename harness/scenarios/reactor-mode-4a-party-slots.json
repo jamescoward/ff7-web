@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-4a-party-slots",
-  "description": "#78: the party at the first guard battle. From battle, 1 frame. The savemap party slots (partyID[0..2]) read Cloud (0x00), Barret (0x01) and empty (0xFF), and g_ActiveCharacters[0..2].id agree for slots 0 and 1 (slot 2 reported as 1/0 for 0xFF). Only 1/0 leaves.",
+  "description": "#78: the party at the first guard battle. From battle, 1 frame. Savemap partyID[0..2] read Cloud (0x00), empty (0xFF), empty (attempt 1: slot 0 Cloud, slot 1 not Barret, slot 2 empty), and g_ActiveCharacters[0].id reads Cloud. Only 1/0 leaves.",
   "boot": {
     "from": "battle"
   },
@@ -32,66 +32,6 @@
       "addr": "0x8009d84c",
       "type": "u8",
       "description": "g_ActiveCharacters[0] (0x8009D84C, ActiveCharacterData size 0x440) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\". Indexed by party slot (savemenu.c reads g_ActiveCharacters[i] for Savemap.partyID[i])"
-    },
-    "act_id1": {
-      "addr": "0x8009dc8c",
-      "type": "u8",
-      "description": "g_ActiveCharacters[1] + 0x000 id"
-    },
-    "act_id2": {
-      "addr": "0x8009e0cc",
-      "type": "u8",
-      "description": "g_ActiveCharacters[2] + 0x000 id"
-    },
-    "hp0": {
-      "addr": "0x8009d85c",
-      "type": "u16",
-      "description": "g_ActiveCharacters[0] + 0x010 current HP (s16)"
-    },
-    "hp1": {
-      "addr": "0x8009dc9c",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x010 current HP (s16)"
-    },
-    "mp0": {
-      "addr": "0x8009d860",
-      "type": "u16",
-      "description": "g_ActiveCharacters[0] + 0x014 current MP (s16)"
-    },
-    "mp1": {
-      "addr": "0x8009dca0",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x014 current MP (s16)"
-    },
-    "maxhp0": {
-      "addr": "0x8009d85e",
-      "type": "u16",
-      "description": "g_ActiveCharacters[0] + 0x012 max HP (s16)"
-    },
-    "maxhp1": {
-      "addr": "0x8009dc9e",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x012 max HP (s16)"
-    },
-    "cloud_hp": {
-      "addr": "0x8009c764",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 character record 0 (Cloud, size 0x84) + 0x2C curHP. ff7-flat-wiki Savemap character record"
-    },
-    "barret_hp": {
-      "addr": "0x8009c7e8",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 + 0x84 (Barret) + 0x2C curHP"
-    },
-    "cloud_mp": {
-      "addr": "0x8009c768",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 (Cloud) + 0x30 curMP"
-    },
-    "barret_mp": {
-      "addr": "0x8009c7ec",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 + 0x84 (Barret) + 0x30 curMP"
     }
   },
   "input": [
@@ -112,9 +52,9 @@
     {
       "expect": {
         "mem": "slot1",
-        "equals": 1
+        "equals": 255
       },
-      "metric": "s1_barret"
+      "metric": "s1_empty"
     },
     {
       "expect": {
@@ -132,20 +72,6 @@
     },
     {
       "expect": {
-        "mem": "act_id1",
-        "equals": 1
-      },
-      "metric": "a1_barret"
-    },
-    {
-      "expect": {
-        "mem": "act_id2",
-        "equals": 255
-      },
-      "metric": "a2_empty"
-    },
-    {
-      "expect": {
         "mem": "game_state",
         "equals": 2
       },
@@ -154,11 +80,9 @@
   ],
   "metrics": [
     "s0_cloud",
-    "s1_barret",
+    "s1_empty",
     "s2_empty",
     "a0_cloud",
-    "a1_barret",
-    "a2_empty",
     "battle_ok"
   ]
 }

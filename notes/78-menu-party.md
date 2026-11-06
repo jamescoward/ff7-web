@@ -1,6 +1,6 @@
 # #78: confirm menu cursor and party data in Tier 2
 
-Status (2026-11-06): attempt 1 pushed (diagnostic + first acceptance guesses).
+Status (2026-11-06): attempt 2 pushed. Attempt 1 found the cursor (candidate 1) and showed Cloud alone at the first battle.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (names and addresses), `include/game.h` (layouts: `MenuTable`, `SaveWork`, `SavePartyMember` record, `ActiveCharacterData`), and the indexing seen in `src/menu/savemenu.c` `UpdateSaveHeader` (it reads `g_ActiveCharacters[i]` for party slot `i`, where `Savemap.partyID[i]` is not 0xFF). Only offsets, names and indexing were read.
@@ -23,3 +23,28 @@ No source we can read gives the starting HP or MP numbers (the wiki page for KER
 - `reactor-mode-2d-cursor-sequence` (acceptance guess, candidate 1 = table 0): Down → wait until row = 1, Down → 2, Up → 1, Up → 0, each with a 60-frame timeout; match on a rerun.
 - `reactor-mode-2e-party-menu`: from `menu-open`, slot IDs Cloud/Barret/empty, `g_ActiveCharacters` ids and HP ranges.
 - `reactor-mode-4a-party-slots` and `4b-party-hp`: the same at the first guard battle (`battle`), plus MP and max HP and the savemap records.
+
+## Attempt 1 results (`46c7fe4`, tier2: 26 pass, 6 fail; the fails are diagnostics or the Barret expectation)
+| scenario | status | metrics |
+|---|---|---|
+| reactor-mode-2a-cursor-down1 | fail (diag) | row0 **1**, row1 0, row2 0; d_row0 1, d_row1 0, d_row2 0; sel_menu 0; game_state 5 |
+| reactor-mode-2b-cursor-down2 | fail (diag) | row0 **2**, row1 0, row2 0; d_row0 1, others 0; sel_menu 0 |
+| reactor-mode-2c-cursor-up | fail (diag) | row0 **1**, row1 0, row2 0; d_row0 1, others 0; sel_menu 0 |
+| reactor-mode-2d-cursor-sequence | **pass** | w_down1 1, w_down2 1, w_up1 1, w_up0 1, cursor_ok 1, match 1 |
+| reactor-mode-2e-party-menu | fail | s0_cloud 1, **s1_barret 0**, s2_empty 1, a0_cloud 1, **a1_barret 0**, hp0_ok 1, hp1_ok 1, menu_ok 1 |
+| reactor-mode-4a-party-slots | fail | s0_cloud 1, **s1_barret 0**, s2_empty 1, a0_cloud 1, **a1_barret 0**, a2_empty 0, battle_ok 1 |
+| reactor-mode-4b-party-hp | fail | hp0_ok 1, **hp1_ok 0**, mp0_ok 1, mp1_ok 1, max0_ok 1, max1_ok 1, save_hp_ok 1, save_mp_ok 1 |
+| every #74/#76/#77 scenario | pass | unchanged |
+
+Reading:
+- **Main-menu cursor: the row of `g_PartyMenuTables[0]` (0x8009A0D3).** It reads 0 with the menu just open (change sign +1 to 1), and follows Down, Down, Up exactly; the other two tables' rows stay 0. `g_PartyMenuSelectedMenuId` stays 0 (it is likely set on confirming an item). The step-by-step sequence passes: each value is reached within one frame of the press ending.
+- **Party: slot 0 is Cloud (savemap partyID[0] = 0x00, and g_ActiveCharacters[0].id = 0x00), slot 2 is empty, and slot 1 is not Barret**, both at reactor-entrance (menu) and at the first guard battle. So the contract's expectation (Cloud and Barret at the first battle) does not hold: Cloud fights the first guards alone. Attempt 2 checks that slot 1 is empty, and looks for where Barret joins.
+- Cloud's live HP (g_ActiveCharacters[0].hp), MP and max HP, and his savemap record's HP and MP, lie in the game's ranges. g_ActiveCharacters[1].hp is outside 1..9999 (consistent with an empty slot). g_ActiveCharacters[2].id is not 0xFF, so an empty slot is told by partyID, not by the id byte.
+
+## Attempt 2 plan (materially different: Cloud alone, a damage check for HP, and a search for Barret)
+- `reactor-mode-2a/2b/2c` removed (their job is done); `2d` stays as the cursor acceptance check.
+- `reactor-mode-2e-party-menu`, `4a-party-slots`: slot 0 Cloud, slots 1 and 2 empty (0xFF), g_ActiveCharacters[0].id Cloud; 2e also HP/MP/max HP in range.
+- `reactor-mode-4b-party-hp`: Cloud's HP, MP and max HP (live) and his savemap HP/MP in range.
+- `reactor-mode-4c-party-hp-damage`: 1800 frames of battle with no input; g_ActiveCharacters[0].hp decreases (sign) and max HP is unchanged. This identifies the field as the current HP, which a range alone cannot.
+- `reactor-next-3-barret-up`, `-up-right` (diagnostic): from after-battle, walk to md1_1 and wait for the load, then hold up (or up+right) with Circle until partyID[1] reads Barret (0x01), 9000-frame timeout; then 1/0 for partyID[1], g_ActiveCharacters[1].id and HP.
+- `semantic/addresses.js`: menuCursor (s8, 0x8009A0D3), partySlot0..2 (Savemap partyID, 0x8009CBDC..DE) and partyHp0 (g_ActiveCharacters[0].hp, 0x8009D85C) confirmed; partyHp1/2 stay hypotheses (same layout one stride on, never seen holding a character). Reader tests updated (`runner/test/unit/semantic.test.js`, `semantic-party-hp.test.js`, `web/test/debug-overlay.test.js`).

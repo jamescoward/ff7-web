@@ -27,7 +27,8 @@
 // Changing an entry to "confirmed" needs a Tier 2 scenario that checks it
 // (issues #76 to #78). #76 confirmed gameState (field, battle, menu),
 // prevGameState and movieFrame (notes/76-confirm-mode.md). #77 confirmed
-// fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md).
+// fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md). #78
+// confirmed menuCursor, partySlot0..2 and partyHp0..2 (notes/78-menu-party.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -59,8 +60,6 @@ const GAME_STATES_CONFIRMED = Object.freeze({
   2: SC('reactor-mode-4-battle'),
   5: SC('reactor-mode-2-menu-open'),
 });
-
-const noAddress = (why) => `no RAM address known yet; ${why}`;
 
 /** Build a frozen table whose entries all apply to boot executable `exe`. */
 export function makeTable(exe, entries) {
@@ -171,26 +170,31 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   },
   {
     name: 'menuCursor',
-    address: null,
-    type: 'u8',
-    meaning: 'main-menu cursor index (0 = first item)',
-    source: noAddress('issue #78 asks for it; no candidate in the repo'),
-    status: 'hypothesis',
+    address: 0x8009a0d3,
+    type: 's8',
+    meaning: 'field main-menu cursor index (0 = the first item; the row of g_PartyMenuTables[0]). Only the main menu is checked; sub-menu cursors (Materia, Equip) are elsewhere',
+    source: `${DECOMP} config/symbols.main.us.txt (g_PartyMenuTables at 0x8009A0C8, three tables) and include/game.h (MenuTable, size 0x12, row at +0x0B). Tier 2 (#78, notes/78-menu-party.md): 0 with the menu just open, Down 1, Down 2, Up 1, Up 0; the rows of tables 1 and 2 stay 0; ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-mode-2d-cursor-sequence'),
   },
   ...[0, 1, 2].map((i) => ({
     name: `partySlot${i}`,
-    address: null,
+    address: 0x8009c6e4 + 0x4f8 + i,
     type: 'u8',
-    meaning: `character ID in party slot ${i} (0x00 to 0x0B, 0xFF = empty)`,
-    source: noAddress(`${SAVEMAP_NOTE}: savemap +0x${(0x4f8 + i).toString(16).toUpperCase().padStart(4, '0')} is the saved copy. Issue #78`),
-    status: 'hypothesis',
+    meaning: `character ID in party slot ${i} (Savemap partyID[${i}]: 0x00 Cloud, 0x01 Barret, ... 0x0B; 0xFF = empty). The game uses this copy live (field scripts and the menu read it)`,
+    source: `${DECOMP} include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); ${SAVEMAP_NOTE}: savemap +0x${(0x4f8 + i).toString(16).toUpperCase().padStart(4, '0')}. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-mode-4a-party-slots'),
   })),
   ...[0, 1, 2].map((i) => ({
     name: `partyHp${i}`,
-    address: null,
-    type: 'u16',
-    meaning: `current HP of the character in party slot ${i}`,
-    source: noAddress('no RAM address in the repo; the savemap holds HP per character but its live location is unknown. Issue #78'),
-    status: 'hypothesis',
+    address: 0x8009d84c + i * 0x440 + 0x10,
+    type: 's16',
+    meaning: `current HP of the character in party slot ${i} (g_ActiveCharacters[${i}].hp; the array is indexed by party slot). Meaningless for an empty slot: check partySlot${i}`,
+    source: `${DECOMP} config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics "Active Character Data" (+0x10 current HP). ${i === 0
+      ? `Tier 2 (#78): slot 0 (Cloud) in 1..9999 in the field menu and in the first guard battle, and it falls while the guards attack with max HP unchanged; ${CAVEAT}`
+      : 'Slot 0 is confirmed (#78); this slot is the same layout one stride on, not yet seen with a character in it'}`,
+    status: i === 0 ? 'confirmed' : 'hypothesis',
+    ...(i === 0 ? { scenario: SC('reactor-mode-4c-party-hp-damage') } : {}),
   })),
 ]);

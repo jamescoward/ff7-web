@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-2e-party-menu",
-  "description": "#78: the party in the field menu (which draws party HP). From menu-open, 1 frame. Savemap partyID[0..1] read Cloud and Barret and slot 2 is empty; g_ActiveCharacters[0..1] ids agree; their current HP lie in 1..9999 and MP in 0..999. Only 1/0 leaves.",
+  "description": "#78: the party in the field menu at reactor-entrance (the menu draws party HP). From menu-open, 1 frame. Savemap partyID[0] reads Cloud (0x00) and slots 1 and 2 are empty (0xFF): Cloud is alone here (attempt 1: slot 1 is not Barret). g_ActiveCharacters[0] (slot 0) has id Cloud, current HP in 1..9999 and MP in 0..999. Only 1/0 leaves.",
   "boot": {
     "from": "menu-open"
   },
@@ -33,65 +33,20 @@
       "type": "u8",
       "description": "g_ActiveCharacters[0] (0x8009D84C, ActiveCharacterData size 0x440) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\". Indexed by party slot (savemenu.c reads g_ActiveCharacters[i] for Savemap.partyID[i])"
     },
-    "act_id1": {
-      "addr": "0x8009dc8c",
-      "type": "u8",
-      "description": "g_ActiveCharacters[1] + 0x000 id"
-    },
-    "act_id2": {
-      "addr": "0x8009e0cc",
-      "type": "u8",
-      "description": "g_ActiveCharacters[2] + 0x000 id"
-    },
     "hp0": {
       "addr": "0x8009d85c",
       "type": "u16",
       "description": "g_ActiveCharacters[0] + 0x010 current HP (s16)"
-    },
-    "hp1": {
-      "addr": "0x8009dc9c",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x010 current HP (s16)"
     },
     "mp0": {
       "addr": "0x8009d860",
       "type": "u16",
       "description": "g_ActiveCharacters[0] + 0x014 current MP (s16)"
     },
-    "mp1": {
-      "addr": "0x8009dca0",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x014 current MP (s16)"
-    },
     "maxhp0": {
       "addr": "0x8009d85e",
       "type": "u16",
       "description": "g_ActiveCharacters[0] + 0x012 max HP (s16)"
-    },
-    "maxhp1": {
-      "addr": "0x8009dc9e",
-      "type": "u16",
-      "description": "g_ActiveCharacters[1] + 0x012 max HP (s16)"
-    },
-    "cloud_hp": {
-      "addr": "0x8009c764",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 character record 0 (Cloud, size 0x84) + 0x2C curHP. ff7-flat-wiki Savemap character record"
-    },
-    "barret_hp": {
-      "addr": "0x8009c7e8",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 + 0x84 (Barret) + 0x2C curHP"
-    },
-    "cloud_mp": {
-      "addr": "0x8009c768",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 (Cloud) + 0x30 curMP"
-    },
-    "barret_mp": {
-      "addr": "0x8009c7ec",
-      "type": "u16",
-      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x0054 + 0x84 (Barret) + 0x30 curMP"
     }
   },
   "input": [
@@ -112,9 +67,9 @@
     {
       "expect": {
         "mem": "slot1",
-        "equals": 1
+        "equals": 255
       },
-      "metric": "s1_barret"
+      "metric": "s1_empty"
     },
     {
       "expect": {
@@ -132,13 +87,6 @@
     },
     {
       "expect": {
-        "mem": "act_id1",
-        "equals": 1
-      },
-      "metric": "a1_barret"
-    },
-    {
-      "expect": {
         "mem": "hp0",
         "in": [
           1,
@@ -149,31 +97,23 @@
     },
     {
       "expect": {
-        "mem": "hp1",
-        "in": [
-          1,
-          9999
-        ]
-      },
-      "metric": "hp1_ok"
-    },
-    {
-      "expect": {
         "mem": "mp0",
         "in": [
           0,
           999
         ]
-      }
+      },
+      "metric": "mp0_ok"
     },
     {
       "expect": {
-        "mem": "mp1",
+        "mem": "maxhp0",
         "in": [
-          0,
-          999
+          1,
+          9999
         ]
-      }
+      },
+      "metric": "max0_ok"
     },
     {
       "expect": {
@@ -185,12 +125,12 @@
   ],
   "metrics": [
     "s0_cloud",
-    "s1_barret",
+    "s1_empty",
     "s2_empty",
     "a0_cloud",
-    "a1_barret",
     "hp0_ok",
-    "hp1_ok",
+    "mp0_ok",
+    "max0_ok",
     "menu_ok"
   ]
 }

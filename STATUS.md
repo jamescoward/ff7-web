@@ -2,6 +2,8 @@
 
 _Update this when an issue closes or a blocker appears. Fine-grained progress lives in GitHub issues and PR Handoff sections; see `docs/CONTINUITY.md`._
 
+**Trip mode (2026-11-09 to 2026-12-05):** the owner is away and checks nothing. Scheduled sessions follow `docs/CONTINUITY.md`, "Trip mode": the pause label `agents-paused`, one implementer at a time, touch features behind off-by-default Labs flags labelled `tier3-deferred`, and a weekly digest on #123. The M3/M4 plan (#105–#121, owner-approved 2026-11-06) is in `notes/m3-m4-issue-drafts.md`; after the M2 queue below, take #105 and #106 first.
+
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-06.

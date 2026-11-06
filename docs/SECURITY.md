@@ -41,7 +41,7 @@ Agents may write code that runs against game data, provided that code runs only 
    - `harness/private-eval/`
    - `harness/baselines/`
 
-**Accepted residual risk:** low-bandwidth leakage through scenario pass/fail results. This is mitigated by limits on scenarios per run and summary-only reporting.
+**Accepted residual risk:** low-bandwidth leakage through scenario pass/fail results. This is mitigated by limits on scenarios per run (at most 64, with 8 metrics each: at most about 17 kbit per run, all of it numbers and statuses; `notes/34-validator.md`) and summary-only reporting. The owner raised the cap from 32 to 64 on 2026-11-06 (#109).
 
 ## Third-party services
 Device clouds, hosted previews and similar services receive only original code and homebrew test programs, never game data.

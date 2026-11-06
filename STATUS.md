@@ -28,11 +28,11 @@ Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → *
 **Things a new agent must know:**
 - Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
 - The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
-- Limits: 32 scenarios per run and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+- Limits: 64 scenarios per run (32 until #109) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
 - **Measured values in save descriptions:** `harness/saves/disc1-md1stin.json` holds progress 6 and triangle 12, which were measured in Tier 2. `docs/SECURITY.md` describes description values as numbers "the author chose". Confirm this pattern before #80 builds more boot points the same way.
-- **The Tier 2 scenario limit:** Tier 2 is at its limit of 32 scenarios per run. #80 and #101 must replace or split scenarios. Raising the limit would change `harness/private-eval/`, so it needs a `needs-owner` issue.
+- **The Tier 2 scenario limit:** the owner approved raising it from 32 to 64 (2026-11-06). The change is in #109's PR, which touches protected paths and waits for the owner's review and merge. Until it merges, Tier 2 stays at 32.
 - **Optional:** the owner accepted #38's boot point (md1stin, not a save point) in the coordinator session. The coordinator recorded this on #38 (comment 6694044922) from the shared account. A reply from the owner there would make it unambiguous.
 - Done since the last update: PR #94 (the `web` job in the pinned Playwright image) and the pad-echo baseline re-recording (#97) are both merged.
 

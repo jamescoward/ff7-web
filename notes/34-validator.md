@@ -56,14 +56,14 @@ Each rule has a test in `test/validate.test.js`.
 | Sandbox report | Only `limits_hit` names from a fixed list | other fields dropped |
 | Malformed report or expect file | Error messages never quote the file | exit 2 |
 
-**Summary size:** at most `SUMMARY_MAX_BYTES` = 16 KiB, checked at run time. A test builds the worst case (32 scenarios with 64-character names, 8 metrics each, all 4 limits) and measures it under the cap.
+**Summary size:** at most `SUMMARY_MAX_BYTES` = 32 KiB (16 KiB until #109), checked at run time. A test builds the worst case (64 scenarios with 64-character names, 8 metrics each, all 4 limits) and measures it under the cap.
 
 **What can leak:** names, keys and order are fixed before the run. A hostile program controls only these:
 - which expected scenarios report, and each one's status (4 outcomes per scenario);
 - which expected keys are present, and their values. Integers range over ±2³²; other numbers have 3 decimals within ±10⁶, about 33 bits each.
 - a rejection reason, as an alternative outcome.
 
-That is at most 32 × (2 + 8 × 33.3) + log₂(14) ≈ **8.6 kbit per run, all of it numbers and statuses**. Add up to 4 bits if the program deliberately hits sandbox limits. Each metric's 33.3 bits is log₂(2³³+1 integers + 2·10⁹ three-decimal floats + absent). A test computes this from the constants and fails above 9 kbit. Reviewer round 2 checked the arithmetic; the first draft of this note said 34.2 bits per metric and 8.8 kbit, which overstated it. To narrow it, lower `MAX_METRICS` or `MAX_INT`.
+That is at most 64 × (2 + 8 × 33.3) + log₂(14) ≈ **17.2 kbit per run, all of it numbers and statuses** (32 scenarios and 8.6 kbit until #109, when the owner raised the cap to 64 on 2026-11-06). Add up to 4 bits if the program deliberately hits sandbox limits. Each metric's 33.3 bits is log₂(2³³+1 integers + 2·10⁹ three-decimal floats + absent). A test computes this from the constants and fails above 18 kbit (9 kbit before #109). Reviewer round 2 checked the arithmetic; the first draft of this note said 34.2 bits per metric and 8.8 kbit, which overstated it. To narrow it, lower `MAX_METRICS` or `MAX_INT`.
 
 ## Why the validator doesn't use `runner/schema.js`
 

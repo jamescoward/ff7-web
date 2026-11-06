@@ -380,7 +380,9 @@ test(`the largest possible summary is under SUMMARY_MAX_BYTES (${SUMMARY_MAX_BYT
   assert.ok(String(-999999.999).length <= String(-MAX_INT).length);
 });
 
-test('the information bound: at most about 9 kbit per run, all of it numbers and statuses', () => {
+test('the information bound: at most about 18 kbit per run, all of it numbers and statuses', () => {
+  // 18 kbit since #109 (owner decision, 2026-11-06): MAX_SCENARIOS went from 32 to 64,
+  // which doubles the bound (it was about 9 kbit). docs/SECURITY.md states the accepted risk.
   // What a hostile program controls, given --expect: for each expected
   // scenario, whether it reports and its status (4 outcomes); for each
   // expected key, whether it's present and its value. Integers within
@@ -391,7 +393,7 @@ test('the information bound: at most about 9 kbit per run, all of it numbers and
   const perMetric = Math.log2(values + 1); // +1: absent
   const perScenario = Math.log2(1 + STATUSES.length) + MAX_METRICS * perMetric;
   const bits = MAX_SCENARIOS * perScenario + Math.log2(REASONS.length + 1);
-  assert.ok(bits < 9000, `bound is ${Math.round(bits)} bits`);
+  assert.ok(bits < 18000, `bound is ${Math.round(bits)} bits`);
 });
 
 // --- Fuzz ----------------------------------------------------------------------

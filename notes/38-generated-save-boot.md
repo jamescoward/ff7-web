@@ -1,6 +1,6 @@
 # #38: boot from a generated save
 
-Status (2026-11-06): done. Attempt 2 (`2e61c73`) passed 32/32 Tier 2 scenarios, both save-boot scenarios included. Attempts used: 2 of 3.
+Status (2026-11-06): done. Attempt 2 (`2e61c73`) passed 32/32 Tier 2 scenarios, both save-boot scenarios included, and a second run (`435845f`, a notes-only commit) gave identical statuses and metrics. Attempts used: 2 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**, read for addresses, layouts and the values the game stores:
@@ -70,7 +70,7 @@ Reading:
   - The player stands on triangle 12, the description's, placed by the game from x = 0x7FFF.
   - The field is live: after 60 still frames, 40 frames of Up and 40 of Right moved the player, and both PosX and PosY increased. That agrees with #77's directions at md1stin.
 - **A wrong checksum fails cleanly.** With the same minute of Circle presses, the save is listed but never loads: the game stays at the title. The title menu ends in the file list (mode 1) with no fade-out (1), which is what the game's code does for "file ruined".
-- **Deterministic within the run:** match 1 in both scenarios (the same run from the title snapshot ends in the same RAM and picture).
+- **Deterministic:** match 1 in both scenarios: the same run from the title snapshot ends in the same RAM and picture. A second Tier 2 run (`435845f`) reported the same status and every metric equal, in both scenarios: w_field 400, load_done 371, slot_mask 1, tri_ok 1, x_dir 1, y_dir 1, match 1; no_field 1, listed 1, title_mode 1, title_fade 1.
 
 ## Hypotheses from notes/32
 | Hypothesis | Verdict | Evidence |
@@ -97,4 +97,3 @@ This boot point has Cloud alone (party 0, 255, 255), as the game has it at md1st
 ## Limits and follow-ups
 - Position entries read field model 0; the scenario checks `g_PlayerModelId` = 0 after the load. Other fields need #99.
 - The KERNEL.BIN padding explanation for attempt 1 is not proven.
-- A second Tier 2 run of the same scenarios comes with the commit that adds these notes (see the PR).

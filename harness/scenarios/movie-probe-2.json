@@ -1,0 +1,68 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "movie-probe-2",
+  "description": "#76 attempt 1 diagnostic (removed before merge): the opening, 4320 script frames after the title boot point (T = 1250), on the same inputs as new-game-to-reactor-entrance (title-to-new-game, then Circle every second). Reports the raw values of the mode and movie candidates at that point. match: a rerun from the same start ends in the same state.",
+  "tier": 2,
+  "boot": {
+    "from": "opening-1"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16, read as u16; hypothesis field 1, battle 2, world 3, menu 5). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "prev_state": {
+      "addr": "0x800965ec",
+      "type": "u16",
+      "description": "g_PrevGameState (same values). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "movie_lock": {
+      "addr": "0x800716cc",
+      "type": "u32",
+      "description": "g_MovieLock, movie candidate 1 (the name only; its meaning is a hypothesis). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "movie_frame": {
+      "addr": "0x80071740",
+      "type": "u32",
+      "description": "Stframe_no, the streaming library's frame number, movie candidate 2 (hypothesis). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "st_start": {
+      "addr": "0x8009c6cc",
+      "type": "u32",
+      "description": "StSTART_FLAG, the streaming library's start flag (diagnostic). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "segment": "circle-every-second-10s"
+    },
+    {
+      "segment": "circle-every-second-10s"
+    },
+    {
+      "segment": "circle-every-second-10s"
+    },
+    {
+      "segment": "circle-every-second-10s"
+    }
+  ],
+  "assert": [
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "snapshot": "opening-2",
+  "metrics": [
+    "game_state",
+    "prev_state",
+    "movie_lock",
+    "movie_frame",
+    "st_start",
+    "frames",
+    "fps",
+    "match"
+  ]
+}

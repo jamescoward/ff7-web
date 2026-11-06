@@ -1,0 +1,78 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "reactor-mode-5-battle-end",
+  "description": "#76: the battle ends, back to the field. From battle, press Circle (4 frames every half second: Attack, the target, then the result screens) until g_GameState reads field (1): end_wait is the first frame it does. Then, as for reactor-entrance, a picture still for 5 s while Circle is pressed every second (field_still), and check it still reads 1 (field_ok). match: a rerun from the same snapshot.",
+  "tier": 2,
+  "boot": {
+    "from": "battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16, read as u16; hypothesis field 1, battle 2, world 3, menu 5). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    },
+    "prev_state": {
+      "addr": "0x800965ec",
+      "type": "u16",
+      "description": "g_PrevGameState (same values). Xeeynamo/ff7-decomp@9411173 config/symbols.main.us.txt (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 10800,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "end_wait"
+    },
+    {
+      "wait": {
+        "stillFrames": 300,
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "field_still"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      },
+      "metric": "field_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "end_wait",
+    "field_still",
+    "field_ok",
+    "match",
+    "game_state",
+    "prev_state",
+    "snapshot_frames",
+    "frames"
+  ]
+}

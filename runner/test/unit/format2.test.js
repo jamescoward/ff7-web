@@ -8,7 +8,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { BOOT_POINTS, scriptFrames } from '../../bootpoints.js';
-import { BUILTIN_METRICS_2, conditionHolds, loadBootPoint } from '../../format2.js';
+import { BUILTIN_METRICS_2, asSigned, changeOutcome, conditionHolds, loadBootPoint } from '../../format2.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, ScenarioError, loadScenario } from '../../scenario.js';
 import { findTier2Scenarios, MAX_METRICS, parseSnapshot } from '../../tier2.js';
@@ -121,6 +121,9 @@ describe('format 2 loader checks beyond the schema', () => {
     'unknown metric': [(d) => { d.metrics.push('speed'); }, /neither a built-in metric/],
     'metric naming a bytes location': [(d) => { d.metrics.push('marker'); }, /type bytes/],
     'named metric that is also a built-in': [(d) => { d.assert[2].metric = 'frames'; d.metrics.push('frames'); }, /also a built-in metric/],
+    'change check on an unknown name': [(d) => { d.assert.push({ change: { mem: 'nope', is: 'increased' } }); }, /change: no memory location named "nope"/],
+    'change check on a bytes location': [(d) => { d.assert.push({ change: { mem: 'marker', is: 'changed' } }); }, /change check needs a u8, u16 or u32 location/],
+    'change check metric not listed': [(d) => { d.assert.push({ change: { mem: 'counter', is: 'increased' }, metric: 'up' }); }, /not listed in metrics/],
   };
   for (const [name, [mutate, re]] of Object.entries(rejects)) {
     test(`rejects: ${name}`, () => {
@@ -155,6 +158,45 @@ describe('format 2 loader checks beyond the schema', () => {
   test('every built-in metric is a valid metric key', () => {
     for (const k of BUILTIN_METRICS_2) assert.match(k, /^[a-z][a-z0-9_]{0,31}$/);
     assert.ok(BUILTIN_METRICS_2.includes('snapshot_frames') && BUILTIN_METRICS_2.includes('saved_ms'));
+  });
+});
+
+describe('change checks (#77)', () => {
+  test('the schema accepts the four relations and signed, and refuses others', () => {
+    for (const is of ['increased', 'decreased', 'unchanged', 'changed']) {
+      const d = base();
+      d.assert.push({ change: { mem: 'counter', is, signed: true }, metric: 'dir' });
+      d.metrics.push('dir');
+      assert.deepEqual(validate(schema, d), [], is);
+      const sc = loadScenario(d);
+      assert.deepEqual(sc.asserts.at(-1), { kind: 'change', mem: 'counter', is, signed: true, metric: 'dir' });
+    }
+    for (const bad of [{ mem: 'counter', is: 'grew' }, { mem: 'counter' }, { mem: 'counter', is: 'changed', by: 1 }, { mem: 'counter', is: 'changed', signed: 1 }]) {
+      const d = base();
+      d.assert.push({ change: bad });
+      assert.notDeepEqual(validate(schema, d), [], JSON.stringify(bad));
+    }
+  });
+
+  test('signed reads two\'s complement of the location size', () => {
+    assert.equal(asSigned({ len: 1 }, 0x7f), 127);
+    assert.equal(asSigned({ len: 1 }, 0x80), -128);
+    assert.equal(asSigned({ len: 2 }, 0xffff), -1);
+    assert.equal(asSigned({ len: 4 }, 0xfffffffe), -2);
+    assert.equal(asSigned({ len: 4 }, 0x7fffffff), 0x7fffffff);
+  });
+
+  test('outcome: sign of end - start and whether the relation holds', () => {
+    const u32 = { len: 4 };
+    const chk = (is, signed = false) => ({ is, signed });
+    assert.deepEqual(changeOutcome(chk('increased'), u32, 5, 9), { sign: 1, holds: true });
+    assert.deepEqual(changeOutcome(chk('decreased'), u32, 5, 9), { sign: 1, holds: false });
+    assert.deepEqual(changeOutcome(chk('unchanged'), u32, 5, 5), { sign: 0, holds: true });
+    assert.deepEqual(changeOutcome(chk('changed'), u32, 5, 5), { sign: 0, holds: false });
+    assert.deepEqual(changeOutcome(chk('changed'), u32, 5, 4), { sign: -1, holds: true });
+    // Crossing zero: -1 -> 1 is an increase only when read as signed.
+    assert.deepEqual(changeOutcome(chk('increased', true), u32, 0xffffffff, 1), { sign: 1, holds: true });
+    assert.deepEqual(changeOutcome(chk('increased'), u32, 0xffffffff, 1), { sign: -1, holds: false });
   });
 });
 

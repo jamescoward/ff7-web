@@ -1,0 +1,76 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "reactor-field-1-id",
+  "description": "#77 attempt 1 (diagnostic): at reactor-entrance, 120 frames with no input, report the field ID candidates (documented IDs are small public values: md1stin = 0x74 = 116, ff7-flat-wiki Field_ID) and the field-loaded candidate. id_ok: g_FieldCurrentMap reads 0x74.",
+  "tier": 2,
+  "boot": {
+    "from": "reactor-entrance"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16), field ID candidate 1. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h"
+    },
+    "map_save": {
+      "addr": "0x8009d27a",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h) + 0x0B96 current_location_id (ff7-flat-wiki Savemap), field ID candidate 2"
+    },
+    "map_preload": {
+      "addr": "0x80095dd0",
+      "type": "u16",
+      "description": "g_FieldPreloadMapId, diagnostic. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "prev_field": {
+      "addr": "0x8009ac58",
+      "type": "u16",
+      "description": "g_FieldState (0x8009ABF4) + 0x64 prevFieldId, layout Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldState"
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16), field-loaded candidate. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "cloud_entity": {
+      "addr": "0x8009ad30",
+      "type": "u8",
+      "description": "g_CharIdToEntity[0] (Cloud), diagnostic. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 120
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 116
+      },
+      "metric": "id_ok"
+    },
+    {
+      "sameState": "rerun"
+    }
+  ],
+  "metrics": [
+    "id_ok",
+    "map_cur",
+    "map_save",
+    "map_preload",
+    "prev_field",
+    "loading",
+    "game_state",
+    "cloud_entity"
+  ]
+}

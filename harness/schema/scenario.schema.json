@@ -526,6 +526,26 @@
           }
         },
         {
+          "description": "A named u8/u16/u32 memory location at the end of the script compared with its value at the start of the script (#77): \"increased\", \"decreased\", \"unchanged\" or \"changed\". signed: compare as two's complement (s8/s16/s32). Compared inside the run; neither value leaves. metric: the sign of end - start (-1, 0 or 1), whether or not the check passes; 0 if the run stopped or a wait timed out.",
+          "type": "object",
+          "required": ["change"],
+          "additionalProperties": false,
+          "properties": {
+            "change": {
+              "type": "object",
+              "required": ["mem", "is"],
+              "additionalProperties": false,
+              "properties": {
+                "mem": { "type": "string" },
+                "is": { "enum": ["increased", "decreased", "unchanged", "changed"] },
+                "signed": { "type": "boolean" }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "The script is played again and must end in the same state (main RAM and picture, compared by hash inside the run): \"rerun\" from the same start point, \"boot\" after a fresh boot through the boot point with no snapshot. metric: 1 if the states match, else 0.",
           "type": "object",
           "required": ["sameState"],

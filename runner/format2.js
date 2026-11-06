@@ -85,6 +85,24 @@ export function conditionHolds(cond, value) {
   return value >= cond.lo && value <= cond.hi;
 }
 
+/** Read a value as two's complement of its location's size (s8/s16/s32). */
+export const asSigned = (loc, v) => {
+  const bits = 8 * loc.len;
+  return v >= 2 ** (bits - 1) ? v - 2 ** bits : v;
+};
+
+/**
+ * A change check (#77): the sign of end - start (-1, 0 or 1) and whether it
+ * satisfies `is`. start and end are decoded (unsigned) values.
+ */
+export function changeOutcome(chk, loc, start, end) {
+  const s = chk.signed ? asSigned(loc, start) : start;
+  const e = chk.signed ? asSigned(loc, end) : end;
+  const sign = Math.sign(e - s);
+  const holds = { increased: sign > 0, decreased: sign < 0, unchanged: sign === 0, changed: sign !== 0 }[chk.is];
+  return { sign, holds };
+}
+
 /** Normalise a wait's press; null if none. Throws ScenarioError. */
 function loadPress(p, where) {
   if (!p) return null;
@@ -188,6 +206,12 @@ export function loadScenario2(doc, memory, { bootPoints, input } = {}) {
     const where = `assert[${i}]`;
     name(a.metric, where);
     if ('expect' in a) return { kind: 'expect', cond: loadCondition(a.expect, memory, `${where}.expect`), metric: a.metric };
+    if ('change' in a) {
+      const loc = memory[a.change.mem];
+      if (!loc) fail(`${where}.change: no memory location named "${a.change.mem}"`);
+      if (!NUMERIC.has(loc.type)) fail(`${where}.change: a change check needs a u8, u16 or u32 location, "${a.change.mem}" is ${loc.type}`);
+      return { kind: 'change', mem: a.change.mem, is: a.change.is, signed: a.change.signed === true, metric: a.metric };
+    }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
 
@@ -490,7 +514,8 @@ export async function runScenario2(sc, opts = {}) {
   let kept = null; // { bytes, frames, bootMs } at the end of the main run, for "snapshot"
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
-  const actual = new Map(); // expect check -> value at the end of the script
+  const actual = new Map(); // expect or change check -> value at the end of the script
+  const startValues = new Map(); // change check -> value at the start of the script
   const live = new Set();
   const track = (b) => {
     live.add(b);
@@ -605,6 +630,11 @@ export async function runScenario2(sc, opts = {}) {
     }
 
     try {
+      for (const a of sc.asserts) {
+        if (a.kind !== 'change') continue;
+        const loc = sc.memory[a.mem];
+        startValues.set(a, decode(loc, main.backend.readMem(loc.addr, loc.len)));
+      }
       const p = play(main.backend);
       ({ run, digest } = p);
       mainParts = p.parts;
@@ -617,8 +647,8 @@ export async function runScenario2(sc, opts = {}) {
         if (loc) finalMem.set(k, decode(loc, main.backend.readMem(loc.addr, loc.len)));
       }
       for (const a of sc.asserts) {
-        if (a.kind !== 'expect') continue;
-        const loc = sc.memory[a.cond.mem];
+        if (a.kind !== 'expect' && a.kind !== 'change') continue;
+        const loc = sc.memory[a.kind === 'expect' ? a.cond.mem : a.mem];
         actual.set(a, decode(loc, main.backend.readMem(loc.addr, loc.len)));
       }
       release(main.backend);
@@ -669,6 +699,11 @@ export async function runScenario2(sc, opts = {}) {
       const cond = c.op === 'in' ? { mem: c.mem, in: [fmtValue(loc, c.lo), fmtValue(loc, c.hi)] } : { mem: c.mem, [c.op]: fmtValue(loc, c.value) };
       return { expect: cond, pass: ok(actual.has(a) && conditionHolds(c, actual.get(a))) };
     }
+    if (a.kind === 'change') {
+      const have = startValues.has(a) && actual.has(a);
+      const out = have ? changeOutcome(a, sc.memory[a.mem], startValues.get(a), actual.get(a)) : { sign: 0, holds: false };
+      return { change: { mem: a.mem, is: a.is, ...(a.signed ? { signed: true } : {}) }, pass: ok(out.holds), sign: ok(have) ? out.sign : 0 };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -681,7 +716,10 @@ export async function runScenario2(sc, opts = {}) {
 
   const namedMetrics = new Map();
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
-  sc.asserts.forEach((a, i) => a.metric !== undefined && namedMetrics.set(a.metric, assertions[i].pass ? 1 : 0));
+  sc.asserts.forEach((a, i) => {
+    if (a.metric === undefined) return;
+    namedMetrics.set(a.metric, a.kind === 'change' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
+  });
   const framesRun = run?.frames ?? 0;
   const builtin = {
     frames: framesRun,

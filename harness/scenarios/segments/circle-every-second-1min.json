@@ -1,0 +1,13 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "circle-every-second-1min",
+  "description": "Circle for 4 frames at the start of every second for one minute: 3600 frames.",
+  "steps": [
+    { "segment": "circle-every-second-10s" },
+    { "segment": "circle-every-second-10s" },
+    { "segment": "circle-every-second-10s" },
+    { "segment": "circle-every-second-10s" },
+    { "segment": "circle-every-second-10s" },
+    { "segment": "circle-every-second-10s" }
+  ]
+}

@@ -43,6 +43,17 @@
 // boot point itself and reports what went wrong (a failed boot_stage, or
 // error for "no disc").
 //
+// Chains (#74): a scenario with "snapshot": NAME that passes hands the state
+// at the end of its script back on stdout, after its result line (the child
+// is started with --save-snapshot). This process keeps it in memory under
+// NAME, with the chain of scenario files that led to it, until the end of
+// the run. A later scenario with "boot": { "from": NAME } gets the bytes on
+// stdin and the chain as --chain FILE arguments (so a "boot" check can
+// replay the chain from power-on). Scenarios run in file name order, which
+// decides what exists: a scenario from a snapshot that no earlier scenario
+// kept is not started and reports error ("no snapshot"). Nothing is written
+// to a file.
+//
 // Exit status: 0 results written (or no tier 2 scenarios), 1 the results
 // could not be written, 2 usage error.
 
@@ -55,6 +66,7 @@ import { parseArgs } from 'node:util';
 import { POWER_ON } from './bootpoints.js';
 import { makeSnapshot } from './format2.js';
 import { DEFAULT_BASELINES, DEFAULT_FIXTURES, loadScenario, runScenario } from './scenario.js';
+import { segmentsDirFor } from './segments.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -84,9 +96,12 @@ export function validMetricValue(v) {
 
 /**
  * The tier 2 scenario files in dir, sorted by file name:
- * [{ file, name, metrics, from }], where `from` is the boot point a format 2
- * scenario starts from (null for format 1 and power-on). Files the trusted expect builder would refuse
- * are skipped (the eval never runs with them).
+ * [{ file, name, metrics, from, after, snapshot }], where `from` is the boot
+ * point a format 2 scenario starts from (null for format 1, power-on and a
+ * named snapshot), `after` the named snapshot it starts from (a boot with no
+ * source, #74), and `snapshot` the name it keeps its end state under (null
+ * if none). Files the trusted expect builder would refuse are skipped (the
+ * eval never runs with them).
  */
 export function findTier2Scenarios(dir) {
   let names;
@@ -109,10 +124,14 @@ export function findTier2Scenarios(dir) {
     if (doc === null || typeof doc !== 'object' || Array.isArray(doc) || doc.tier !== 2) continue;
     if (typeof doc.name !== 'string' || !NAME_RE.test(doc.name) || `${doc.name}.json` !== file) continue;
     const metrics = Array.isArray(doc.metrics) ? doc.metrics.filter((k) => typeof k === 'string' && METRIC_RE.test(k)) : [];
-    const from = doc.format === 2 && typeof doc.boot?.from === 'string' && doc.boot.from !== POWER_ON && NAME_RE.test(doc.boot.from)
-      ? doc.boot.from
-      : null;
-    found.push({ file: p, name: doc.name, metrics: metrics.slice(0, MAX_METRICS), from });
+    const f2 = doc.format === 2 && doc.boot !== null && typeof doc.boot === 'object';
+    const nameOf = (v) => (typeof v === 'string' && NAME_RE.test(v) ? v : null);
+    const bootFrom = f2 ? nameOf(doc.boot.from) : null;
+    const hasSource = f2 && (doc.boot.disc !== undefined || doc.boot.fixture !== undefined);
+    const from = hasSource && bootFrom !== POWER_ON ? bootFrom : null;
+    const after = f2 && !hasSource ? bootFrom : null;
+    const snapshot = f2 ? nameOf(doc.snapshot) : null;
+    found.push({ file: p, name: doc.name, metrics: metrics.slice(0, MAX_METRICS), from, after, snapshot });
   }
   return found.slice(0, MAX_SCENARIOS);
 }
@@ -142,15 +161,33 @@ export function writeResults(outDir, entries) {
   renameSync(tmp, path.join(outDir, RESULTS_FILE));
 }
 
-/** Parse the child's last stdout line; null if it isn't a JSON object. */
-function parseChild(stdout) {
-  const line = (stdout ?? '').trim().split('\n').pop();
+/**
+ * Parse a --one child's stdout (a Buffer): one JSON line { status, metrics,
+ * snapshot? } and, when it holds snapshot: { frames, boot_ms, bytes }, that
+ * many raw snapshot bytes after it (--save-snapshot). Returns
+ * { line, snapshot }: line null if the output isn't that; snapshot
+ * { bytes, frames, bootMs } or null.
+ */
+export function parseChild(stdout) {
+  const none = { line: null, snapshot: null };
+  if (!Buffer.isBuffer(stdout)) return none;
+  const nl = stdout.indexOf(0x0a);
+  if (nl < 0 || nl > 64 * 1024) return none;
+  let line;
   try {
-    const v = JSON.parse(line);
-    return v !== null && typeof v === 'object' ? v : null;
+    line = JSON.parse(stdout.subarray(0, nl).toString('utf8'));
   } catch {
-    return null;
+    return none;
   }
+  if (line === null || typeof line !== 'object' || Array.isArray(line)) return none;
+  const rest = stdout.length - nl - 1;
+  const s = line.snapshot;
+  if (s === undefined) return rest === 0 ? { line, snapshot: null } : none;
+  delete line.snapshot;
+  const valid = s !== null && typeof s === 'object' && Number.isInteger(s.frames) && s.frames >= 1 && s.boot_ms >= 0
+    && Number.isInteger(s.bytes) && s.bytes >= 1 && s.bytes <= MAX_SNAPSHOT_BYTES && rest === s.bytes;
+  if (!valid) return none;
+  return { line, snapshot: { bytes: Uint8Array.from(stdout.subarray(nl + 1)), frames: s.frames, bootMs: s.boot_ms } };
 }
 
 /**
@@ -195,9 +232,17 @@ export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, bas
   const entries = [];
   const deadline = Date.now() + deadlineS * 1000;
   const snapshots = new Map(); // boot point -> snapshot, or null when it could not be made
+  const kept = new Map(); // named snapshot (#74) -> { bytes, frames, bootMs, chain: [file] }
   for (const sc of list) {
     let left = deadline - Date.now();
     let child = null;
+    if (sc.after && !kept.has(sc.after)) {
+      // Not started: no earlier scenario in this run kept that snapshot.
+      entries.push(resultEntry(sc, null));
+      writeResults(out, entries);
+      process.stderr.write(`${sc.name}: error (no snapshot)\n`);
+      continue;
+    }
     if (left > 0 && sc.from && !snapshots.has(sc.from)) {
       const snap = snapshotFor(sc.from, { disc, fixtures, timeout: left });
       snapshots.set(sc.from, snap);
@@ -208,19 +253,33 @@ export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, bas
       const args = [SELF, '--one', sc.file, '--disc', disc];
       if (fixtures) args.push('--fixtures', fixtures);
       if (baselines) args.push('--baselines', baselines);
-      const snap = sc.from ? snapshots.get(sc.from) : null;
-      if (snap) args.push('--snapshot-of', sc.from, '--snapshot-frames', String(snap.frames), '--boot-ms', String(snap.bootMs));
+      const named = sc.after ? kept.get(sc.after) : null;
+      const snap = named ?? (sc.from ? snapshots.get(sc.from) : null);
+      if (named) {
+        args.push('--snapshot-of', sc.after, '--snapshot-frames', String(named.frames), '--boot-ms', String(named.bootMs));
+        for (const f of named.chain) args.push('--chain', f);
+      } else if (snap) {
+        // A boot point's frames come from the boot point itself.
+        args.push('--snapshot-of', sc.from, '--boot-ms', String(snap.bootMs));
+      }
+      if (sc.snapshot) args.push('--save-snapshot');
       const r = spawnSync(process.execPath, args, {
-        encoding: 'utf8',
         stdio: [snap ? 'pipe' : 'ignore', 'pipe', 'ignore'],
         ...(snap ? { input: snap.bytes } : {}),
         timeout: left,
         killSignal: 'SIGKILL',
-        maxBuffer: 1024 * 1024,
+        maxBuffer: (sc.snapshot ? MAX_SNAPSHOT_BYTES : 0) + 1024 * 1024,
       });
       // Only a clean exit counts; a signal, a timeout or an exit code other
       // than 0 leaves child null, so the scenario reports "error".
-      if (!r.error && r.signal === null && r.status === 0) child = parseChild(r.stdout);
+      if (!r.error && r.signal === null && r.status === 0) {
+        const parsed = parseChild(r.stdout);
+        child = parsed.line;
+        if (sc.snapshot && parsed.snapshot && child?.status === 'pass') {
+          kept.set(sc.snapshot, { ...parsed.snapshot, chain: [...(named?.chain ?? []), sc.file] });
+          process.stderr.write(`kept ${sc.snapshot}: ${parsed.snapshot.frames} frames\n`);
+        }
+      }
     }
     const entry = resultEntry(sc, child);
     entries.push(entry);
@@ -242,28 +301,48 @@ async function readStdin() {
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-/** The child: run one scenario and print { status, metrics } as one line. */
+/** Load a scenario file as a run does: segments come from segments/ beside it. */
+const loadFile = (file) => loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true, segmentsDir: segmentsDirFor(file) });
+
+/**
+ * The child: run one scenario and print { status, metrics } as one line.
+ * With --save-snapshot and a kept snapshot, the line also holds
+ * snapshot: { frames, boot_ms, bytes }, and the bytes follow it.
+ */
 async function runOne(file, { disc, fixtures, baselines, ...rest }) {
   let line;
+  let keptSnap = null;
   try {
-    const sc = loadScenario(JSON.parse(readFileSync(file, 'utf8')), { allowTier2: true });
+    const sc = loadFile(file);
     let snapshot;
     if (rest['snapshot-of'] !== undefined) {
       const bytes = await readStdin();
-      // Only for the boot point it was made from.
-      if (sc.format === 2 && sc.bootPoint?.name === rest['snapshot-of']) {
-        snapshot = { bytes, frames: Number(rest['snapshot-frames']), bootMs: Number(rest['boot-ms']) };
+      const bootMs = Number(rest['boot-ms']);
+      if (sc.format === 2 && sc.fromSnapshot !== null && sc.fromSnapshot === rest['snapshot-of']) {
+        // A named snapshot, with the chain of scenarios that kept it.
+        const chain = (rest.chain ?? []).map(loadFile);
+        snapshot = { bytes, frames: Number(rest['snapshot-frames']), bootMs, chain };
+      } else if (sc.format === 2 && sc.bootPoint?.name === rest['snapshot-of']) {
+        // Only for the boot point it was made from.
+        snapshot = { bytes, frames: sc.bootPoint.frames, bootMs };
       }
     }
-    const result = await runScenario(sc, { disc, fixturesDir: fixtures ?? DEFAULT_FIXTURES, baselinesDir: baselines ?? DEFAULT_BASELINES, snapshot });
+    const onSnapshot = rest['save-snapshot'] ? (s) => { keptSnap = s; } : undefined;
+    const result = await runScenario(sc, { disc, fixturesDir: fixtures ?? DEFAULT_FIXTURES, baselinesDir: baselines ?? DEFAULT_BASELINES, snapshot, onSnapshot });
     line = { status: result.status, ...(result.metrics ? { metrics: result.metrics } : {}) };
   } catch {
-    // An invalid scenario or a runtime failure: report error, never the message.
+    // An invalid scenario, "no snapshot" or a runtime failure: report error, never the message.
     line = { status: 'error' };
+    keptSnap = null;
+  }
+  let body = Buffer.from(`${JSON.stringify(line)}\n`);
+  if (keptSnap) {
+    const head = { ...line, snapshot: { frames: keptSnap.frames, boot_ms: keptSnap.bootMs, bytes: keptSnap.bytes.length } };
+    body = Buffer.concat([Buffer.from(`${JSON.stringify(head)}\n`), Buffer.from(keptSnap.bytes)]);
   }
   // Pipe writes are synchronous on Linux; exit so nothing the core left
   // behind keeps the process alive.
-  process.stdout.write(`${JSON.stringify(line)}\n`, () => process.exit(0));
+  process.stdout.write(body, () => process.exit(0));
 }
 
 /** The snapshot child: boot a boot point, print a JSON line and the snapshot bytes. */
@@ -293,6 +372,8 @@ async function main(argv) {
         'snapshot-of': { type: 'string' },
         'snapshot-frames': { type: 'string' },
         'boot-ms': { type: 'string' },
+        chain: { type: 'string', multiple: true },
+        'save-snapshot': { type: 'boolean' },
         scenarios: { type: 'string' },
         fixtures: { type: 'string' },
         baselines: { type: 'string' },

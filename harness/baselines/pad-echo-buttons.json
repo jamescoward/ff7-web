@@ -4,7 +4,7 @@
   "core": {
     "pcsx_rearmed_commit": "7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e",
     "emsdk_version": "4.0.23",
-    "wasm_sha256": "354ee8a4a19daf6ed738bb3400bf6470eb98a8fc509957a332a9359aef6ec374"
+    "wasm_sha256": "bd639924f43aa99f0240ab45fd29cb424f9742dbb202df67265d9139c3475e12"
   },
   "fixture": {
     "name": "pad-echo",

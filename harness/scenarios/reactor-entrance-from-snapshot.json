@@ -1,0 +1,15 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "reactor-entrance-from-snapshot",
+  "description": "#74 Tier 2, second link of the chain: start from the snapshot \"reactor-entrance\" that new-game-to-reactor-entrance kept earlier in this run (scenarios run in file name order), wait 2 s, and check that restoring the snapshot again in a new core instance and playing the same script ends in the same state (match_rerun: main RAM, and the picture when a new one arrived, compared by hash inside the sandbox, reported only as 1/0). snapshot_frames is the frames from power-on to reactor-entrance. If the snapshot was not kept, this scenario does not run and reports error (\"no snapshot\"). A comparison with the chain replayed from power-on (sameState boot) is not made here: on the disc it gave 0 (notes/74-chained-snapshots.md, attempt 3). No FF7 address is used or claimed.",
+  "tier": 2,
+  "boot": { "from": "reactor-entrance" },
+  "input": [
+    { "wait": { "frames": 120 } }
+  ],
+  "assert": [
+    { "sameState": "rerun", "metric": "match_rerun" }
+  ],
+  "metrics": ["match_rerun", "snapshot_frames", "frames", "saved_ms", "boot_stage", "run_ms", "fps"]
+}

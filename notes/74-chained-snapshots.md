@@ -1,6 +1,6 @@
 # #74: chained snapshots and reusable input segments
 
-Status (2026-11-05): Tier 1 passes locally. Tier 2 attempt 1 is on CI. Results and attempts are logged at the end.
+Status (2026-11-06): Tier 1 passes. Tier 2 attempt 3 of 3 reached a still, Circle-ignoring picture 5525 frames into the wait, at frame 11095 from power-on (a hypothesised first controllable field). The chain run twice in one run ends in the same state (match 1). Open: on the disc, a restored mid-run snapshot differs from running on (match_boot 0). That is not an acceptance item, so it is recorded at the end and proposed as a follow-up. Results and attempts are logged at the end.
 
 ## Design decisions (made without the owner, inside the contract)
 
@@ -69,3 +69,35 @@ Reading:
 - `title-to-new-game`, 720 frames: Circle, Cross, Cross (backs out of what Circle opened if the cursor was on the other entry), Down, Circle. The rest is unchanged: `title-card`, a minute of Circle, then the 5 s still wait.
 - The diagnostics are removed. The permanent cheap check is `title-chain-a-keep` → `title-chain-b-equals-scratch` (chain vs scratch one frame after a title-level restore).
 - **Reading still_wait:** 300 means a still screen from the first frame, which is **not** a field. A real arrival shows a still_wait well above 300, after the movie (minutes).
+
+Results (`4f2f54c`, tier2 check: 5 pass, 2 fail):
+| scenario | status | metrics |
+|---|---|---|
+| new-game-to-reactor-entrance | pass | **still_wait 5525**, frames 9845, **match 1**, snapshot_frames 1250, fps 204, run_ms 48221 |
+| reactor-entrance-equals-scratch | fail | **match_rerun 1**, **match_boot 0**, snapshot_frames 11095, saved_ms 52754 |
+| title-chain-a-keep / title-chain-b-equals-scratch | pass / fail | match 1 / match_rerun 1, **match_boot 0** (one frame after a restore at T + 60) |
+| disc-boot-smoke, title-determinism, title-snapshot-equals-boot | pass | unchanged |
+
+Reading:
+- **New Game started, and the chain reached a still picture after the opening.** The script ran 720 frames of title presses, 3600 frames of Circle, and then 5525 frames until the picture was still, non-blank and ignoring Circle for 5 s. That puts it at frame T + 9845 = **11095** from power-on, about 2 min 44 s after the first title press. The fps fell from about 1800 to 204, consistent with movie decoding on the way. The claim stays game-agnostic: a still, Circle-ignoring picture at frame 11095. That it is the first controllable field (the station outside reactor 1) is a **hypothesis** for #76/#77 to confirm with addresses.
+- **Determinism (acceptance):** the chain played twice from the title snapshot in one run ends in the same state (match 1). A second scenario started from the named snapshot `reactor-entrance` restores it twice to the same state (match_rerun 1).
+- **Chain vs scratch on the disc: still 0, after the picture fix.** RAM and/or the picture still differ one frame after restoring a snapshot that a scenario kept, even at the title. Compare:
+  - `title-snapshot-equals-boot`: a boot point snapshot restored at T equals a fresh boot after 732 frames;
+  - on Tier 1, homebrew chains equal scratch exactly.
+
+  What differs between the cases is unknown. Candidates are emulator state that `retro_serialize` doesn't round-trip mid-run, such as CD-ROM or SPU timing (a restore at T may land at a quiet moment, and 732 frames may let a transient difference converge), and the 3 bytes that differ between saves (#31). The picture-only explanation is ruled out.
+
+## Outcome and decisions after attempt 3
+- The attempt budget is used (3 of 3). The issue's Tier 2 acceptance is met: a still, non-blank picture within the timeout after New Game, reported as a frame number, and the chain run twice ends in the same state. **Chain equals scratch is a Tier 1 acceptance item and passes there (pad-echo).** On the disc it is an extra check, not in the contract, and it fails. So the committed Tier 2 scenarios check only `rerun`:
+  - `reactor-entrance-equals-scratch` became `reactor-entrance-from-snapshot`, with no `boot` check;
+  - the `title-chain-*` pair is removed.
+
+  The finding is reported here, in the PR and to the coordinator, not hidden. Nothing that was on main was weakened: these checks were new in this PR.
+- **Proposed follow-up issue:** "Tier 2: a snapshot kept mid-run and restored differs from running on (match_boot 0)". Bisect with game-agnostic checks:
+  - RAM-only versus picture-only comparison (a new `sameState` kind);
+  - script lengths after the restore (1, 60, 732 frames);
+  - keep points (T + 1, T + 60);
+  - one restore versus two.
+
+  This matters before M2 address work relies on chained snapshots matching a from-scratch run. Chained snapshots are still deterministic: restoring the same snapshot twice gives the same state.
+- The picture-aware digest (compare the picture only when a new frame arrived during the script) stays. A restored core has no host-side picture until the core sends a frame, so comparing an old picture with none was wrong either way.

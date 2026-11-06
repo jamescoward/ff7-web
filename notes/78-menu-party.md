@@ -1,6 +1,6 @@
 # #78: confirm menu cursor and party data in Tier 2
 
-Status (2026-11-06): attempt 3 pushed (the last). Attempt 2 passed every acceptance scenario; only the Barret search failed.
+Status (2026-11-06): done, with one deviation from the contract. Attempts 2 and 3 (`f020888`, `706cc61`) passed every acceptance scenario identically; Cloud is alone at the first battle, so Barret's slot could not be checked. Attempts used: 3 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (names and addresses), `include/game.h` (layouts: `MenuTable`, `SaveWork`, `SavePartyMember` record, `ActiveCharacterData`), and the indexing seen in `src/menu/savemenu.c` `UpdateSaveHeader` (it reads `g_ActiveCharacters[i]` for party slot `i`, where `Savemap.partyID[i]` is not 0xFF). Only offsets, names and indexing were read.
@@ -70,3 +70,34 @@ Reading:
 - Acceptance scenarios unchanged: their second Tier 2 run.
 - `reactor-next-3-barret-up`, `-up-left` (diagnostic): from md1_1 (as attempt 2), 150 rounds of a 60-frame pattern: direction + Circle, direction alone, then Circle, Start and Select (in case Circle alone was stuck in dialogue or a name entry). End checks: partyID[1] = Barret, g_ActiveCharacters[1].id = Barret, its HP in range; map_cur reported.
 - If neither finds Barret, they are removed in a final commit (they are this PR's own diagnostics), Barret's ID stays documented but unobserved, and partyHp1/2 stay hypotheses.
+
+## Attempt 3 results (`706cc61`, tier2: 30 pass, 2 fail; the fails are the Barret search)
+| scenario | status | metrics |
+|---|---|---|
+| reactor-mode-2d, 2e, 4a, 4b, 4c | pass | identical to attempt 2, metric for metric |
+| reactor-next-3-barret-up | fail (diag) | s1_barret 0, a1_barret 0, hp1_ok 0, map_cur 117, game_state 1, loading 2 |
+| reactor-next-3-barret-up-left | fail (diag) | s1_barret 0, a1_barret 0, hp1_ok 0, map_cur 117, **game_state 2** (a battle in md1_1), loading 0 |
+| every other scenario | pass | identical to attempt 2 |
+
+Every scenario except the two diagnostics reported the same status and deterministic metrics as attempt 2 (compared field by field). The Barret search did not add Barret in md1_1, and up-left ran into a battle there with Cloud still alone. The budget is spent, so the two diagnostics and their segments were removed in the final commit (they were this PR's own diagnostics, not acceptance checks), to leave Tier 2 green.
+
+## Outcome
+**Confirmed (Tier 2, two identical runs, attempts 2 and 3):**
+| Entry | Address | Type | Scenario | Evidence |
+|---|---|---|---|---|
+| `menuCursor` | 0x8009A0D3 (g_PartyMenuTables[0] + 0x0B row) | s8 | reactor-mode-2d-cursor-sequence | from menu-open: Down → 1, Down → 2, Up → 1, Up → 0, each within one frame of the press; the other two tables' rows stay 0 (attempt 1) |
+| `partySlot0..2` | 0x8009CBDC..DE (Savemap + 0x04F8, partyID) | u8 | reactor-mode-4a-party-slots (also 2e) | Cloud (0x00), empty (0xFF), empty, in the field menu at reactor-entrance and at the first guard battle |
+| `partyHp0` | 0x8009D85C (g_ActiveCharacters[0] + 0x10) | s16 | reactor-mode-4c-party-hp-damage (also 2e, 4b) | in 1..9999 in the menu and in battle; falls during 30 s of the guards attacking, max HP (+0x12) unchanged; g_ActiveCharacters[0].id = Cloud |
+
+Also checked in range, not in the table: Cloud's MP and max HP (live), and his savemap record's HP and MP.
+
+**Deviation from the contract.** #78 expected Cloud and Barret at the first guard battle. The game has Cloud alone there (partyID[1] is 0xFF, in two runs, and already at reactor-entrance). So "slot 1 holds Barret (0x01)" was replaced by "slot 1 is empty", which the same address shows. Barret's ID is documented (wiki Savemap) but not observed. Checking it needs a boot point after Barret joins, which #38 (boot from a generated save) can give.
+
+**Still hypotheses:** `partyHp1`, `partyHp2` (the same layout one 0x440 stride on; never seen with a character in the slot). `party()` is confirmed, `partyHp()` is not (one of its three entries is a hypothesis).
+
+**"Documented starting ranges".** No readable source gives starting HP/MP numbers, so the checks use the game's limits (HP 1..9999, MP 0..999), plus the damage direction, which identifies the current-HP field better than any range could.
+
+**Limits and follow-ups:**
+- The main menu only; sub-menu and battle command cursors are out of scope (M3/M4).
+- A party check with Barret or a full party, from a save-based boot point (#38).
+- An empty slot is told by partyID (0xFF), not by g_ActiveCharacters[i].id (slot 2's id byte is not 0xFF; attempt 1).

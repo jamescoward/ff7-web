@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-next-0-after-battle",
-  "description": "#77: from the first guard battle (snapshot \"battle\", #76), press Circle until g_GameState reads field, then wait for a 5 s still picture with Circle every second (as reactor-mode-5-battle-end). Keeps \"after-battle\" for the exit search. The field is still md1stin.",
+  "description": "#77: from the first guard battle (snapshot \"battle\", #76), press Circle until g_GameState reads field, then wait for a 5 s still picture with Circle every second (as reactor-mode-5-battle-end). Keeps \"after-battle\" for the exit search. The field is still md1stin. #38 also reports the main progress variable and the player's walkmesh triangle here (two small integers), to build the md1stin save boot point.",
   "boot": {
     "from": "battle"
   },
@@ -22,6 +22,16 @@
       "addr": "0x800965e8",
       "type": "u16",
       "description": "g_IsFieldLoading (s16 as u16): read 2 in a settled field (#77 attempt 1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "progress": {
+      "addr": "0x8009d288",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4) + 0x0BA4: the main progress variable (ff7-flat-wiki Savemap; Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h). #38 diagnostic: the story progress at this point, for the md1stin boot point."
+    },
+    "tri0": {
+      "addr": "0x80074f16",
+      "type": "u16",
+      "description": "g_FieldEntity[0] (0x80074EA4) + 0x72 PosI: the walkmesh triangle under the player (entity 0 is the player at md1stin, #77). Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldEntity. #38 diagnostic."
     }
   },
   "input": [
@@ -76,6 +86,8 @@
     "match",
     "map_cur",
     "loading",
-    "game_state"
+    "game_state",
+    "progress",
+    "tri0"
   ]
 }

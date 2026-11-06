@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 0,
+    "direction": 0
+  },
+  "party": [
+    0,
+    255,
+    255
+  ],
+  "progress": 0
+}

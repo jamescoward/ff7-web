@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "field-loaded",
+  "description": "#38: after the title has accepted a save, wait until the game is in field mode (g_GameState 1, confirmed #76) and the field has loaded: g_IsFieldLoading (confirmed #77) leaves 2 and then reads 2 again (#77's rule; at the title it reads 0). Needs memory names game_state and loading; its metric is load_done (frames of the last wait).",
+  "steps": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "differs": 2
+        },
+        "timeout": 600
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "equals": 2
+        },
+        "timeout": 3600
+      },
+      "metric": "load_done"
+    }
+  ]
+}

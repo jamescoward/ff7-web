@@ -214,11 +214,6 @@ const saveDoc = () => ({
 });
 
 describe('"save" boot option (schema and loader)', () => {
-  const saves = path.join(tmp, 'saves');
-  rmSync(saves, { recursive: true, force: true });
-  writeFileSync(path.join(tmp, 'placeholder'), '');
-  // eslint-disable-next-line no-sync
-  mkdtempSync(path.join(tmp, 'x-'));
   const dir = mkdtempSync(path.join(tmp, 'saves-'));
   writeFileSync(path.join(dir, 'sv.json'), JSON.stringify(DESC));
   writeFileSync(path.join(dir, 'bad.json'), JSON.stringify({ ...DESC, progress: -1 }));

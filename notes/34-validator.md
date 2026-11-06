@@ -47,7 +47,7 @@ Each rule has a test in `test/validate.test.js`.
 | Non-UTF-8 bytes (invalid, overlong, surrogates, truncated) | `TextDecoder` with `fatal: true` | reject `not-utf8` |
 | Symlinks | `lstat` before opening, then `O_NOFOLLOW`; the directory itself is checked with `lstat` | reject `not-regular-file` / `bad-directory` |
 | FIFOs, devices, directories | Opened with `O_NONBLOCK`; `fstat` must be a regular file | reject `not-regular-file` |
-| More than 32 scenarios | — | reject `too-many-scenarios` |
+| More than 64 scenarios (32 until #109) | — | reject `too-many-scenarios` |
 | A name not in `--expect` (free text) | Names must be listed | reject `unexpected-name` |
 | A metric key not listed for its scenario | Keys must be listed per scenario | reject `unexpected-metric` |
 | Information in the order | Scenarios sorted by name, keys sorted | normalised |

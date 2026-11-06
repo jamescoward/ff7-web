@@ -436,7 +436,8 @@ function mutate(r) {
       const key = pick(['format', 'scenarios', 'name', 'status', 'metrics', 'x', 'frames', '__proto__', 0, 1, 40]);
       if (target && typeof target === 'object') target[key] = pick(HOSTILE_VALUES);
     }
-    if (r() < 0.2) d.scenarios = Array.from({ length: Math.floor(r() * 80) }, (_, i) => ({ name: `s${i % 40}`, status: pick(STATUSES) }));
+    // Up to 80 unique names (more than MAX_SCENARIOS = 64, #109), then duplicates.
+    if (r() < 0.2) d.scenarios = Array.from({ length: Math.floor(r() * 160) }, (_, i) => ({ name: `s${i % 80}`, status: pick(STATUSES) }));
     return Buffer.from(JSON.stringify(d) ?? '');
   }
   // Textual: corrupt the bytes of a valid document.

@@ -7,12 +7,13 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-06.
 
 **Next for agents, in this order** (each is `status:ready`; take the oldest first, per `docs/CONTINUITY.md`):
-1. **#77**: confirm field ID and player position in Tier 2. It unblocks #38. Start from the `reactor-entrance` chain (`notes/74-chained-snapshots.md`, `notes/76-confirm-mode.md`).
-2. **#78**: confirm menu cursor and party (including party HP). It is independent of #77 and can run in parallel.
+1. **#78**: confirm menu cursor and party (including party HP).
+2. **#38**: boot from a generated save (unblocked by #77). Use #77's field-loaded condition: field mode, and after the field ID last changed, `fieldLoading` (g_IsFieldLoading) has left 2 and reads 2 again. A single read is not enough (`notes/77-field-position.md`).
 3. **#92** (light, `model:sonnet` candidate): `mode()` honours per-value confirmation (world 3 is still a hypothesis) and reports movies from `movieFrame`.
 4. **#93** (light, Tier 3): the debug overlay covers the game's own menu text. Batch its iPhone check with the next request.
+5. **#99**: player position follows `g_PlayerModelId` instead of field model 0 (not on #38's path).
 
-Then **#38** (boot from a generated save; blocked on #77) → **#80** (world map, minigame) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
+Then **#80** (world map, minigame) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
 
 **Done in M2:**
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
@@ -20,6 +21,7 @@ Then **#38** (boot from a generated save; blocked on #77) → **#80** (world map
 - **#74** (PR #85): named snapshots, `boot.from`, input segments and still-picture waits. The chain title → New Game → `reactor-entrance` (frame 11095) is deterministic.
 - **#76** (PR #89): `gameState` is confirmed for field 1, menu 5 and battle 2, and `prevGameState` is confirmed. Movies are detected by the new confirmed `movieFrame` entry (Stframe_no), because `gameState` reads field during a movie.
 - **#88** (PR #91, owner-merged): a snapshot restored mid-run now equals running on, at title + 60 and at `reactor-entrance`. The cause was root-counter phase and the CPU cycle fraction not round-tripping. It is fixed in `core/patches/0002-savestate-round-trip.patch`. Tier 2 metrics `same_ram`/`same_cpu`/… compare save-state parts.
+- **#77** (PR #98): the field ID (`fieldId` = g_FieldCurrentMap: md1stin 0x74, then md1_1 0x75 after walking up-left), the player position (`fieldX`/`fieldY` = g_FieldEntity[0] PosX/PosY, checked by direction only) and the field load state (`fieldLoading`) are confirmed in Tier 2, deterministically over two runs. Format 2 gained a `change` check (end vs start of the script, reported as a sign) so directions are checked without coordinates leaving the sandbox. New snapshot `after-battle`.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

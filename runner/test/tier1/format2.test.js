@@ -156,6 +156,34 @@ describe('wait.until', () => {
   });
 });
 
+describe('change checks (#77)', () => {
+  test('compare the end of the script with its start; the metric is the sign', async () => {
+    const d = example();
+    d.assert = [
+      { change: { mem: 'counter', is: 'increased' }, metric: 'up' },
+      { change: { mem: 'counter', is: 'decreased', signed: true }, metric: 'down' },
+      { change: { mem: 'buttons', is: 'unchanged' }, metric: 'same' },
+      { change: { mem: 'buttons', is: 'changed', signed: true }, metric: 'moved' },
+    ];
+    d.metrics = ['up', 'down', 'same', 'moved', 'failed_assertions', 'release_wait', 'counter_wait'];
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail', 'two checks are false');
+    assert.deepEqual(r.assertions.map((a) => a.pass), [true, false, true, false]);
+    // The counter rises every frame; the pad is released at both ends.
+    assert.deepEqual(r.metrics, { up: 1, down: 1, same: 0, moved: 0, failed_assertions: 2, release_wait: 1, counter_wait: 21 });
+  });
+
+  test('a timed-out wait fails change checks and reports sign 0', async () => {
+    const d = example();
+    d.input = [{ wait: { frames: 4 } }, { wait: { until: { mem: 'buttons', equals: '0x0000' }, timeout: 5 } }];
+    d.assert = [{ change: { mem: 'counter', is: 'increased' }, metric: 'up' }];
+    d.metrics = ['up', 'failed_assertions'];
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail');
+    assert.deepEqual(r.metrics, { up: 0, failed_assertions: 2 });
+  });
+});
+
 describe('state comparison', () => {
   test('the state digest separates different frames and matches equal runs', async () => {
     const fx = synthExe();

@@ -2,10 +2,11 @@
 // discs built here from the documented layouts. No core, no game data.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { openDisc } from '../../disc.js';
 import { ADDRESS_TABLE, EXE_USA_SHA1, makeTable, validateTable } from '../../../semantic/addresses.js';
@@ -13,6 +14,7 @@ import { openIso } from '../../iso9660.js';
 import { activateSemantic, bootExeSha1, createSemantic, evaluateGate, sha1Hex } from '../../../semantic/layer.js';
 import { buildIso } from '../../synth/iso9660.js';
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const RAM_SIZE = 0x200000;
 
 /** A synthetic RAM image and the backend's readMem over it (sync, like the runner). */
@@ -21,7 +23,7 @@ function ram(writes = []) {
   const view = new DataView(bytes.buffer);
   for (const [addr, type, v] of writes) {
     const off = addr & 0x1fffffff;
-    ({ u8: () => view.setUint8(off, v), s16: () => view.setInt16(off, v, true), u16: () => view.setUint16(off, v, true) })[type]();
+    ({ u8: () => view.setUint8(off, v), s16: () => view.setInt16(off, v, true), u16: () => view.setUint16(off, v, true), s32: () => view.setInt32(off, v, true) })[type]();
   }
   const reads = [];
   return {
@@ -68,8 +70,8 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76 confirmed these; everything else is still a hypothesis.
-    const confirmed = ['gameState', 'prevGameState', 'movieFrame'];
+    // #76 and #77 confirmed these; everything else is still a hypothesis.
+    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY', 'fieldLoading'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -97,11 +99,27 @@ describe('address table', () => {
   });
 
   test('entries without a known address say so instead of inventing one', () => {
-    for (const name of ['fieldId', 'fieldX', 'fieldY', 'menuCursor', 'partySlot0']) {
+    for (const name of ['menuCursor', 'partySlot0']) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
       assert.equal(e.address, null, name);
       assert.match(e.source, /no RAM address known/, name);
     }
+  });
+
+  test('field ID, position and field load state are confirmed at the addresses #77 checked in Tier 2', () => {
+    const want = { fieldId: [0x8009a05c, 's16', 'reactor-field-1-id'], fieldX: [0x80074eb0, 's32', 'reactor-field-3-walk-right'], fieldY: [0x80074eb4, 's32', 'reactor-field-5-walk-up'] };
+    for (const [name, [address, type, scenario]] of Object.entries(want)) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
+      assert.equal(e.address, address, name);
+      assert.equal(e.type, type, name);
+      assert.equal(e.status, 'confirmed', name);
+      assert.equal(e.scenario, `harness/scenarios/${scenario}.json`, name);
+      assert.ok(existsSync(path.join(ROOT, e.scenario)), `${name}: its scenario file exists`);
+    }
+    const loading = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldLoading');
+    assert.equal(loading.address, 0x800965e8);
+    assert.equal(loading.status, 'confirmed');
+    assert.deepEqual(Object.keys(loading.confirmedValues), ['2'], 'only "settled" (2) is confirmed');
   });
 
   test('validateTable rejects bad entries', () => {
@@ -170,14 +188,16 @@ describe('readers on a synthetic memory image', () => {
     assert.deepEqual(await layer.mode(), { value: null, confirmed: false, reason: 'read failed' });
   });
 
-  test('the shipped table: mode reads its confirmed address; the rest answer "no address"', async () => {
-    const b = ram([[0x8009c560, 's16', 1], [0x800965ec, 's16', 5]]);
+  test('the shipped table: mode, field ID and position read their confirmed addresses; the rest answer "no address"', async () => {
+    const b = ram([[0x8009c560, 's16', 1], [0x800965ec, 's16', 5], [0x8009a05c, 's16', 0x74], [0x80074eb0, 's32', -70000], [0x80074eb4, 's32', 123456]]);
     const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
     assert.deepEqual(await layer.mode(), { value: { mode: 'field', raw: 1, previous: 'menu' }, confirmed: true });
-    for (const name of ['fieldId', 'playerPosition', 'menuCursor', 'party']) {
+    assert.deepEqual(await layer.fieldId(), { value: 0x74, confirmed: true });
+    assert.deepEqual(await layer.playerPosition(), { value: { x: -70000, y: 123456 }, confirmed: true });
+    for (const name of ['menuCursor', 'party']) {
       assert.deepEqual(await layer[name](), { value: null, confirmed: false, reason: 'no address' }, name);
     }
-    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2]], 'no address means no read');
+    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4]], 'no address means no read');
   });
 
   test('the layer never calls writeMem', async () => {

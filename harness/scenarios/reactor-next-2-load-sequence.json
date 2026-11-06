@@ -1,0 +1,112 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-next-2-load-sequence",
+  "description": "#77: the field-loaded condition for #38. From after-battle, walk up-left until g_FieldCurrentMap differs from 0x74; then, with no input, until g_IsFieldLoading leaves 2 (load_start: frames after the ID change) and until it reads 2 again (load_done). At the end: field mode, the field ID is md1_1 (0x75) and g_IsFieldLoading reads 2, so \"field mode, a valid field ID and g_IsFieldLoading = 2\" marks a loaded field. map_save and prev_field are reported to see when the savemap copy follows.",
+  "boot": {
+    "from": "after-battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16): the field ID (#77). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h"
+    },
+    "map_save": {
+      "addr": "0x8009d27a",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h) + 0x0B96 current_location_id (ff7-flat-wiki Savemap)"
+    },
+    "prev_field": {
+      "addr": "0x8009ac58",
+      "type": "u16",
+      "description": "g_FieldState (0x8009ABF4) + 0x64 prevFieldId. Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldState"
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16): 2 in a settled field, 1 shortly after a map change (#77 attempts 1-2). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "differs": 116
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "up",
+            "left"
+          ],
+          "every": 60,
+          "hold": 59
+        }
+      },
+      "metric": "next_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "differs": 2
+        },
+        "timeout": 600
+      },
+      "metric": "load_start"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "loading",
+          "equals": 2
+        },
+        "timeout": 3600
+      },
+      "metric": "load_done"
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 117
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      }
+    },
+    {
+      "expect": {
+        "mem": "loading",
+        "equals": 2
+      }
+    }
+  ],
+  "metrics": [
+    "next_wait",
+    "load_start",
+    "load_done",
+    "map_cur",
+    "map_save",
+    "prev_field",
+    "loading",
+    "game_state"
+  ]
+}

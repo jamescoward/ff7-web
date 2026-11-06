@@ -61,6 +61,7 @@ Reading:
 - **On the disc, a chained snapshot now equals running on.** That holds at the title + 60 (one frame after the restore, and 732 frames later) and at reactor-entrance (2 s after). The whole emulator state is equal part by part, not only RAM and the picture. Before the patch, the same title chain and the same reactor-entrance comparison gave 0 (#74 attempts 2 and 3). The only change between those runs and this one is `0002-savestate-round-trip.patch` and the part metrics. #74 attempt 3 already had the picture-aware digest.
 - **Not shown on the disc:** which of the four patch changes FF7 needed. All the parts are 1 with the patch; no Tier 2 run on the unpatched core reported parts. On Tier 1, the counter and subCycle changes are each needed. The mid-movie point is a hypothesis (no address was used), so the MDEC change is still not demonstrated.
 - Attempts used: 1 of 3.
+- **Repeat (`10c57c6`, tier2 check: 8 pass, 0 fail):** with the kept scenarios only, title-chain-b-equals-scratch and reactor-entrance-equals-scratch both gave match_boot 1 and every same_PART 1 again. The other scenarios gave unchanged values.
 
 ## After attempt 1
 - `diag-88-movie-*` and `diag-88-title-c-*` are removed to keep the run short. Their results are above.

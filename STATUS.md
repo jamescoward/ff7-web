@@ -31,8 +31,15 @@ Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → *
 - Limits: 32 scenarios per run and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
-- **PR #94** (#90, `needs-owner`, `.github/`): run the `web` CI job in the pinned Playwright image. A slow Ubuntu mirror cancelled `web` twice during the apt install.
-- **The pad-echo baseline:** #91 changed `core.wasm` (`bd639924…`), so `harness/baselines/pad-echo-buttons.json` reports "recorded with a different core build". Its hashes still match. Re-recording it is a separate `needs-owner` PR (`harness/baselines/`).
+- **Measured values in save descriptions:** `harness/saves/disc1-md1stin.json` holds progress 6 and triangle 12, which were measured in Tier 2. `docs/SECURITY.md` describes description values as numbers "the author chose". Confirm this pattern before #80 builds more boot points the same way.
+- **The Tier 2 scenario limit:** Tier 2 is at its limit of 32 scenarios per run. #80 and #101 must replace or split scenarios. Raising the limit would change `harness/private-eval/`, so it needs a `needs-owner` issue.
+- **Optional:** the owner accepted #38's boot point (md1stin, not a save point) in the coordinator session. The coordinator recorded this on #38 (comment 6694044922) from the shared account. A reply from the owner there would make it unambiguous.
+- Done since the last update: PR #94 (the `web` job in the pinned Playwright image) and the pad-echo baseline re-recording (#97) are both merged.
+
+**Known follow-ups (non-blocking review notes):**
+- From #92 (PR #103), for #93 or a small issue:
+  - A new game's Mode badge reads "hypothesis" until the first mode change, because prevGameState 0 has no label. Labelling 0 and confirming it would fix this.
+  - The movie sample window is not cleared when the overlay is switched off and on.
 
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 

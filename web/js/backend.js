@@ -20,6 +20,7 @@ export const DEFAULT_CORE_OPTIONS = Object.freeze({
  * @param {(samples: Float32Array) => void} [opts.onAudio]
  * @param {(bytes: Uint8Array) => void} [opts.onCard]  the card changed in the core
  * @param {(gate: {active: boolean, reason: string|null}) => void} [opts.onSemantic]  the semantic layer hash gate ran (#75)
+ * @param {(sample: {rows: object[]}) => void} [opts.onState]  a changed debug overlay sample (#79); see overlay-state.js
  */
 export async function createWorkerBackend(opts = {}) {
   const worker = new Worker(new URL('./emu-worker.js', import.meta.url), { type: 'module' });
@@ -68,6 +69,9 @@ export async function createWorkerBackend(opts = {}) {
       case 'semantic':
         semanticGate = { active: data.active, reason: data.reason };
         opts.onSemantic?.(semanticGate);
+        break;
+      case 'state':
+        opts.onState?.(data.sample);
         break;
       case 'reply':
         pending.get(data.id)?.resolve(data.value);
@@ -145,6 +149,11 @@ export async function createWorkerBackend(opts = {}) {
     /** Copy of main RAM at a PS1 address (KUSEG/KSEG0/KSEG1). */
     readMem(addr, len = 1) {
       return request({ type: 'readMem', addr, len });
+    },
+
+    /** Start or stop the worker sampling game state for the debug overlay (#79). */
+    setOverlay(on) {
+      worker.postMessage({ type: 'overlay', on: on === true });
     },
 
     pause: () => worker.postMessage({ type: 'pause' }),

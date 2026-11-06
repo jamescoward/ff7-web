@@ -22,6 +22,7 @@
     </label>
     <button type="button" class="btn" id="mute-btn" aria-pressed="false">Sound on</button>
     <button type="button" class="btn" id="controls-btn" aria-pressed="false" aria-controls="pad field">Drag to walk</button>
+    <button type="button" class="btn" id="debug-btn" aria-pressed="false" aria-controls="debug" hidden disabled>Debug</button>
     <details class="menu">
       <summary class="btn">Card</summary>
       <div class="menu-body">
@@ -38,6 +39,7 @@
   <main class="stage">
     <div class="screen">
       <canvas id="screen" width="320" height="240" aria-label="Game picture"></canvas>
+      <div class="debug" id="debug" aria-label="Debug overlay: live game state" hidden></div>
       <p class="status" id="status" role="status">Choose a disc image (.cue with its .bin files, .chd, .pbp, .iso) or a PS-X EXE. It stays on this device.</p>
     </div>
     <div class="pad" id="pad"></div>

@@ -170,4 +170,12 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     source: noAddress(`${SAVEMAP_NOTE}: savemap +0x${(0x4f8 + i).toString(16).toUpperCase().padStart(4, '0')} is the saved copy. Issue #78`),
     status: 'hypothesis',
   })),
+  ...[0, 1, 2].map((i) => ({
+    name: `partyHp${i}`,
+    address: null,
+    type: 'u16',
+    meaning: `current HP of the character in party slot ${i}`,
+    source: noAddress('no RAM address in the repo; the savemap holds HP per character but its live location is unknown. Issue #78'),
+    status: 'hypothesis',
+  })),
 ]);

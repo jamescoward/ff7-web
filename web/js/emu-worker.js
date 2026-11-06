@@ -8,17 +8,22 @@
 //   { type: 'setCard', bytes }                   replace the slot 1 card
 //   { type: 'getCard', id } / { type: 'readMem', id, addr, len }
 //   { type: 'recycle', buffer }                  a frame buffer to reuse
+//   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
 //   { type: 'frame', frame, width, height, buffer }   RGBA, transferred
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
+//   { type: 'state', sample }                    a changed overlay sample, only while the overlay is on (#79)
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
 import { gateForFiles } from './disc-gate.js';
 import { pickBootFile } from './files.js';
+import { createStatePoller } from './overlay-state.js';
+import { ADDRESS_TABLE } from './semantic/addresses.js';
+import { createSemantic } from './semantic/layer.js';
 
 const MOUNT = '/game';
 const MAX_CATCH_UP = 4; // frames run per tick before giving up on real time
@@ -34,6 +39,8 @@ let baseTime = 0;
 let baseFrame = 0;
 let cardDigest = 0;
 let timer = 0;
+let poller = null; // the overlay's state sampler; exists only when the hash gate is on
+let overlayOn = false;
 const spare = [];
 
 const post = (msg, transfer) => self.postMessage(msg, transfer ?? []);
@@ -181,6 +188,15 @@ function setCard(bytes) {
   cardDigest = digest(card);
 }
 
+/** A copy of main RAM at a PS1 address (KUSEG/KSEG0/KSEG1). Never writes. */
+function peek(addr, len) {
+  if (!loaded) throw new Error('no program loaded');
+  const off = (addr & 0x1fffffff) >>> 0;
+  if (off + len > RAM_SIZE) throw new RangeError('address outside main RAM');
+  const p = m._fe_ram_ptr();
+  return m.HEAPU8.slice(p + off, p + off + len);
+}
+
 const handlers = {
   async init({ options }) {
     m = await init({
@@ -223,7 +239,15 @@ const handlers = {
     // verdict leaves this function.
     gateForFiles(files)
       .catch((e) => ({ active: false, reason: e.message }))
-      .then(({ active, reason }) => post({ type: 'semantic', active, reason }));
+      .then(({ active, reason }) => {
+        if (active) {
+          // Read-only: the layer gets a readMem over the core's RAM and nothing else.
+          const semantic = createSemantic({ backend: { readMem: peek }, exeSha1: ADDRESS_TABLE.exe });
+          poller = createStatePoller({ semantic, post: (sample) => post({ type: 'state', sample }) });
+          if (overlayOn) poller.start();
+        }
+        post({ type: 'semantic', active, reason });
+      });
   },
 
   pad({ port, mask }) {
@@ -242,11 +266,13 @@ const handlers = {
     post({ type: 'reply', id, value: c ? c.slice() : null });
   },
   readMem({ id, addr, len }) {
-    if (!loaded) throw new Error('no program loaded');
-    const off = (addr & 0x1fffffff) >>> 0;
-    if (off + len > RAM_SIZE) throw new RangeError('address outside main RAM');
-    const p = m._fe_ram_ptr();
-    post({ type: 'reply', id, value: m.HEAPU8.slice(p + off, p + off + len) });
+    post({ type: 'reply', id, value: peek(addr, len) });
+  },
+  overlay({ on }) {
+    overlayOn = on === true;
+    if (!poller) return;
+    if (overlayOn) poller.start();
+    else poller.stop();
   },
 };
 

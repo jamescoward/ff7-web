@@ -24,7 +24,8 @@ const SHIPPED_MODE_BADGE = ['gameState', 'prevGameState']
   .every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis';
 const shippedBadge = (...names) => (names.every((n) => SHIPPED_TABLE.entries.find((e) => e.name === n).status === 'confirmed') ? 'confirmed' : 'hypothesis');
 const SHIPPED_FIELD_BADGE = shippedBadge('fieldId');
-const SHIPPED_POS_BADGE = shippedBadge('fieldX', 'fieldY');
+// #99: playerPosition() reads playerModel, then that model's fieldX/fieldY (RAM here leaves it 0, the confirmed value).
+const SHIPPED_POS_BADGE = shippedBadge('playerModel', 'fieldX', 'fieldY');
 const SHIPPED_CURSOR_BADGE = shippedBadge('menuCursor');
 const SHIPPED_PARTY_BADGE = shippedBadge('partySlot0', 'partySlot1', 'partySlot2');
 const SHIPPED_HP_BADGE = shippedBadge('partyHp0', 'partyHp1', 'partyHp2');
@@ -49,6 +50,7 @@ export const SYNTHETIC = makeTable(EXE_USA_SHA1, [
   e('gameState', 0x80001000, 's16', 'confirmed', { values: { 1: 'field', 2: 'battle', 5: 'menu' } }),
   e('prevGameState', 0x80001002, 's16', 'confirmed', { values: { 1: 'field', 2: 'battle', 5: 'menu' } }),
   e('fieldId', 0x80001004, 'u16', 'hypothesis'),
+  e('playerModel', 0x8000100c, 's16', 'hypothesis'),
   e('fieldX', 0x80001006, 's16', 'hypothesis'),
   e('fieldY', 0x80001008, 's16', 'hypothesis'),
   e('menuCursor', 0x8000100a, 'u8', 'confirmed'),

@@ -49,8 +49,9 @@ function fullTable(status) {
     e('gameState', 0x80001000, 's16', { values: { 1: 'field', 2: 'battle', 3: 'world', 5: 'menu' } }),
     e('prevGameState', 0x80001002, 's16', { values: { 1: 'field', 2: 'battle', 3: 'world', 5: 'menu' } }),
     e('fieldId', 0x80001010, 'u16'),
-    e('fieldX', 0x80001012, 's16'),
-    e('fieldY', 0x80001014, 's16'),
+    e('playerModel', 0x80001016, 's16'),
+    e('fieldX', 0x80001012, 's16', { stride: 0x40, count: 4 }),
+    e('fieldY', 0x80001014, 's16', { stride: 0x40, count: 4 }),
     e('menuCursor', 0x80001020, 'u8'),
     e('partySlot0', 0x80001030, 'u8'),
     e('partySlot1', 0x80001031, 'u8'),
@@ -71,7 +72,7 @@ describe('address table', () => {
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
     // #76, #77 and #78 confirmed these; everything else is still a hypothesis.
-    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'fieldX', 'fieldY', 'fieldLoading',
+    const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'playerModel', 'fieldX', 'fieldY', 'fieldLoading',
       'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
@@ -131,6 +132,18 @@ describe('address table', () => {
       assert.equal(e.scenario, `harness/scenarios/${scenario}.json`, name);
       assert.ok(existsSync(path.join(ROOT, e.scenario)), `${name}: its scenario file exists`);
     }
+    // #99: the position entries are arrays over the field models (g_FieldEntity, 0x84 a model, 16 models),
+    // indexed by g_PlayerModelId, of which only 0 is confirmed so far.
+    for (const name of ['fieldX', 'fieldY']) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
+      assert.deepEqual([e.stride, e.count], [0x84, 16], name);
+    }
+    const model = ADDRESS_TABLE.entries.find((x) => x.name === 'playerModel');
+    assert.deepEqual([model.address, model.type, model.status], [0x800965e0, 's16', 'confirmed']);
+    assert.deepEqual(Object.keys(model.confirmedValues), ['0'], 'only model 0 is confirmed');
+    // #99's second field: nmkin_1, from a generated save.
+    assert.equal(model.confirmedValues[0], 'harness/scenarios/save-boot-3-player-model-nmkin-1.json');
+    assert.ok(existsSync(path.join(ROOT, model.confirmedValues[0])));
     const loading = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldLoading');
     assert.equal(loading.address, 0x800965e8);
     assert.equal(loading.status, 'confirmed');
@@ -147,6 +160,12 @@ describe('address table', () => {
     bad({ status: 'confirmed' }, /without the Tier 2 scenario/);
     bad({ status: 'confirmed', address: null, scenario: 'x.json' }, /without an address/);
     bad({ status: 'maybe' }, /hypothesis or confirmed/);
+    bad({ stride: 4 }, /stride and count go together/);
+    bad({ count: 4 }, /stride and count go together/);
+    bad({ type: 'u32', stride: 2, count: 4 }, /stride must be/);
+    bad({ stride: 4, count: 0 }, /count must be/);
+    bad({ address: 0x801fff00, stride: 0x40, count: 5 }, /outside KSEG0/);
+    validateTable(makeTable(HASH, [{ ...base, address: 0x801fff00, stride: 0x40, count: 4 }]));
     assert.throws(() => makeTable(HASH, [base, base]), /duplicate/);
     assert.throws(() => validateTable({ exe: 'XYZ', entries: [] }), /SHA-1/);
     validateTable(makeTable(HASH, [{ ...base, status: 'confirmed', scenario: 'harness/scenarios/x.json' }]));
@@ -161,7 +180,7 @@ describe('readers on a synthetic memory image', () => {
       const confirmed = status === 'confirmed';
       assert.deepEqual(await layer.mode(), { value: { mode: 'battle', raw: 2, previous: 'field' }, confirmed });
       assert.deepEqual(await layer.fieldId(), { value: 0x74, confirmed });
-      assert.deepEqual(await layer.playerPosition(), { value: { x: -300, y: 1234 }, confirmed });
+      assert.deepEqual(await layer.playerPosition(), { value: { x: -300, y: 1234, model: 0 }, confirmed });
       assert.deepEqual(await layer.menuCursor(), { value: 2, confirmed });
       assert.deepEqual(await layer.party(), { value: [0, 1, null], confirmed });
     });
@@ -173,6 +192,50 @@ describe('readers on a synthetic memory image', () => {
     const layer = createSemantic({ backend: image(), exeSha1: HASH, table: mixed });
     assert.equal((await layer.playerPosition()).confirmed, false);
     assert.equal((await layer.fieldId()).confirmed, true);
+  });
+
+  test('the player position follows the player model index (#99)', async () => {
+    // Models 0 and 2 stand at different places; the reader takes the element playerModel names.
+    const mem = (model) => ram([[0x80001016, 's16', model], [0x80001012, 's16', -300], [0x80001014, 's16', 1234],
+      [0x80001012 + 2 * 0x40, 's16', 77], [0x80001014 + 2 * 0x40, 's16', -88]]);
+    for (const status of ['hypothesis', 'confirmed']) {
+      const table = fullTable(status);
+      const confirmed = status === 'confirmed';
+      const at0 = createSemantic({ backend: mem(0), exeSha1: HASH, table });
+      assert.deepEqual(await at0.playerPosition(), { value: { x: -300, y: 1234, model: 0 }, confirmed });
+      const b = mem(2);
+      const at2 = createSemantic({ backend: b, exeSha1: HASH, table });
+      assert.deepEqual(await at2.playerPosition(), { value: { x: 77, y: -88, model: 2 }, confirmed });
+      assert.deepEqual(b.reads, [[0x80001016, 2], [0x80001012 + 0x80, 2], [0x80001014 + 0x80, 2]]);
+    }
+  });
+
+  test('a model index outside the array reads nothing more and says so', async () => {
+    for (const model of [4, 100, -1]) {
+      const b = ram([[0x80001016, 's16', model]]);
+      const layer = createSemantic({ backend: b, exeSha1: HASH, table: fullTable('confirmed') });
+      assert.deepEqual(await layer.playerPosition(), { value: null, confirmed: false, reason: 'out of range' }, `model ${model}`);
+      assert.deepEqual(b.reads, [[0x80001016, 2]], `model ${model}: only the index was read`);
+    }
+  });
+
+  test('a table without playerModel gives no position, rather than guessing model 0', async () => {
+    const t = fullTable('confirmed');
+    const layer = createSemantic({ backend: image(), exeSha1: HASH, table: makeTable(HASH, t.entries.filter((e) => e.name !== 'playerModel')) });
+    assert.deepEqual(await layer.playerPosition(), { value: null, confirmed: false, reason: 'no address' });
+  });
+
+  test('with the shipped table only model 0 confirms the position; another model reads as a hypothesis', async () => {
+    const at = (model) => ram([[0x800965e0, 's16', model], [0x80074eb0 + model * 0x84, 's32', 1000 + model], [0x80074eb4 + model * 0x84, 's32', -model]]);
+    const l0 = createSemantic({ backend: at(0), exeSha1: EXE_USA_SHA1 });
+    assert.deepEqual(await l0.playerPosition(), { value: { x: 1000, y: 0, model: 0 }, confirmed: true });
+    const b3 = at(3);
+    const l3 = createSemantic({ backend: b3, exeSha1: EXE_USA_SHA1 });
+    assert.deepEqual(await l3.playerPosition(), { value: { x: 1003, y: -3, model: 3 }, confirmed: false });
+    assert.deepEqual(b3.reads, [[0x800965e0, 2], [0x80074eb0 + 3 * 0x84, 4], [0x80074eb4 + 3 * 0x84, 4]]);
+    // g_FieldEntity has 16 elements; g_FieldModelAnimStatus follows it.
+    const l16 = createSemantic({ backend: ram([[0x800965e0, 's16', 16]]), exeSha1: EXE_USA_SHA1 });
+    assert.equal((await l16.playerPosition()).reason, 'out of range');
   });
 
   test('mode names every documented game state and flags the rest as unknown', async () => {
@@ -188,6 +251,9 @@ describe('readers on a synthetic memory image', () => {
     const layer = createSemantic({ backend: ram([[0x80001010, 'u16', 0xfffe], [0x80001012, 's16', 0xfffe - 0x10000]]), exeSha1: HASH, table: fullTable('hypothesis') });
     assert.equal((await layer.fieldId()).value, 0xfffe);
     assert.equal((await layer.playerPosition()).value.x, -2);
+    // playerModel is s16: 0xFFFF reads -1, out of range, not model 65535.
+    const neg = createSemantic({ backend: ram([[0x80001016, 'u16', 0xffff]]), exeSha1: HASH, table: fullTable('hypothesis') });
+    assert.equal((await neg.playerPosition()).reason, 'out of range');
   });
 
   test('works with an asynchronous readMem, like the browser backend', async () => {
@@ -210,12 +276,13 @@ describe('readers on a synthetic memory image', () => {
     const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
     assert.deepEqual(await layer.mode(), { value: { mode: 'field', raw: 1, previous: 'menu' }, confirmed: true });
     assert.deepEqual(await layer.fieldId(), { value: 0x74, confirmed: true });
-    assert.deepEqual(await layer.playerPosition(), { value: { x: -70000, y: 123456 }, confirmed: true });
+    assert.deepEqual(await layer.playerPosition(), { value: { x: -70000, y: 123456, model: 0 }, confirmed: true });
     assert.deepEqual(await layer.menuCursor(), { value: 2, confirmed: true });
     assert.deepEqual(await layer.party(), { value: [0, null, null], confirmed: true });
     assert.deepEqual(await layer.partyHp(), { value: [287, 0, -1], confirmed: false }, 'slots 1 and 2 are hypotheses');
     // mode() also reads movieFrame (Stframe_no), to tell a movie from the field (#92).
-    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x80071740, 4], [0x8009a05c, 2], [0x80074eb0, 4], [0x80074eb4, 4],
+    // playerPosition() reads g_PlayerModelId first (0 here: unset RAM), then that model's PosX/PosY (#99).
+    assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x80071740, 4], [0x8009a05c, 2], [0x800965e0, 2], [0x80074eb0, 4], [0x80074eb4, 4],
       [0x8009a0d3, 1], [0x8009cbdc, 1], [0x8009cbdd, 1], [0x8009cbde, 1], [0x8009d85c, 2], [0x8009dc9c, 2], [0x8009e0dc, 2]]);
   });
 

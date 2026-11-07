@@ -55,7 +55,7 @@ import { parseArgs } from 'node:util';
 export const RESULTS_FILE = 'results.json';
 export const MAX_FILE_BYTES = 64 * 1024;
 export const MAX_DEPTH = 6;
-export const MAX_SCENARIOS = 32;
+export const MAX_SCENARIOS = 64;
 export const MAX_METRICS = 8;
 export const MAX_INT = 2 ** 32;
 export const MAX_FLOAT = 1e6;
@@ -68,7 +68,7 @@ export const REASONS = [
   'not-json', 'schema', 'too-many-scenarios', 'unexpected-name', 'unexpected-metric', 'duplicate-name',
 ];
 /** The summary can never be larger than this (checked at run time and by a test). */
-export const SUMMARY_MAX_BYTES = 16 * 1024;
+export const SUMMARY_MAX_BYTES = 32 * 1024;
 
 class Reject extends Error {
   constructor(reason) {

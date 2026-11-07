@@ -28,6 +28,7 @@ import {
   pickBuildRun, prepare, SANDBOX_COMMAND, Tier2Error,
 } from '../lib.js';
 import { prepareOutput } from '../../sandbox/sandbox.js';
+import { MAX_SCENARIOS } from '../../validate/validate.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../../../..');
@@ -444,8 +445,12 @@ test('expect: a tier 2 scenario that could smuggle text is rejected', () => {
     const L = jobWith((w) => put(w, `harness/scenarios/${file}`, content));
     assert.throws(() => buildExpect(L.work), (e) => e instanceof Tier2Error && e.code === 'bad-scenario', what);
   }
-  const many = jobWith((w) => { for (let i = 0; i < 33; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });
-  assert.throws(() => buildExpect(many.work), (e) => e.code === 'bad-scenario', 'more than 32 tier 2 scenarios');
+  // One more than the validator's cap (64 since #109) is refused; the cap itself is accepted.
+  assert.equal(MAX_SCENARIOS, 64);
+  const full = jobWith((w) => { for (let i = 0; i < MAX_SCENARIOS; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });
+  assert.equal(Object.keys(buildExpect(full.work).scenarios).length, MAX_SCENARIOS);
+  const many = jobWith((w) => { for (let i = 0; i <= MAX_SCENARIOS; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });
+  assert.throws(() => buildExpect(many.work), (e) => e.code === 'bad-scenario', `more than ${MAX_SCENARIOS} tier 2 scenarios`);
 });
 
 test('check-work CLI: the eval job accepts only the tree the inspect job checked', async () => {

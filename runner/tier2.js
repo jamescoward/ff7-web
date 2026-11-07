@@ -77,7 +77,7 @@ export const DEFAULT_DEADLINE_S = 1140;
 // The #34 result rules, restated: the artifact holds runner/ and harness/
 // data only, never harness/private-eval/. runner/test/unit/tier2.test.js
 // checks that these agree with the validator.
-export const MAX_SCENARIOS = 32;
+export const MAX_SCENARIOS = 64;
 export const MAX_METRICS = 8;
 export const MAX_SCENARIO_BYTES = 64 * 1024;
 export const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;

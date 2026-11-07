@@ -11,7 +11,7 @@
     "game_state": {
       "addr": "0x8009c560",
       "type": "u16",
-      "description": "g_GameState (s16 as u16; confirmed #76): menu 5. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+      "description": "g_GameState (s16 as u16; confirmed #76): battle 2. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
     },
     "slot0": {
       "addr": "0x8009cbdc",
@@ -31,7 +31,7 @@
     "act_id0": {
       "addr": "0x8009d84c",
       "type": "u8",
-      "description": "g_ActiveCharacters[0] (0x8009D84C, ActiveCharacterData size 0x440) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\". Indexed by party slot (savemenu.c reads g_ActiveCharacters[i] for Savemap.partyID[i])"
+      "description": "g_ActiveCharacters[0] (0x8009D84C, ActiveCharacterData size 0x440) + 0x000, documented as the character id (#101: it reads 0 for Barret in slot 1 and Tifa in slot 2 too, so it is not the character ID; Cloud is 0x00, so this check holds without telling slots apart). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\". Indexed by party slot (savemenu.c reads g_ActiveCharacters[i] for Savemap.partyID[i])"
     }
   },
   "input": [

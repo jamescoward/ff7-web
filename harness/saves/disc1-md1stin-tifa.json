@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin tifa",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    1,
+    2
+  ],
+  "progress": 6
+}

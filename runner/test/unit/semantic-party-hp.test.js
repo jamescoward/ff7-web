@@ -6,7 +6,7 @@ import { ADDRESS_TABLE, EXE_USA_SHA1, makeTable, validateTable } from '../../../
 import { createSemantic } from '../../../semantic/layer.js';
 
 describe('partyHp reader', () => {
-  test('reads g_ActiveCharacters[0..2].hp (s16) with the shipped table; only slot 0 is confirmed (#78)', async () => {
+  test('reads g_ActiveCharacters[0..2].hp (s16) with the shipped table; all three slots are confirmed (#78, #101)', async () => {
     validateTable(ADDRESS_TABLE);
     const reads = [];
     const bytes = new Uint8Array(0x200000);
@@ -16,7 +16,7 @@ describe('partyHp reader', () => {
     view.setInt16(0x9e0dc, -2, true);
     const backend = { readMem: (a, l) => { reads.push([a, l]); return bytes.subarray(a & 0x1fffff, (a & 0x1fffff) + l); } };
     const s = createSemantic({ backend, exeSha1: EXE_USA_SHA1 });
-    assert.deepEqual(await s.partyHp(), { value: [287, 0, -2], confirmed: false });
+    assert.deepEqual(await s.partyHp(), { value: [287, 0, -2], confirmed: true });
     assert.deepEqual(reads, [[0x8009d85c, 2], [0x8009dc9c, 2], [0x8009e0dc, 2]]);
   });
 

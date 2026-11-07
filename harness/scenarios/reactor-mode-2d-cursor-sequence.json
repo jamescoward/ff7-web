@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-2d-cursor-sequence",
-  "description": "#78: the main-menu cursor. From menu-open (cursor on the first item), Down: the cursor reads 1 within 60 frames (w_down1); Down: 2 (w_down2); Up: 1 (w_up1); Up: 0 (w_up0). Each wait times out, failing the scenario, if the value is not reached. Attempt 1 guesses candidate 1, the row of g_PartyMenuTables[0]. Only frame counts and 1/0 leave. match: a rerun from the same snapshot.",
+  "description": "#78: the main-menu cursor. From menu-open (cursor on the first item), Down: the cursor reads 1 within 60 frames (w_down1); Down: 2 (w_down2); Up: 1 (w_up1); Up: 0 (w_up0). Each wait times out, failing the scenario, if the value is not reached. The cursor is the row of g_PartyMenuTables[0] (candidate 1 in #78 attempt 1, confirmed). Only frame counts and 1/0 leave. match: a rerun from the same snapshot.",
   "boot": {
     "from": "menu-open"
   },

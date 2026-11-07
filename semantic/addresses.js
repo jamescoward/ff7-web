@@ -35,7 +35,9 @@
 // fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md). #99
 // added playerModel and made fieldX/fieldY arrays over the field models
 // (notes/99-player-model.md). #78
-// confirmed menuCursor, partySlot0..2 and partyHp0..2 (notes/78-menu-party.md).
+// confirmed menuCursor, partySlot0..2 and partyHp0 (notes/78-menu-party.md);
+// #101 confirmed partyHp1 and partyHp2 and saw slots 1 and 2 hold Barret and
+// Tifa (notes/101-barret-party.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -210,19 +212,25 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     address: 0x8009c6e4 + 0x4f8 + i,
     type: 'u8',
     meaning: `character ID in party slot ${i} (Savemap partyID[${i}]: 0x00 Cloud, 0x01 Barret, ... 0x0B; 0xFF = empty). The game uses this copy live (field scripts and the menu read it)`,
-    source: `${DECOMP} include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); ${SAVEMAP_NOTE}: savemap +0x${(0x4f8 + i).toString(16).toUpperCase().padStart(4, '0')}. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); ${CAVEAT}`,
+    source: `${DECOMP} include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); ${SAVEMAP_NOTE}: savemap +0x${(0x4f8 + i).toString(16).toUpperCase().padStart(4, '0')}. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); ${CAVEAT}.${[
+      '',
+      ' Tier 2 (#101): Barret (0x01) from a generated save with party Cloud, Barret, empty, in the field menu and in a random battle in md1_1',
+      ' Tier 2 (#101): Tifa (0x02) from a generated save with party Cloud, Barret, Tifa, in a random battle in md1_1',
+    ][i]}`,
     status: 'confirmed',
-    scenario: SC('reactor-mode-4a-party-slots'),
+    scenario: SC(['reactor-mode-4a-party-slots', 'save-boot-4-party-barret-menu', 'save-boot-6-party-tifa-battle'][i]),
   })),
   ...[0, 1, 2].map((i) => ({
     name: `partyHp${i}`,
     address: 0x8009d84c + i * 0x440 + 0x10,
     type: 's16',
     meaning: `current HP of the character in party slot ${i} (g_ActiveCharacters[${i}].hp; the array is indexed by party slot). Meaningless for an empty slot: check partySlot${i}`,
-    source: `${DECOMP} config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics "Active Character Data" (+0x10 current HP). ${i === 0
-      ? `Tier 2 (#78): slot 0 (Cloud) in 1..9999 in the field menu and in the first guard battle, and it falls while the guards attack with max HP unchanged; ${CAVEAT}`
-      : 'Slot 0 is confirmed (#78); this slot is the same layout one stride on, not yet seen with a character in it'}`,
-    status: i === 0 ? 'confirmed' : 'hypothesis',
-    ...(i === 0 ? { scenario: SC('reactor-mode-4c-party-hp-damage') } : {}),
+    source: `${DECOMP} config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics "Active Character Data" (+0x10 current HP). ${[
+      `Tier 2 (#78): slot 0 (Cloud) in 1..9999 in the field menu and in the first guard battle, and it falls while the guards attack with max HP unchanged; ${CAVEAT}`,
+      'Tier 2 (#101): slot 1 (Barret, generated save) in 1..9999 in the field menu and in a random battle in md1_1, and it falls over 2400 frames of that battle with max HP (+0x12) unchanged; a rerun matches',
+      'Tier 2 (#101): slot 2 (Tifa, generated save with party Cloud, Barret, Tifa) in 1..9999 in a random battle in md1_1, and it falls over 3000 frames of that battle with max HP (+0x12) unchanged; a rerun matches',
+    ][i]}. The byte at +0x000 is not the character ID: it read 0 for Barret and Tifa (#101)`,
+    status: 'confirmed',
+    scenario: SC(['reactor-mode-4c-party-hp-damage', 'save-boot-5-party-barret-battle', 'save-boot-6-party-tifa-battle'][i]),
   })),
 ]);

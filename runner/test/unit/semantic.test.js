@@ -71,9 +71,9 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76, #77 and #78 confirmed these; everything else is still a hypothesis.
+    // #76, #77, #78, #99 and #101 confirmed these; everything else is still a hypothesis.
     const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'playerModel', 'fieldX', 'fieldY', 'fieldLoading',
-      'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0'];
+      'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0', 'partyHp1', 'partyHp2'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -100,24 +100,26 @@ describe('address table', () => {
     assert.equal(state.type, 's16');
   });
 
-  test('menu cursor and party are at the addresses #78 checked in Tier 2; HP of slots 1 and 2 stays a hypothesis', () => {
+  test('menu cursor and party are at the addresses #78 and #101 checked in Tier 2', () => {
     const want = {
       menuCursor: [0x8009a0d3, 's8', 'reactor-mode-2d-cursor-sequence'],
       partySlot0: [0x8009cbdc, 'u8', 'reactor-mode-4a-party-slots'],
-      partySlot1: [0x8009cbdd, 'u8', 'reactor-mode-4a-party-slots'],
-      partySlot2: [0x8009cbde, 'u8', 'reactor-mode-4a-party-slots'],
+      partySlot1: [0x8009cbdd, 'u8', 'save-boot-4-party-barret-menu'],
+      partySlot2: [0x8009cbde, 'u8', 'save-boot-6-party-tifa-battle'],
       partyHp0: [0x8009d85c, 's16', 'reactor-mode-4c-party-hp-damage'],
+      partyHp1: [0x8009dc9c, 's16', 'save-boot-5-party-barret-battle'],
+      partyHp2: [0x8009e0dc, 's16', 'save-boot-6-party-tifa-battle'],
     };
     for (const [name, [address, type, scenario]] of Object.entries(want)) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === name);
       assert.deepEqual([e.address, e.type, e.status, e.scenario], [address, type, 'confirmed', `harness/scenarios/${scenario}.json`], name);
       assert.ok(existsSync(path.join(ROOT, e.scenario)), `${name}: its scenario file exists`);
     }
-    // g_ActiveCharacters (0x8009D84C, 0x440 per party slot), hp at +0x10: slots 1 and 2 follow the layout but were
-    // never seen holding a character, so they stay hypotheses.
-    for (const i of [1, 2]) {
+    // g_ActiveCharacters (0x8009D84C, 0x440 per party slot), hp at +0x10: slots 1 and 2 seen holding Barret and
+    // Tifa (#101), their HP falling in battle.
+    for (const i of [0, 1, 2]) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === `partyHp${i}`);
-      assert.deepEqual([e.address, e.type, e.status], [0x8009d84c + i * 0x440 + 0x10, 's16', 'hypothesis'], e.name);
+      assert.equal(e.address, 0x8009d84c + i * 0x440 + 0x10, e.name);
     }
     for (const e of ADDRESS_TABLE.entries) assert.notEqual(e.address, null, `${e.name} has an address`);
   });
@@ -279,7 +281,7 @@ describe('readers on a synthetic memory image', () => {
     assert.deepEqual(await layer.playerPosition(), { value: { x: -70000, y: 123456, model: 0 }, confirmed: true });
     assert.deepEqual(await layer.menuCursor(), { value: 2, confirmed: true });
     assert.deepEqual(await layer.party(), { value: [0, null, null], confirmed: true });
-    assert.deepEqual(await layer.partyHp(), { value: [287, 0, -1], confirmed: false }, 'slots 1 and 2 are hypotheses');
+    assert.deepEqual(await layer.partyHp(), { value: [287, 0, -1], confirmed: true }, 'all three slots are confirmed (#78, #101)');
     // mode() also reads movieFrame (Stframe_no), to tell a movie from the field (#92).
     // playerPosition() reads g_PlayerModelId first (0 here: unset RAM), then that model's PosX/PosY (#99).
     assert.deepEqual(b.reads, [[0x8009c560, 2], [0x800965ec, 2], [0x80071740, 4], [0x8009a05c, 2], [0x800965e0, 2], [0x80074eb0, 4], [0x80074eb4, 4],

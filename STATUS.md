@@ -6,12 +6,9 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
-**M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-06.
+**M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents, in this order** (each is `status:ready`; take the oldest first, per `docs/CONTINUITY.md`):
-1. **#101** (unblocked by #38): a boot point with Barret in the party, from a generated save (`notes/38-generated-save-boot.md`, "Barret").
-
-Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#80** (world map, minigame; builds the boot-point catalogue on #38) → **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done.
 
 **Done in M2:**
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
@@ -24,6 +21,7 @@ Then **#80** (world map, minigame; builds the boot-point catalogue on #38) → *
 - **#38** (PR #102): scenarios boot from a generated save: `boot: { disc: 1, save, slot: 1 }`. Inside the sandbox the runner rebuilds the New Game savemap from the disc's `INIT/KERNEL.BIN` (`runner/savegen/baseline.js`), generates the card, swaps it in as the title snapshot is restored, and the script loads save 1 by Circle until field mode, then waits for the field to load (#77's rule). The first boot point is `harness/saves/disc1-md1stin.json` (md1stin at progress 6, triangle 12: the values the game holds after the first battle; not a save point, since no reachable source documents save points or progress values). Field ID, triangle and a live walk pass; an inverted checksum leaves the game at the title. The checksum, its range, the directory name and the header are confirmed (`notes/32-save-format.md`). New in format 2: `mark` steps and `change` … `since`.
 - **#92** (PR #103): `mode()` is confirmed only for the raw values in `confirmedValues` (field 1, battle 2, menu 5; world 3 is a hypothesis, anything unlabelled is `unknown`), and reports `movie` when `gameState` reads field and `movieFrame` advanced over the last 5 calls, skipping single 0 reads (`notes/76-confirm-mode.md`, "Known limit").
 - **#93** (PR #125): the debug overlay is a strip below the picture in portrait. Tier 3 deferred (Trip mode).
+- **#101** (PR #128): `partyHp1` and `partyHp2` are confirmed, and party slots 1 and 2 are seen holding Barret and Tifa. Generated saves at md1stin with party Cloud, Barret, (empty or Tifa); holding Up+Left reaches a random battle in md1_1 after 5236 frames, where each slot's HP falls with max HP unchanged. g_ActiveCharacters + 0x000 is **not** the character ID (it reads 0 for every slot); take the character from Savemap partyID (`notes/101-barret-party.md`).
 - **#99** (PR #126): `playerPosition()` reads the field model `g_PlayerModelId` names (new `playerModel` entry; `fieldX`/`fieldY` are arrays over the 16 models). Only model 0 is confirmed (md1stin and nmkin_1): no reachable state has another value, in seven fields with Cloud or Barret leading (`notes/99-player-model.md`). Generated saves at triangle 0 load in md1_2, nmkin_1, md8_1, mds7st1 and mds7, which helps #80's catalogue.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 

@@ -1,6 +1,6 @@
 # #101: party slot 1 (Barret) and partyHp1
 
-Status (2026-11-07): attempt 2 pushed, waiting for Tier 2.
+Status (2026-11-07): done. Attempt 2 (`9203027`, tier2: 36 pass, 0 fail) confirms partyHp1 and partyHp2. Attempts used: 2 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (g_ActiveCharacters 0x8009D84C), `include/game.h` (ActiveCharacterData size 0x440, id +0x000, hp +0x010, max HP +0x012; SaveWork partyID +0x4F8).
@@ -36,3 +36,23 @@ Reading:
 
 ### Attempt 2 plan (one push)
 The id byte is no longer a check. Each scenario reports it raw (`act_id1`, `act_id2`: one byte) to find out what it holds, and the battle scenarios check slot 1 (2) through Savemap partyID only, then HP in range at the mark, HP falling and max HP unchanged since the mark, as planned. Nothing else changes.
+
+### Attempt 2 (`9203027`, tier2: 36 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-4-party-barret-menu | load_done 371, menu_wait 1, s1_barret 1, s2_empty 1, hp1_ok 1, max1_ok 1, **act_id1 0**, match 1 |
+| save-boot-5-party-barret-battle | load_done 371, battle_wait 5236, map_cur 117, hp1_ok 1, **hp1_dir -1, max1_dir 0**, act_id1 0, match 1 |
+| save-boot-6-party-tifa-battle | load_done 371, battle_wait 5236, map_cur 117, hp2_ok 1, **hp2_dir -1, max2_dir 0**, act_id2 0, match 1 |
+
+Every earlier scenario passed unchanged. The values attempt 1 also reported (load_done 371, menu_wait 1, s1_barret 1, s2_empty 1, hp1_ok 1, max1_ok 1, battle_wait 5236, map_cur 117) are the same in both Tier 2 runs, and every new scenario's rerun from the title snapshot matched.
+
+## Outcome
+- **partySlot1** holds Barret (0x01) with the generated save; scenario `save-boot-4-party-barret-menu` (field menu) and the battle scenarios check it.
+- **partySlot2** holds Tifa (0x02) with party Cloud, Barret, Tifa; scenario `save-boot-6-party-tifa-battle`.
+- **partyHp1** (g_ActiveCharacters[1] + 0x10) is in 1..9999 in the menu and in battle, and falls over 2400 frames of a random battle in md1_1 while max HP (+0x12) holds: confirmed, scenario `save-boot-5-party-barret-battle`.
+- **partyHp2** (g_ActiveCharacters[2] + 0x10): the same over 3000 frames with Tifa: confirmed, scenario `save-boot-6-party-tifa-battle`.
+- **g_ActiveCharacters[i] + 0x000 is not the character ID.** It reads 0 for Barret and Tifa as well as Cloud. #78's `a0_cloud` checks (reactor-mode-2e, -4a) hold only because Cloud is 0x00; their descriptions now say so. The checks are kept as they are. Which character a slot holds comes from Savemap partyID.
+
+## Limits and follow-ups
+- The boot point is generated (md1stin, progress 6), not a played-to state; the party is author-chosen.
+- What +0x000 of ActiveCharacterData holds is unknown. If a reader ever needs the character from g_ActiveCharacters itself, that needs its own issue.

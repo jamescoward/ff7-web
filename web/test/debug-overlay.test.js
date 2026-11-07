@@ -307,6 +307,67 @@ for (const name of BROWSERS) {
       }
     });
 
+    // #93: on the owner's iPhone in portrait, the panel over the picture hid the in-game
+    // menu's text. In portrait it is now a strip below the picture: off the picture, off
+    // the pad, and the picture keeps its size.
+    for (const viewport of [{ width: 390, height: 844 }, { width: 393, height: 759 }, { width: 375, height: 667 }]) {
+      test(`portrait ${viewport.width}x${viewport.height}: the panel is below the picture, not on it, and off the pad`, async (t) => {
+        if (skip) return t.skip(skip);
+        const { context, page, errors } = await openApp(browser, { viewport });
+        try {
+          await page.evaluate(() => {
+            window.fake.set(0x8009c560, 'Int16', 5);
+            window.fake.set(0x800965ec, 'Int16', 1);
+            window.fake.load(true, 'real');
+          });
+          const box = (sel) => page.locator(sel).boundingBox();
+          const canvasBefore = await box('#screen');
+          const padBefore = await box('#pad');
+          await page.click('#debug-btn');
+          await page.waitForSelector('#debug .dbg-row');
+          const canvas = await box('#screen');
+          const panel = await box('#debug');
+          const pad = await box('#pad');
+          assert.deepEqual(canvas, canvasBefore, 'the picture keeps its place and size');
+          assert.ok(panel.y >= canvas.y + canvas.height - 1, `the panel (y ${panel.y}) starts below the picture (ends ${canvas.y + canvas.height})`);
+          assert.ok(panel.y + panel.height <= pad.y + 1, 'the panel ends above the pad');
+          assert.ok(panel.height <= 100, `the strip is compact (${panel.height} px)`);
+          const status = await box('#status');
+          if (status) assert.ok(status.y + status.height <= panel.y + 1, 'the status line is not over the strip');
+          assert.ok(pad.height >= 300 || pad.height === padBefore.height, `the pad keeps its space (${pad.height} px)`);
+          // Every row is still there, with its status, inside the strip.
+          const r = await rows(page);
+          assert.deepEqual(Object.keys(r).sort(), ['fieldId', 'menuCursor', 'mode', 'party', 'partyHp', 'position']);
+          assert.equal(r.mode.badge, SHIPPED_MODE_BADGE);
+          for (const key of Object.keys(r)) {
+            const b = await box(`#debug .dbg-row[data-key="${key}"]`);
+            assert.ok(b.y >= panel.y - 1 && b.y + b.height <= panel.y + panel.height + 1, `${key} row is inside the strip`);
+          }
+          // No pad button is under the strip, and the classic pad still works.
+          for (const sel of ['[data-btn="cross"]', '[data-btn="l1"]', '[data-btn="r1"]', '.vp-dpad']) {
+            const b = await box(sel);
+            assert.ok(b.y >= panel.y + panel.height - 1, `${sel} is below the panel`);
+          }
+          // A short screen already scrolled before #93 (the top bar wraps to two lines).
+          await page.locator('[data-btn="cross"]').scrollIntoViewIfNeeded();
+          const cross = await box('[data-btn="cross"]');
+          await page.mouse.move(cross.x + cross.width / 2, cross.y + cross.height / 2);
+          await page.mouse.down();
+          assert.equal(await page.evaluate(() => window.ff7web.mixer.mask), PAD.cross);
+          await page.mouse.up();
+          await page.evaluate(() => window.scrollTo(0, 0));
+          // Off again: the layout is what it was.
+          await page.click('#debug-btn');
+          assert.deepEqual(await box('#screen'), canvasBefore);
+          assert.deepEqual(await box('#pad'), padBefore);
+          assert.equal(await page.locator('.screen').getAttribute('data-debug-on'), null);
+          assert.deepEqual(errors, []);
+        } finally {
+          await context.close();
+        }
+      });
+    }
+
     test('landscape phone: the panel stays on the picture and off the pad halves', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page } = await openApp(browser, { viewport: { width: 844, height: 390 } });

@@ -141,6 +141,9 @@ describe('address table', () => {
     const model = ADDRESS_TABLE.entries.find((x) => x.name === 'playerModel');
     assert.deepEqual([model.address, model.type, model.status], [0x800965e0, 's16', 'confirmed']);
     assert.deepEqual(Object.keys(model.confirmedValues), ['0'], 'only model 0 is confirmed');
+    // #99's second field: nmkin_1, from a generated save.
+    assert.equal(model.confirmedValues[0], 'harness/scenarios/save-boot-3-player-model-nmkin-1.json');
+    assert.ok(existsSync(path.join(ROOT, model.confirmedValues[0])));
     const loading = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldLoading');
     assert.equal(loading.address, 0x800965e8);
     assert.equal(loading.status, 'confirmed');

@@ -157,11 +157,11 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     address: 0x800965e0,
     type: 's16',
     meaning: 'field model index of the player (g_PlayerModelId): the element of fieldX/fieldY that is the player. Only 0 is confirmed (md1stin); another value is a hypothesis until a Tier 2 scenario sees it',
-    source: `${DECOMP} config/symbols.main.us.txt: g_PlayerModelId. Tier 2: 0 at md1stin with model 0 the one that moves with the pad (#77, reactor-field-2-still) and after a generated-save boot (#38, save-boot-1-load); ${CAVEAT}`,
+    source: `${DECOMP} config/symbols.main.us.txt: g_PlayerModelId. Tier 2: 0 at md1stin with model 0 the one that moves with the pad (#77, reactor-field-2-still; #38, save-boot-1-load), and 0 at nmkin_1 with model 0 moving under the pad and model 1 still (#99, save-boot-3-player-model-nmkin-1). #99 found no reachable state where it is not 0: Cloud or Barret leading, in md1stin, md1_1, md1_2, nmkin_1, md8_1, mds7st1 and mds7 (notes/99-player-model.md); ${CAVEAT}`,
     status: 'confirmed',
     scenario: SC('reactor-field-2-still'),
     values: Object.freeze({ 0: 'model 0' }),
-    confirmedValues: Object.freeze({ 0: SC('reactor-field-2-still') }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-3-player-model-nmkin-1') }),
   },
   {
     name: 'fieldX',

@@ -1,18 +1,18 @@
 {
   "$schema": "../schema/save.schema.json",
   "format": 1,
-  "label": "ff7-web barret-md1stin",
+  "label": "ff7-web nmkin-1",
   "slot": 1,
   "field": {
-    "id": 116,
+    "id": 120,
     "x": 32767,
     "y": 0,
-    "triangle": 12,
+    "triangle": 0,
     "direction": 0
   },
   "party": [
-    1,
     0,
+    255,
     255
   ],
   "progress": 6

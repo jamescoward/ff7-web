@@ -1,6 +1,6 @@
 # #99: player position follows g_PlayerModelId
 
-Status (2026-11-07): attempt 1 done (no field with a non-0 player model); attempt 2 (Barret as party leader) pushed.
+Status (2026-11-07): attempts 1 and 2 found no reachable state where the player is not model 0. Attempt 3 (the last) makes nmkin_1 the second-field acceptance check; waiting for Tier 2.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (g_PlayerModelId 0x800965E0, g_FieldEntity 0x80074EA4, g_FieldModelAnimStatus 16 entities on) and `include/game.h` (FieldEntity, size 0x84, PosX +0x0C, PosY +0x10; FieldState at 0x8009ABF4, pcModelId at +0x2A).
@@ -56,3 +56,27 @@ Hypothesis: the field scripts give the player role to the model of the party lea
 The walk scenarios report `player_model`, the field ID and the sign of the PosX change of models 0-2 over a walk up 40 + right 40 frames (`mv0..mv2`). A `change` check compares with the end of the script, so a still window can't sit before the walk in the same scenario; the still scenarios instead report the signs over 90 frames with no input (`s0..s2`), which tells NPCs and followers from the player. They are needed only in md1_2: in md1stin and nmkin_1 only model 0 moved in attempt 1. Attempt 1's six scenarios and five saves are removed; their results are above.
 
 What decides attempt 3: if Barret leading gives player_model N ≠ 0 and model N moves only under the pad, attempt 3 turns that into the acceptance check and adds N to `playerModel.confirmedValues`.
+
+### Attempt 2 (`bc9a94c`, tier2: 34 pass, 3 fail; the fails are the diagnostic `mv1`/`mv2` checks)
+| scenario | load_done | map_cur | player_model | s0 s1 s2 (still) | mv0 mv1 mv2 (walk) |
+|---|---|---|---|---|---|
+| save-boot-3-walk-barret-md1stin | 371 | 116 | 0 | | 1 0 0 |
+| save-boot-4-walk-barret-md1-2 | 354 | 118 | 0 | | 1 0 0 |
+| save-boot-5-still-barret-md1-2 | 354 | 118 | 0 | 0 0 0 | |
+| save-boot-6-walk-barret-nmkin-1 | 352 | 120 | 0 | | 1 0 0 |
+| save-boot-7-still-cloud-md1-2 | 354 | 118 | 0 | 0 0 0 | |
+
+Every earlier scenario passed unchanged.
+
+Reading:
+- **With Barret leading, the player is still model 0** in md1stin, md1_2 and nmkin_1, and only model 0 moves under the pad. So the party leader does not move the player to another model index here; the leader's character is presumably drawn with model 0's slot. The hypothesis is rejected.
+- **No model moves on its own in md1_2** over 90 still frames, with either party. Attempt 1's mv1 = 1 there (Cloud alone, walking) is so far unexplained: perhaps a model that reacts to the player (a follower or a script triggered by walking), which the walk with Barret leading didn't trigger. Not needed for #99.
+
+## Outcome
+**No reachable state has g_PlayerModelId ≠ 0.** It read 0 in seven fields (md1stin, md1_1, md1_2, nmkin_1, md8_1, mds7st1, mds7), with Cloud or Barret leading, and model 0 was always the one the pad moved. FieldState.pcModelId read the same everywhere. A non-0 value probably needs a field whose script makes another model the player (for example a scene where the player controls a different character), which needs that field's own progress value; no reachable source documents those (#38's deviation). The contract allows recording this instead.
+
+**Attempt 3 (the acceptance):** `save-boot-3-player-model-nmkin-1` boots nmkin_1 from a generated save (`harness/saves/disc1-nmkin-1.json`) and checks g_PlayerModelId = 0, model 0's PosX and PosY change under the pad, model 1's PosX doesn't, and a rerun matches. With md1stin (#77's `reactor-field-2-still`), that is the second field the contract asks for, for the value 0. `playerModel.confirmedValues[0]` names it. The attempts 1-2 diagnostics and their saves are removed.
+
+**Limits and follow-ups:**
+- `playerPosition()` indexes by g_PlayerModelId, but only index 0 is confirmed; any other index is reported as a hypothesis until a scenario sees one.
+- The first field where another model is the player, once a boot point for it exists (#80's catalogue), would confirm the indexing itself.

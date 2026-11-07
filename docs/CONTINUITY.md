@@ -117,6 +117,26 @@ Agents may merge their own PRs when **all** of these hold:
 
 Use squash-merge. PRs that touch protected paths get the `needs-owner` label and wait for the owner. Until the CI checks exist (before M1's harness lands), the "required checks" are the commands listed in the PR report, and they must have been run and pass.
 
+## Trip mode (2026-11-09 to 2026-12-05)
+The owner is away and checks nothing until they return (owner decision, 2026-11-06). Scheduled sessions keep working under these extra rules. They apply while this section is here; the owner removes it on return.
+
+1. **Pause switch.** Before anything else, list open issues with the label `agents-paused`. If there is one, exit without changing anything.
+2. **One implementer at a time.** If an open PR or a `status:in-progress` issue got a push or comment in the last 90 minutes from another session, assume that session is still working: don't touch its branch. Take other ready work that doesn't overlap, or exit.
+3. **Per-run budget.** Finish in-flight work (protocol step 2), then take at most one new issue, then stop. Checkpoint early: the weekly quota is shared by every run, and a run that stops cleanly costs less than one that is cut off.
+4. **Tier 3 is deferred, not skipped.** A PR that would need the owner's iPhone check may merge when all of these hold:
+   - the new behaviour is behind a Labs flag (#105) that is **off by default**, or behind an existing off-by-default toggle such as Debug;
+   - Tier 1 passes, including the iPhone-profile checks (#106) once they exist, with the flag on and off;
+   - the classic pad and drag-to-walk tests pass unchanged;
+   - every other merge rule for its class holds.
+
+   Label it `tier3-deferred` and add one line to the trip log issue (#123): the PR, its flag, and a ≤5-item checklist. A change to the core, renderer, audio or input path that can't be put behind a flag: don't start it. If one is unavoidable, leave its PR open with `needs-owner-device` and record it in the digest.
+5. **Don't @-mention the owner** in comments, and don't request reviews. The owner reads everything on return.
+6. **Owner-only items wait.** Leave `needs-owner` PRs and issues alone, work around them where the contract allows, and list them in the digest.
+7. **Planning.** When no issue is ready, plan from `docs/PHASE0.md` and `notes/m3-m4-issue-drafts.md` (protocol step 5). A new issue is `status:ready` only if it needs no owner decision; otherwise file it as `status:blocked` plus `needs-owner`, with the question in the body. Never plan work outside the milestones.
+8. **Weekly digest.** On Wednesdays the digest run comments on #123: merged PRs, work in flight, blocked items and why, the ready-queue length, and any signs of trouble (repeated failures, runs cut off, attempt budgets used up).
+9. **Two lanes while a second subscription runs** (about 2026-11-08 16:00 to 2026-11-22 UTC; owner, 2026-11-06). A second scheduled implementer, on another subscription, takes only the **UI lane**: #105, #106, #113, #114, #115, #116, #118, #119, and follow-ups filed from them. Its runs start at 00:13, 08:13 and 16:13 UTC. During that window, the main implementer takes only the **game-state lane** (M2, the Tier 2 issues, #120, #121), and leaves UI-lane issues and their PRs alone, even ready ones, unless a UI-lane claim has been abandoned for more than 6 hours (protocol step 3). Outside the window, either implementer takes any ready issue. A lane issue already claimed by the other implementer stays with it.
+10. **Hand-off before the subscription ends.** The last scheduled run (2026-12-04) brings `STATUS.md` up to date for the owner's return, finishes or checkpoints in-flight work, and posts a final digest.
+
 ## Running out of quota
 There is no warning, which is why checkpoints are frequent and the Handoff is always current. If a session notices it is close to its limits, it checkpoints immediately rather than starting a new step.
 

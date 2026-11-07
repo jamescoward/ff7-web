@@ -2,11 +2,11 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "save-boot-3-model-md1-2",
-  "description": "#99 (diagnostic): boot from the generated save harness/saves/disc1-md1-2.json (md1_2, field ID 0x76 per ff7-flat-wiki Field_ID; triangle 0, x 0x7FFF so the game places the player at that triangle's centroid, as #38 did; progress 6 and Cloud alone as at md1stin, not this field's own values, which no source documents). Load as save-boot-1-load does, then 60 still frames and a walk up 40 and right 40 frames. Reports whether the field loaded (w_field, load_done, map_cur), the player model index candidates (g_PlayerModelId, FieldState.pcModelId) and the sign of the PosX change of field models 0-2 (mv0..mv2). Looks for a field where the player is not model 0. Only small integers leave.",
+  "name": "save-boot-3-walk-barret-md1stin",
+  "description": "#99 attempt 2 (diagnostic): boot from the generated save harness/saves/disc1-barret-md1stin.json (md1stin, field ID 0x74 per ff7-flat-wiki Field_ID; triangle 12, x 0x7FFF so the game places the player at the triangle's centroid, as #38 did; progress 6 as at md1stin; party [1, 0, 255]: Barret leads, Cloud second), loaded as save-boot-1-load does. Then a walk up 40 and right 40 frames: mv0..mv2 are the signs of the PosX change of field models 0-2. The model that moves under the pad is the player; player_model is g_PlayerModelId. Only small integers leave.",
   "boot": {
     "disc": 1,
-    "save": "disc1-md1-2",
+    "save": "disc1-barret-md1stin",
     "slot": 1
   },
   "memory": {
@@ -28,12 +28,7 @@
     "player_model": {
       "addr": "0x800965e0",
       "type": "u16",
-      "description": "g_PlayerModelId (s16 as u16): the player's field model index; 0 at md1stin (#77, #38). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
-    },
-    "pc_model": {
-      "addr": "0x8009ac1e",
-      "type": "u16",
-      "description": "FieldState (0x8009ABF4) + 0x2A pcModelId (s16 as u16): a second player-index candidate; 0 at md1stin (#77 attempt 1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldState"
+      "description": "g_PlayerModelId (s16 as u16): the player's field model index; 0 at md1stin and in five more fields with Cloud leading (#99 attempt 1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
     },
     "x0": {
       "addr": "0x80074eb0",
@@ -66,16 +61,10 @@
           "every": 30,
           "hold": 4
         }
-      },
-      "metric": "w_field"
+      }
     },
     {
       "segment": "field-loaded"
-    },
-    {
-      "wait": {
-        "frames": 60
-      }
     },
     {
       "mark": "loaded"
@@ -102,7 +91,7 @@
     {
       "expect": {
         "mem": "map_cur",
-        "equals": 118
+        "equals": 116
       }
     },
     {
@@ -134,10 +123,8 @@
     }
   ],
   "metrics": [
-    "w_field",
     "map_cur",
     "player_model",
-    "pc_model",
     "mv0",
     "mv1",
     "mv2",

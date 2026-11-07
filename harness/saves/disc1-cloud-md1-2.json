@@ -1,7 +1,7 @@
 {
   "$schema": "../schema/save.schema.json",
   "format": 1,
-  "label": "ff7-web md1-2",
+  "label": "ff7-web cloud-md1-2",
   "slot": 1,
   "field": {
     "id": 118,

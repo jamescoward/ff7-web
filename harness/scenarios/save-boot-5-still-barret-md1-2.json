@@ -2,10 +2,12 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "reactor-next-3-player-model",
-  "description": "#99 (diagnostic): from after-battle, walk up-left until g_FieldCurrentMap leaves md1stin (#77), wait for the field to load (segment field-loaded, #77's rule), 60 still frames, then walk up 40 and right 40 frames. Reports the player model index candidates (g_PlayerModelId, FieldState.pcModelId) in md1_1 and the sign of the PosX change of field models 0-2 (mv0..mv2): the moving model is the player. Only small integers leave.",
+  "name": "save-boot-5-still-barret-md1-2",
+  "description": "#99 attempt 2 (diagnostic): boot from the generated save harness/saves/disc1-barret-md1-2.json (md1_2, field ID 0x76 per ff7-flat-wiki Field_ID; triangle 0, x 0x7FFF so the game places the player at the triangle's centroid, as #38 did; progress 6 as at md1stin; party [1, 0, 255]: Barret leads, Cloud second), loaded as save-boot-1-load does. Then 90 frames with no input: s0..s2 are the signs of the PosX change of field models 0-2, i.e. which models move on their own (NPCs, followers), to tell them from the player in the walk scenario for the same save. Only small integers leave.",
   "boot": {
-    "from": "after-battle"
+    "disc": 1,
+    "save": "disc1-barret-md1-2",
+    "slot": 1
   },
   "memory": {
     "game_state": {
@@ -26,12 +28,7 @@
     "player_model": {
       "addr": "0x800965e0",
       "type": "u16",
-      "description": "g_PlayerModelId (s16 as u16): the player's field model index; 0 at md1stin (#77, #38). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
-    },
-    "pc_model": {
-      "addr": "0x8009ac1e",
-      "type": "u16",
-      "description": "FieldState (0x8009ABF4) + 0x2A pcModelId (s16 as u16): a second player-index candidate; 0 at md1stin (#77 attempt 1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldState"
+      "description": "g_PlayerModelId (s16 as u16): the player's field model index; 0 at md1stin and in five more fields with Cloud leading (#99 attempt 1). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
     },
     "x0": {
       "addr": "0x80074eb0",
@@ -53,62 +50,28 @@
     {
       "wait": {
         "until": {
-          "mem": "map_cur",
-          "differs": 116
+          "mem": "game_state",
+          "equals": 1
         },
         "timeout": 3600,
         "press": {
           "buttons": [
-            "up",
-            "left"
+            "circle"
           ],
-          "every": 60,
-          "hold": 59
+          "every": 30,
+          "hold": 4
         }
       }
     },
     {
-      "wait": {
-        "until": {
-          "mem": "loading",
-          "differs": 2
-        },
-        "timeout": 600
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "loading",
-          "equals": 2
-        },
-        "timeout": 3600
-      },
-      "metric": "load_done"
-    },
-    {
-      "wait": {
-        "frames": 60
-      }
+      "segment": "field-loaded"
     },
     {
       "mark": "loaded"
     },
     {
-      "buttons": [
-        "up"
-      ],
-      "frames": 40
-    },
-    {
-      "buttons": [
-        "right"
-      ],
-      "frames": 40
-    },
-    {
       "wait": {
-        "frames": 10
+        "frames": 90
       }
     }
   ],
@@ -116,51 +79,43 @@
     {
       "expect": {
         "mem": "map_cur",
-        "equals": 117
-      }
-    },
-    {
-      "expect": {
-        "mem": "game_state",
-        "equals": 1
+        "equals": 118
       }
     },
     {
       "change": {
         "mem": "x0",
-        "is": "changed",
+        "is": "unchanged",
         "signed": true,
         "since": "loaded"
       },
-      "metric": "mv0"
+      "metric": "s0"
     },
     {
       "change": {
         "mem": "x1",
-        "is": "changed",
+        "is": "unchanged",
         "signed": true,
         "since": "loaded"
       },
-      "metric": "mv1"
+      "metric": "s1"
     },
     {
       "change": {
         "mem": "x2",
-        "is": "changed",
+        "is": "unchanged",
         "signed": true,
         "since": "loaded"
       },
-      "metric": "mv2"
+      "metric": "s2"
     }
   ],
   "metrics": [
-    "load_done",
     "map_cur",
     "player_model",
-    "pc_model",
-    "mv0",
-    "mv1",
-    "mv2",
-    "game_state"
+    "s0",
+    "s1",
+    "s2",
+    "load_done"
   ]
 }

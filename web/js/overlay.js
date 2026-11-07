@@ -2,6 +2,8 @@
 // Off by default. The toggle is hidden and disabled unless the semantic
 // layer's hash gate is on (the disc's boot executable is the USA one).
 // The panel ignores pointer events, so it never covers the touch controls.
+// While it shows, its container (the picture box) carries data-debug-on, so
+// the stylesheet can move it out of the picture in portrait (#93).
 // Original project code, GPL-2.0-or-later.
 
 /**
@@ -19,6 +21,7 @@ export function createOverlay({ panel, toggle, onToggle }) {
     toggle.disabled = !active;
     toggle.setAttribute('aria-pressed', String(on));
     panel.hidden = !(active && on);
+    panel.parentElement?.toggleAttribute('data-debug-on', !panel.hidden);
   }
 
   function set(next) {

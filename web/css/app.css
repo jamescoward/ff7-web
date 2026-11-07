@@ -142,6 +142,35 @@ body {
 .dbg-reason { color: var(--muted); font-style: italic; }
 #debug-btn[aria-pressed="true"] { background: var(--btn-on); }
 
+/* Portrait (#93): with the overlay on, the panel is a compact strip below the
+   picture, so it no longer hides the game's own text (the menu's Cloud/HP
+   column sat under it). The picture keeps its size; the pad keeps its space
+   above its minimum height on phone-sized screens. Landscape phones have no
+   free space outside the picture, so there the panel stays on it (below). */
+@media not all and (orientation: landscape) and (max-height: 600px) {
+  .screen[data-debug-on] { display: flex; flex-direction: column; aspect-ratio: auto; max-height: none; }
+  .screen[data-debug-on] #screen { height: auto; aspect-ratio: 4 / 3; max-height: 60dvh; }
+  .screen[data-debug-on] .debug {
+    position: static;
+    max-width: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+    padding: 4px 8px;
+    border-radius: 0;
+    background: var(--panel);
+    font-size: 11px;
+  }
+  /* The status line sits at the picture's bottom edge, now the strip's place. */
+  .screen[data-debug-on] .status { inset: 12px 12px auto 12px; }
+  .screen[data-debug-on] .dbg-row[data-key="mode"] { grid-column: 1 / -1; }
+  .screen[data-debug-on] .dbg-label { min-width: 0; }
+  /* The status word becomes a coloured dot (green confirmed, amber hypothesis);
+     the word is still the element's text for screen readers. */
+  .screen[data-debug-on] .dbg-badge { font-size: 0; }
+  .screen[data-debug-on] .dbg-badge::before { content: "\25CF"; font-size: 10px; }
+}
+
 /* Virtual gamepad */
 .pad {
   flex: 1;

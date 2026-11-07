@@ -37,6 +37,16 @@ Battle command panel with cropped scene; native menu screens starting with Mater
 ### Longer-term acceptance target
 A continuous run from new game through the first reactor mission and back — field transitions, dialogue, menus, battles, boss, saves — using touch controls without a gamepad, on the owner's iPhone.
 
+## Stretch goal after the initial build — optional graphics polish
+Once the original game and touch controls are solid on iPhone, experiment with **2× internal rendering resolution plus an optional subtle CRT filter**. This is deferred polish, not a requirement for M1–M4 or the initial playable build.
+
+- Try the existing PCSX ReARMed enhanced-resolution option to sharpen 3D edges; it does not add detail to the original background images.
+- Offer a light CRT effect with restrained scanlines and softness, tuned for the small iPhone screen. Keep web menus and touch controls crisp.
+- Keep both options off by default and independently switchable, so the original presentation remains easy to restore.
+- Compare original, 2×, CRT and combined modes on the target iPhone across fields, battles, menus and movies. Keep them only if readability, frame pacing, audio and sustained performance remain acceptable.
+
+The first step is a small visual/performance experiment; appearance and performance on iPhone are not yet verified.
+
 ## Working rules
 - Use verified evidence; mark unknowns as unknown. A test not run is not verified.
 - Repository contains only original code, synthetic/homebrew fixtures and documentation. No game data, BIOS, screenshots, save states or code derived from the game executable — see `docs/SECURITY.md`.

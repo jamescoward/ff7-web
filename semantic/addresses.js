@@ -15,6 +15,11 @@
 //   status   "hypothesis", or "confirmed" together with `scenario`, the Tier 2
 //            scenario file that confirmed it (harness/scenarios/...)
 //   exe      SHA-1 of the boot executable the address applies to
+//   stride, count  optional, together: the entry is an array of `count`
+//            elements, element i at address + i * stride (address is element
+//            0). Readers that index one say which index they read; status
+//            applies to the layout, and a reader's confirmation also depends
+//            on how it chose the index (#99)
 //   values   optional: raw value -> label, for enumerations
 //   confirmedValues  optional, on a confirmed enumeration: raw value -> the
 //            Tier 2 scenario that observed it. Labels not listed here are
@@ -27,7 +32,9 @@
 // Changing an entry to "confirmed" needs a Tier 2 scenario that checks it
 // (issues #76 to #78). #76 confirmed gameState (field, battle, menu),
 // prevGameState and movieFrame (notes/76-confirm-mode.md). #77 confirmed
-// fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md). #78
+// fieldId, fieldX, fieldY and fieldLoading (notes/77-field-position.md). #99
+// added playerModel and made fieldX/fieldY arrays over the field models
+// (notes/99-player-model.md). #78
 // confirmed menuCursor, partySlot0..2 and partyHp0..2 (notes/78-menu-party.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
@@ -83,8 +90,14 @@ export function validateTable(table) {
     const where = `entry ${e.name}`;
     if (e.exe !== table.exe) throw new Error(`${where}: exe differs from the table's`);
     if (!(e.type in TYPES)) throw new Error(`${where}: unknown type ${e.type}`);
+    if ((e.stride === undefined) !== (e.count === undefined)) throw new Error(`${where}: stride and count go together`);
+    if (e.stride !== undefined) {
+      if (!Number.isInteger(e.stride) || e.stride < TYPES[e.type]) throw new Error(`${where}: stride must be an integer no smaller than the type`);
+      if (!Number.isInteger(e.count) || e.count < 1) throw new Error(`${where}: count must be a positive integer`);
+    }
     if (e.address !== null) {
-      if (!Number.isInteger(e.address) || e.address < 0x80000000 || e.address + TYPES[e.type] > 0x80200000) {
+      const last = e.address + ((e.count ?? 1) - 1) * (e.stride ?? 0);
+      if (!Number.isInteger(e.address) || e.address < 0x80000000 || last + TYPES[e.type] > 0x80200000) {
         throw new Error(`${where}: address outside KSEG0 main RAM`);
       }
     }
@@ -140,11 +153,24 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     scenario: SC('reactor-field-1-id'),
   },
   {
+    name: 'playerModel',
+    address: 0x800965e0,
+    type: 's16',
+    meaning: 'field model index of the player (g_PlayerModelId): the element of fieldX/fieldY that is the player. Only 0 is confirmed (md1stin); another value is a hypothesis until a Tier 2 scenario sees it',
+    source: `${DECOMP} config/symbols.main.us.txt: g_PlayerModelId. Tier 2: 0 at md1stin with model 0 the one that moves with the pad (#77, reactor-field-2-still) and after a generated-save boot (#38, save-boot-1-load); ${CAVEAT}`,
+    status: 'confirmed',
+    scenario: SC('reactor-field-2-still'),
+    values: Object.freeze({ 0: 'model 0' }),
+    confirmedValues: Object.freeze({ 0: SC('reactor-field-2-still') }),
+  },
+  {
     name: 'fieldX',
     address: 0x80074eb0,
     type: 's32',
-    meaning: 'player field X position (g_FieldEntity[0].PosX, raw units). Index 0 is the player at md1stin (g_PlayerModelId 0); in other fields the player may be another model index (not yet checked). At md1stin screen right raises it and left lowers it',
-    source: `${DECOMP} config/symbols.main.us.txt (g_FieldEntity at 0x80074EA4) and include/game.h (FieldEntity, size 0x84, PosX at +0x0C). Tier 2 (#77): unchanged for 120 frames without input; +1 sign walking right and up, -1 walking left and down, in two runs; ${CAVEAT}`,
+    stride: 0x84,
+    count: 16,
+    meaning: 'field X position of each field model (g_FieldEntity[i].PosX, raw units); element playerModel is the player. At md1stin (model 0) screen right raises it and left lowers it',
+    source: `${DECOMP} config/symbols.main.us.txt (g_FieldEntity at 0x80074EA4; g_FieldModelAnimStatus follows 16 elements on) and include/game.h (FieldEntity, size 0x84, PosX at +0x0C). Tier 2 (#77), element 0: unchanged for 120 frames without input; +1 sign walking right and up, -1 walking left and down, in two runs; ${CAVEAT}`,
     status: 'confirmed',
     scenario: SC('reactor-field-3-walk-right'),
   },
@@ -152,8 +178,10 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     name: 'fieldY',
     address: 0x80074eb4,
     type: 's32',
-    meaning: 'player field Y position (g_FieldEntity[0].PosY, raw units); same index caveat as fieldX. At md1stin screen up raises it and down lowers it',
-    source: `${DECOMP} include/game.h (FieldEntity, PosY at +0x10). Tier 2 (#77): unchanged for 120 frames without input; +1 sign walking up, -1 walking down, in two runs; ${CAVEAT}`,
+    stride: 0x84,
+    count: 16,
+    meaning: 'field Y position of each field model (g_FieldEntity[i].PosY, raw units); element playerModel is the player. At md1stin (model 0) screen up raises it and down lowers it',
+    source: `${DECOMP} include/game.h (FieldEntity, size 0x84, PosY at +0x10). Tier 2 (#77), element 0: unchanged for 120 frames without input; +1 sign walking up, -1 walking down, in two runs; ${CAVEAT}`,
     status: 'confirmed',
     scenario: SC('reactor-field-5-walk-up'),
   },

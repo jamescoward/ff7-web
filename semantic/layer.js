@@ -11,7 +11,9 @@
 //              and, for an enumeration, the raw value read is a labelled one
 //              and listed in the entry's confirmedValues when it has them (#92)
 //   reason     set when value is null: 'inactive' (the hash gate is off),
-//              'no address' (no candidate known), or 'read failed'
+//              'no address' (no candidate known), 'read failed', or
+//              'out of range' (an index read from memory is not an element
+//              of the array it indexes)
 // Unconfirmed values are still returned: callers decide whether to trust a
 // hypothesis (the debug overlay, #79, shows them).
 
@@ -93,16 +95,20 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
   const gate = evaluateGate(table, exeSha1);
   const entries = new Map(table.entries.map((e) => [e.name, e]));
 
-  /** Read named entries: { values: {name: n}, confirmed } or { reason }. */
-  async function read(names) {
+  /**
+   * Read named entries: { values: {name: n}, confirmed } or { reason }. For
+   * an array entry, `index` picks the element (default 0).
+   */
+  async function read(names, index = 0) {
     if (!gate.active) return { reason: 'inactive' };
     const values = {};
     let confirmed = true;
     for (const name of names) {
       const e = entries.get(name);
       if (!e || e.address === null) return { reason: 'no address' };
+      if (index !== 0 && !(Number.isInteger(index) && index > 0 && index < (e.count ?? 1))) return { reason: 'out of range' };
       try {
-        const bytes = await backend.readMem(e.address, TYPES[e.type]);
+        const bytes = await backend.readMem(e.address + index * (e.stride ?? 0), TYPES[e.type]);
         values[name] = DECODERS[e.type](new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength));
       } catch {
         return { reason: 'read failed' };
@@ -150,10 +156,19 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       return r.values ? { value: r.values.fieldId, confirmed: r.confirmed } : fail(r);
     },
 
-    /** { value: { x, y } } */
+    /**
+     * { value: { x, y, model } }: the position of field model `model`
+     * (playerModel, g_PlayerModelId), the player (#99). Confirmed only if
+     * the model index read is a confirmed one (0 so far) and the position
+     * entries are confirmed.
+     */
     async playerPosition() {
-      const r = await read(['fieldX', 'fieldY']);
-      return r.values ? { value: { x: r.values.fieldX, y: r.values.fieldY }, confirmed: r.confirmed } : fail(r);
+      const m = await read(['playerModel']);
+      if (!m.values) return fail(m);
+      const model = m.values.playerModel;
+      const r = await read(['fieldX', 'fieldY'], model);
+      if (!r.values) return fail(r);
+      return { value: { x: r.values.fieldX, y: r.values.fieldY, model }, confirmed: m.confirmed && r.confirmed };
     },
 
     /** { value: cursor index } */

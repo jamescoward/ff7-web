@@ -8,7 +8,7 @@ Planned before the owner's six-week trip so scheduled agents can keep working wi
 - **The game side is proved in Tier 2, the UI side in Tier 1.** UI issues use a fake semantic source in Tier 1. The game behaviour they rely on (state addresses, the planner's pad sequences) has its own Tier 2 issue.
 - **Input only.** Panels compile taps into pad sequences through one planner (S3), and confirm by reading memory (`docs/ARCHITECTURE_SURVEY.md` §6). No memory writes.
 - **No game text.** Panel labels are project-written English or generic ("Choice 2"). Names decoded from RAM at runtime may be shown on the device, never committed or reported from Tier 2.
-- **Tier 2 budget.** 32 scenarios per run until #109 (raise to 64, owner-merged) lands. Batch hypotheses; find addresses in the decomp first.
+- **Tier 2 budget.** 64 scenarios per run since #109 (PR #122, merged 2026-11-07). Batch hypotheses; find addresses in the decomp first.
 
 ## Issues and order
 | Draft | Issue | Title | Class | Blocked on |
@@ -31,6 +31,16 @@ Planned before the owner's six-week trip so scheduled agents can keep working wi
 | P1 | #118 | Speed toggle | light | — |
 | P2 | #119 | Suspend and resume | light | — |
 | P3 | #121 | Native Materia / Equip screen | full | #105, #111, #115, #117 |
+| S6 | #130 | Confirm party MP, max HP/MP, limit and ATB | full | — |
+| S7 | #131 | In-game save at the first save point; save-point boot point | full | #111, #120 |
+| X2 | #132 | Playthrough part 2: save point → Guard Scorpion → out of the reactor | full | #120 (#110, #116) |
+| U5 | #133 | Battle status strip | light | #105, #130 |
+| U6 | #134 | Drag to walk on the world map | light | #80, #113 |
+| P4 | #135 | Native Item screen | full | #105, #111, #115, #117, #130 |
+| P5 | #136 | Battle layout: cropped scene + panel beside it | light | #116, #24 |
+| L3 | #137 | Tier 3 checklists in the Labs panel | light | #105 |
+
+S6–L3 were added on 2026-11-07, when the owner asked for more work to cover the whole six-week trip. They follow the same constraints. Lanes: #130, #131, #132 game-state; #133, #134, #136, #137 UI; #135 both (split if both lanes run).
 
 M2's remaining issues (#93, #99, #101, #80, #81) stay first in the queue. #93 can merge in trip mode because Debug is already off by default.
 
@@ -53,4 +63,4 @@ Oldest ready first, as usual (`docs/CONTINUITY.md`). In practice: the M2 queue, 
 The owner labelled #105, #106, #113, #114, #115, #118 and #119 `model:sonnet` (2026-11-06) to make the quota go further. The Tier 2 and trust-boundary issues stay on Opus.
 
 ## Not planned yet
-Tap to walk (stretch goal), world-map controls beyond the classic pad, minigames beyond #80's one, the native shell. Agents in trip mode don't plan these; they're for the owner on return.
+Tap to walk (stretch goal), world-map controls beyond drag-to-walk (#134), minigames beyond #80's one, the native shell. Agents in trip mode don't plan these; they're for the owner on return.

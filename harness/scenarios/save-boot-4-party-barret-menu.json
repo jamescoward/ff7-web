@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-4-party-barret-menu",
-  "description": "#101: Barret in party slot 1, in the field menu (the menu draws party HP, as #78's reactor-mode-2e). Boot from the generated save harness/saves/disc1-md1stin-barret.json: #38's md1stin boot point with party Cloud, Barret, empty (author-chosen). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Then Triangle (4 frames every second) until g_GameState reads menu (5; menu_wait), and 30 frames more. Savemap partyID reads Cloud (0x00), Barret (0x01), empty (0xFF); g_ActiveCharacters[1] has id Barret and current and max HP in 1..9999. Only 1/0 leaves. match: a rerun from the title snapshot ends in the same state.",
+  "description": "#101: Barret in party slot 1, in the field menu (the menu draws party HP, as #78's reactor-mode-2e). Boot from the generated save harness/saves/disc1-md1stin-barret.json: #38's md1stin boot point with party Cloud, Barret, empty (author-chosen). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Then Triangle (4 frames every second) until g_GameState reads menu (5; menu_wait), and 30 frames more. Savemap partyID reads Cloud (0x00), Barret (0x01), empty (0xFF); g_ActiveCharacters[1] has current and max HP in 1..9999. act_id1: the raw byte at g_ActiveCharacters[1] + 0 (attempt 1: not 0x01, so the wiki's \"character ID\" there is not the party member's ID; reported to find out what it is). Otherwise only 1/0 leaves. match: a rerun from the title snapshot ends in the same state.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-barret",
@@ -136,13 +136,6 @@
     },
     {
       "expect": {
-        "mem": "act_id1",
-        "equals": 1
-      },
-      "metric": "a1_barret"
-    },
-    {
-      "expect": {
         "mem": "hp1",
         "in": [
           1,
@@ -177,7 +170,7 @@
     "menu_wait",
     "s1_barret",
     "s2_empty",
-    "a1_barret",
+    "act_id1",
     "hp1_ok",
     "max1_ok",
     "match"

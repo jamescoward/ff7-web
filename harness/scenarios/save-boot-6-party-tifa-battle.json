@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-6-party-tifa-battle",
-  "description": "#101: party slot 2's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-tifa.json (party Cloud, Barret, Tifa; author-chosen, to see slot 2 with a character in it). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[2] and g_ActiveCharacters[2].id read Tifa (0x02; a2_tifa) and its current HP is in 1..9999 (hp2_ok). Then 3000 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[2].hp decreases since the mark (hp2_dir -1) while max HP is unchanged (max2_dir 0), and the battle is still on. Signs and 1/0 only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state. Slot 2 is the same layout one stride on; this scenario is the evidence for partySlot2 and partyHp2 holding a character.",
+  "description": "#101: party slot 2's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-tifa.json (party Cloud, Barret, Tifa; author-chosen, to see slot 2 with a character in it). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[2] reads Tifa (0x02) and its current HP is in 1..9999 (hp2_ok). Then 3000 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[2].hp decreases since the mark (hp2_dir -1) while max HP is unchanged (max2_dir 0), and the battle is still on. act_id2: the raw byte at g_ActiveCharacters[2] + 0 at the end (attempt 1: not the character ID). Signs, 1/0 and that byte only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state. Slot 2 is the same layout one stride on; this scenario is the evidence for partySlot2 and partyHp2 holding a character.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-tifa",
@@ -115,16 +115,6 @@
     {
       "wait": {
         "until": {
-          "mem": "act_id2",
-          "equals": 2
-        },
-        "timeout": 1
-      },
-      "metric": "a2_tifa"
-    },
-    {
-      "wait": {
-        "until": {
           "mem": "hp2",
           "in": [
             1,
@@ -176,7 +166,7 @@
   ],
   "metrics": [
     "battle_wait",
-    "a2_tifa",
+    "act_id2",
     "hp2_ok",
     "hp2_dir",
     "max2_dir",

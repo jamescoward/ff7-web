@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-5-party-barret-battle",
-  "description": "#101: party slot 1's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-barret.json (party Cloud, Barret, empty). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[1] and g_ActiveCharacters[1].id read Barret (0x01; a1_barret) and its current HP is in 1..9999 (hp1_ok). Then 2400 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[1].hp decreases since the mark (hp1_dir -1) while max HP is unchanged (max1_dir 0), and the battle is still on. Signs and 1/0 only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state.",
+  "description": "#101: party slot 1's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-barret.json (party Cloud, Barret, empty). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[1] reads Barret (0x01) and its current HP is in 1..9999 (hp1_ok). Then 2400 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[1].hp decreases since the mark (hp1_dir -1) while max HP is unchanged (max1_dir 0), and the battle is still on. act_id1: the raw byte at g_ActiveCharacters[1] + 0 at the end (attempt 1: not the character ID). Signs, 1/0 and that byte only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-barret",
@@ -115,16 +115,6 @@
     {
       "wait": {
         "until": {
-          "mem": "act_id1",
-          "equals": 1
-        },
-        "timeout": 1
-      },
-      "metric": "a1_barret"
-    },
-    {
-      "wait": {
-        "until": {
           "mem": "hp1",
           "in": [
             1,
@@ -176,7 +166,7 @@
   ],
   "metrics": [
     "battle_wait",
-    "a1_barret",
+    "act_id1",
     "hp1_ok",
     "hp1_dir",
     "max1_dir",

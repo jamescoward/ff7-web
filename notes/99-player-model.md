@@ -1,6 +1,6 @@
 # #99: player position follows g_PlayerModelId
 
-Status (2026-11-07): attempts 1 and 2 found no reachable state where the player is not model 0. Attempt 3 (the last) makes nmkin_1 the second-field acceptance check; waiting for Tier 2.
+Status (2026-11-07): done. Attempts 1 and 2 found no reachable state where the player is not model 0. Attempt 3 (`fdc80b2`, tier2 33 pass, 0 fail) confirms g_PlayerModelId = 0 at nmkin_1, the second field. Attempts used: 3 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**: `config/symbols.main.us.txt` (g_PlayerModelId 0x800965E0, g_FieldEntity 0x80074EA4, g_FieldModelAnimStatus 16 entities on) and `include/game.h` (FieldEntity, size 0x84, PosX +0x0C, PosY +0x10; FieldState at 0x8009ABF4, pcModelId at +0x2A).
@@ -76,6 +76,8 @@ Reading:
 **No reachable state has g_PlayerModelId ≠ 0.** It read 0 in seven fields (md1stin, md1_1, md1_2, nmkin_1, md8_1, mds7st1, mds7), with Cloud or Barret leading, and model 0 was always the one the pad moved. FieldState.pcModelId read the same everywhere. A non-0 value probably needs a field whose script makes another model the player (for example a scene where the player controls a different character), which needs that field's own progress value; no reachable source documents those (#38's deviation). The contract allows recording this instead.
 
 **Attempt 3 (the acceptance):** `save-boot-3-player-model-nmkin-1` boots nmkin_1 from a generated save (`harness/saves/disc1-nmkin-1.json`) and checks g_PlayerModelId = 0, model 0's PosX and PosY change under the pad, model 1's PosX doesn't, and a rerun matches. With md1stin (#77's `reactor-field-2-still`), that is the second field the contract asks for, for the value 0. `playerModel.confirmedValues[0]` names it. The attempts 1-2 diagnostics and their saves are removed.
+
+**Attempt 3 result (`fdc80b2`, tier2: 33 pass, 0 fail):** `save-boot-3-player-model-nmkin-1`: model_ok 1, player_model 0, x_dir 1, y_dir 1, other_still 0, match 1, map_cur 120, load_done 352. Every earlier scenario passed unchanged. The nmkin_1 values (player_model 0, model 0 moving, load_done 352) are the same as in attempts 1 and 2, so three Tier 2 runs agree.
 
 **Limits and follow-ups:**
 - `playerPosition()` indexes by g_PlayerModelId, but only index 0 is confirmed; any other index is reported as a hypothesis until a scenario sees one.

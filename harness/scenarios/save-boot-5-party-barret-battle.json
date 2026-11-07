@@ -1,0 +1,187 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-5-party-barret-battle",
+  "description": "#101: party slot 1's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-barret.json (party Cloud, Barret, empty). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[1] and g_ActiveCharacters[1].id read Barret (0x01; a1_barret) and its current HP is in 1..9999 (hp1_ok). Then 2400 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[1].hp decreases since the mark (hp1_dir -1) while max HP is unchanged (max1_dir 0), and the battle is still on. Signs and 1/0 only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-barret",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "slot1": {
+      "addr": "0x8009cbdd",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x04F9 partyID[1] (confirmed #78; ff7-flat-wiki Savemap: 0x00 Cloud, 0x01 Barret, 0x02 Tifa, 0xFF none)"
+    },
+    "act_id1": {
+      "addr": "0x8009dc8c",
+      "type": "u8",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, ActiveCharacterData size 0x440, indexed by party slot) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "hp1": {
+      "addr": "0x8009dc9c",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, ActiveCharacterData size 0x440, indexed by party slot) + 0x010 current HP (s16). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "maxhp1": {
+      "addr": "0x8009dc9e",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, ActiveCharacterData size 0x440, indexed by party slot) + 0x012 max HP (s16). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 2
+        },
+        "timeout": 9000,
+        "press": {
+          "buttons": [
+            "up",
+            "left"
+          ],
+          "every": 60,
+          "hold": 59
+        }
+      },
+      "metric": "battle_wait"
+    },
+    {
+      "wait": {
+        "frames": 600
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "slot1",
+          "equals": 1
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "act_id1",
+          "equals": 1
+        },
+        "timeout": 1
+      },
+      "metric": "a1_barret"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "hp1",
+          "in": [
+            1,
+            9999
+          ]
+        },
+        "timeout": 1
+      },
+      "metric": "hp1_ok"
+    },
+    {
+      "mark": "fight"
+    },
+    {
+      "wait": {
+        "frames": 2400
+      }
+    }
+  ],
+  "assert": [
+    {
+      "change": {
+        "mem": "hp1",
+        "is": "decreased",
+        "signed": true,
+        "since": "fight"
+      },
+      "metric": "hp1_dir"
+    },
+    {
+      "change": {
+        "mem": "maxhp1",
+        "is": "unchanged",
+        "signed": true,
+        "since": "fight"
+      },
+      "metric": "max1_dir"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 2
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "battle_wait",
+    "a1_barret",
+    "hp1_ok",
+    "hp1_dir",
+    "max1_dir",
+    "match",
+    "map_cur",
+    "load_done"
+  ]
+}

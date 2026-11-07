@@ -11,7 +11,7 @@
     "game_state": {
       "addr": "0x8009c560",
       "type": "u16",
-      "description": "g_GameState (s16 as u16; confirmed #76): menu 5. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
+      "description": "g_GameState (s16 as u16; confirmed #76): battle 2. Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt"
     },
     "slot0": {
       "addr": "0x8009cbdc",

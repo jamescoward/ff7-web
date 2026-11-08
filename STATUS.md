@@ -8,7 +8,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#81** (M2 exit, blocked). Ready M2 work: #129 (replace the a0_cloud checks), #140. #24 and #25 become ready for M3 when #81 is done. #140 (the save-booted world map is live) is a follow-up from #80.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#81** (M2 exit, blocked). Ready M2 work: #140. #24 and #25 become ready for M3 when #81 is done. #140 (the save-booted world map is live) is a follow-up from #80.
 
 **Done in M2:**
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
@@ -26,6 +26,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **#80** (PR #139): save descriptions take an optional `module: { state, exitAction }`, so a generated save can start in the world map at an entry point (`disc1-wm1-kalm`, `disc1-wm0-midgar`) or directly in a minigame (`disc1-highway`, the motorcycle game). **gameState 3 (world) and 6 (`minigame`) are confirmed.** The motorcycle race is shown live (its track position advances). The world map is **not** shown to be live: the player actor (world pool element 7) did not move under the pad (#140). None of these is a save point (`notes/80-boot-catalogue.md`).
 - **#107** (PR #141): prevGameState 0 is labelled `none` and confirmed (`reactor-mode-1-field` now checks it, Tier 2 green twice), so a new game's Mode badge is confirmed from the start. The overlay clears the movie sample window each time it is switched on.
 - **#105** (PR #143): `web/js/labs.js` adds off-by-default Labs feature flags (`registerFlag`/`isOn`; stored in `localStorage` `ff7web.labs`; `?labs=a,b` for one visit) and a Labs panel next to Debug. Trip-mode touch features go behind a flag (`notes/105-labs-flags.md`). UI lane next: #106.
+- **#129** (PR #151): the `a0_cloud` checks are replaced by `w0_cloud`: the equipped weapon's equipMask (g_ActiveCharacters[i] + 0x416) reads 0x0201 for Cloud, 0x0002 for Barret and 0x0004 for Tifa, in the field menu and in battle (`notes/129-character-check.md`). The raw `act_id1`/`act_id2` metrics are gone.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

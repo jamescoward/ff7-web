@@ -1,6 +1,6 @@
 # #80: boot points for the world map and a minigame
 
-Status (2026-11-08): attempt 1 pushed, waiting for Tier 2.
+Status (2026-11-08): attempt 1 passed (all three boot points load). Attempt 2 pushed: semantic confirmations plus a world map live diagnostic.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**:
@@ -36,4 +36,22 @@ Reported as well: wm_id (world overlay map number, expected 0), prev_state, the 
 What decides attempt 2: if the world map and highway scenarios pass, attempt 2 confirms gameState 3 and adds the minigame value 6 to `semantic/addresses.js` (and `mode()`), with these scenarios named. If a load times out (w_state 0), attempt 2 tries the other entry point / exit action 2, or the walk-out approach.
 
 ## Results
-(pending)
+
+### Attempt 1 (`417c75c`, tier2: 39 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-7-world-kalm | **w_state 400**, **game_state 3**, **world_ok 1**, **map_cur 2, map_ok 1**, **wm_id 0**, prev_state 0, match 1 |
+| save-boot-8-world-midgar | **w_state 400**, **game_state 3**, **world_ok 1**, **map_cur 1, map_ok 1**, **wm_id 0**, prev_state 0, match 1 |
+| save-boot-9-highway | **w_state 400**, **game_state 6**, **mini_ok 1**, **live 1**, exit 0, prev_state 0, match 1 |
+| the 36 earlier scenarios | pass, unchanged |
+
+Reading:
+- **The game accepts a save with any module state.** g_GameState reads the description's state 400 frames after the title snapshot, the same frame as a field save (#38's w_field 400).
+- **World map:** it still reads 3 after 690 more frames, including 60 frames of Up. The entry point (location) stays as the save named, and the world overlay's map number reads 0 (the main world map), as `WORLD_Main` predicts for entry points 1 and 2. prev_state 0: the first mode after a load has no previous mode.
+- **Motorcycle minigame:** it still reads 6 after 600 frames, and `g_HighwayTrackPos` increased over the last 300: the race is running. g_HighwayExit is 0.
+- **Deterministic:** match 1 in all three (a rerun from the title snapshot ends in the same RAM and picture).
+- **Not yet shown for the world map:** that it is live (the pad moves the party). The state holding and the overlay's own variable reading 0 show that the world module runs, not that the party moves. Attempt 2 checks this.
+
+### Attempt 2 plan
+- `semantic/addresses.js`: gameState 3 (world) is confirmed by `save-boot-7-world-kalm`, and a new label 6 = `minigame` is confirmed by `save-boot-9-highway`. `mode()` reports `minigame` for 6. Other minigame states stay unlabelled (`unknown`). Two existing unit tests that listed the confirmed values are updated to match (3 and 6 move from unconfirmed to confirmed; 7 is still unknown). `web/js/semantic/` is re-synced (`node semantic/sync-web.js`).
+- `save-boot-7-world-kalm` (diagnostic): the world overlay's player actor pointer `D_8010AD40` (low half, `pc_lo`) and the sign of the change of pos.vx/vz of actor pool elements 0-2 over the walk (`D_80109F34[i]`, 0xE0 bytes each, pos at +0x0C/+0x14). The pool is a free list handed out from element 0, so the player should be an early element; the one `pc_lo` names should move, the others need not, so their checks may fail. If the player's element moves, attempt 3 turns it into the acceptance check (the world map's "live" check) and drops the others.

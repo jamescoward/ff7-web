@@ -54,20 +54,24 @@ export const TYPES = Object.freeze({ u8: 1, s8: 1, u16: 2, s16: 2, u32: 4, s32: 
 
 /**
  * Raw `g_GameState` values (notes/36-disc-boot.md). Field, battle and menu are
- * confirmed (#76, see GAME_STATES_CONFIRMED); world is still a hypothesis. There
- * is no movie value: the field module plays movies, so g_GameState reads field
+ * confirmed (#76), world 3 and the motorcycle minigame 6 (#80), see
+ * GAME_STATES_CONFIRMED. The other minigames (7-11, 14 in the decomp's
+ * include/game.h) are not labelled yet, so they read 'unknown'. There is no
+ * movie value: the field module plays movies, so g_GameState reads field
  * during one; movieFrame below tells a movie apart.
  */
-const GAME_STATES = Object.freeze({ 1: 'field', 2: 'battle', 3: 'world', 5: 'menu' });
+const GAME_STATES = Object.freeze({ 1: 'field', 2: 'battle', 3: 'world', 5: 'menu', 6: 'minigame' });
 
 const SC = (name) => `harness/scenarios/${name}.json`;
 const CAVEAT = 'chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)';
 
-/** Which Tier 2 scenario observed each confirmed g_GameState value (#76). */
+/** Which Tier 2 scenario observed each confirmed g_GameState value (#76, #80). */
 const GAME_STATES_CONFIRMED = Object.freeze({
   1: SC('reactor-mode-1-field'),
   2: SC('reactor-mode-4-battle'),
+  3: SC('save-boot-7-world-kalm'),
   5: SC('reactor-mode-2-menu-open'),
+  6: SC('save-boot-9-highway'),
 });
 
 /** Build a frozen table whose entries all apply to boot executable `exe`. */
@@ -118,8 +122,8 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     name: 'gameState',
     address: 0x8009c560,
     type: 's16',
-    meaning: 'current game mode (g_GameState): field = 1, battle = 2, menu = 5 (confirmed); world = 3 (hypothesis). Reads field during a movie; reads 0 on the title',
-    source: `${DECOMP} config/symbols.main.us.txt: g_GameState; values: notes/36-disc-boot.md. Tier 2 (#76, notes/76-confirm-mode.md): 1 at reactor-entrance, after closing the menu and after the first battle; 5 with the menu open; 2 in the first guard battle; 1 during the opening movie; ${CAVEAT}`,
+    meaning: 'current game mode (g_GameState): field = 1, battle = 2, world map = 3, menu = 5, motorcycle minigame = 6 (confirmed); the other minigames (7-11, 14) are unlabelled. Reads field during a movie; reads 0 on the title',
+    source: `${DECOMP} config/symbols.main.us.txt: g_GameState; values: notes/36-disc-boot.md. Tier 2 (#76, notes/76-confirm-mode.md): 1 at reactor-entrance, after closing the menu and after the first battle; 5 with the menu open; 2 in the first guard battle; 1 during the opening movie; ${CAVEAT}. Tier 2 (#80, notes/80-boot-catalogue.md): 3 for 690 frames after a generated save loads into the world map outside Kalm and outside Midgar; 6 for 600 frames after one loads into the motorcycle minigame, while its track position advances`,
     status: 'confirmed',
     scenario: SC('reactor-mode-1-field'),
     values: GAME_STATES,

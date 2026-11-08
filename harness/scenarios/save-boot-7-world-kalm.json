@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-7-world-kalm",
-  "description": "#80, world map: boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map should start at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load, a mark, 60 frames of Up and 30 still. Checks: g_GameState still reads 3 at the end (world_ok), g_FieldCurrentMap still names the entry point (map_ok), and a rerun from the title snapshot ends in the same state (match). Reported: wm_id (the world overlay's map number, 0 = the main world map), prev_state.",
+  "description": "#80, world map: boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map should start at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load, a mark, 60 frames of Up and 30 still. Checks: g_GameState still reads 3 at the end and g_FieldCurrentMap still names the entry point (attempt 1 reported both, with wm_id 0 = the main world map), and a rerun from the title snapshot ends in the same state (match). Attempt 2 (diagnostic): is the world map live? pc_lo is the low half of the player actor pointer, and x0..z2_dir are the signs of the change of pos.vx/vz of actor pool elements 0-2 over the walk; the element pc_lo names should move, the others need not (their checks may fail).",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -29,6 +29,41 @@
       "addr": "0x800e5634",
       "type": "u16",
       "description": "World overlay D_800E5634 (WmGetWmId; s32, low half): which world map runs, 0 = the main map, 2 = underwater, 3 = snowfield. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c, config/symbols.world.txt. A hypothesis read only while the world overlay is loaded."
+    },
+    "pc_lo": {
+      "addr": "0x8010ad40",
+      "type": "u16",
+      "description": "World overlay D_8010AD40, the player actor pointer (low half): which element of the actor pool D_80109F34[] (0xE0 bytes each, low halves 0x9F34 + i*0xE0) is the player. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
+    },
+    "ax0": {
+      "addr": "0x80109f40",
+      "type": "u32",
+      "description": "World actor pool element 0: pos.vx (s32 as u32; WorldActor +0x0C). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
+    },
+    "az0": {
+      "addr": "0x80109f48",
+      "type": "u32",
+      "description": "World actor pool element 0: pos.vz (s32 as u32; WorldActor +0x14)."
+    },
+    "ax1": {
+      "addr": "0x8010a020",
+      "type": "u32",
+      "description": "World actor pool element 1: pos.vx (s32 as u32; WorldActor +0x0C). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
+    },
+    "az1": {
+      "addr": "0x8010a028",
+      "type": "u32",
+      "description": "World actor pool element 1: pos.vz (s32 as u32; WorldActor +0x14)."
+    },
+    "ax2": {
+      "addr": "0x8010a100",
+      "type": "u32",
+      "description": "World actor pool element 2: pos.vx (s32 as u32; WorldActor +0x0C). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
+    },
+    "az2": {
+      "addr": "0x8010a108",
+      "type": "u32",
+      "description": "World actor pool element 2: pos.vz (s32 as u32; WorldActor +0x14)."
     }
   },
   "input": [
@@ -74,15 +109,67 @@
       "expect": {
         "mem": "game_state",
         "equals": 3
-      },
-      "metric": "world_ok"
+      }
     },
     {
       "expect": {
         "mem": "map_cur",
         "equals": 2
+      }
+    },
+    {
+      "change": {
+        "mem": "ax0",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
       },
-      "metric": "map_ok"
+      "metric": "x0_dir"
+    },
+    {
+      "change": {
+        "mem": "az0",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
+      },
+      "metric": "z0_dir"
+    },
+    {
+      "change": {
+        "mem": "ax1",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
+      },
+      "metric": "x1_dir"
+    },
+    {
+      "change": {
+        "mem": "az1",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
+      },
+      "metric": "z1_dir"
+    },
+    {
+      "change": {
+        "mem": "ax2",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
+      },
+      "metric": "x2_dir"
+    },
+    {
+      "change": {
+        "mem": "az2",
+        "is": "changed",
+        "signed": true,
+        "since": "in"
+      },
+      "metric": "z2_dir"
     },
     {
       "sameState": "rerun",
@@ -90,13 +177,13 @@
     }
   ],
   "metrics": [
-    "w_state",
-    "world_ok",
-    "map_ok",
-    "match",
-    "wm_id",
-    "prev_state",
-    "map_cur",
-    "game_state"
+    "pc_lo",
+    "x0_dir",
+    "z0_dir",
+    "x1_dir",
+    "z1_dir",
+    "x2_dir",
+    "z2_dir",
+    "match"
   ]
 }

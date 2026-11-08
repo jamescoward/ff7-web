@@ -39,9 +39,9 @@ async function sampleMovie(layer, mem, frames) {
 }
 
 describe('mode(): confirmation per raw value (shipped table)', () => {
-  test('field 1, battle 2 and menu 5 are confirmed; world 3 is a hypothesis; anything else is unknown and unconfirmed', async () => {
-    for (const [raw, mode, confirmed] of [[1, 'field', true], [2, 'battle', true], [5, 'menu', true], [3, 'world', false],
-      [0, 'unknown', false], [4, 'unknown', false], [6, 'unknown', false], [-1, 'unknown', false]]) {
+  test('field 1, battle 2, world 3, menu 5 and minigame 6 are confirmed; anything else is unknown and unconfirmed', async () => {
+    for (const [raw, mode, confirmed] of [[1, 'field', true], [2, 'battle', true], [5, 'menu', true], [3, 'world', true],
+      [6, 'minigame', true], [0, 'unknown', false], [4, 'unknown', false], [7, 'unknown', false], [-1, 'unknown', false]]) {
       const layer = layerOver(ram({ state: raw, prev: 1 }));
       assert.deepEqual(await layer.mode(), { value: { mode, raw, previous: 'field' }, confirmed }, `raw ${raw}`);
     }
@@ -56,7 +56,7 @@ describe('mode(): confirmation per raw value (shipped table)', () => {
 
   test('valueConfirmed: status, then labels, then confirmedValues', () => {
     const state = ADDRESS_TABLE.entries.find((e) => e.name === 'gameState');
-    assert.deepEqual([1, 2, 3, 4, 5].map((v) => valueConfirmed(state, v)), [true, true, false, false, true]);
+    assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((v) => valueConfirmed(state, v)), [true, true, true, false, true, true, false]);
     const base = { name: 'x', status: 'confirmed', values: { 1: 'a', 2: 'b' } };
     assert.equal(valueConfirmed(base, 2), true, 'no confirmedValues: every labelled value of a confirmed entry');
     assert.equal(valueConfirmed(base, 3), false, 'an unlabelled value is never confirmed');

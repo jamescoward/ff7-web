@@ -84,6 +84,26 @@ body {
   background: var(--panel);
   box-shadow: 0 8px 24px #0008;
 }
+.labs-panel {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(300px, calc(100vw - 24px));
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px #0008;
+}
+.labs-panel[hidden] { display: none; }
+.labs-list { display: grid; gap: 8px; }
+.labs-row { justify-content: flex-start; gap: 12px; padding: 6px 12px; text-align: left; }
+.labs-row input { width: 24px; height: 24px; flex: none; }
+.labs-text { display: grid; }
+.labs-text small { color: var(--muted); font-size: 12px; }
 .hint { margin: 0; color: var(--muted); font-size: 13px; }
 
 /* Stage */

@@ -2,7 +2,7 @@
 
 _Update this when an issue closes or a blocker appears. Fine-grained progress lives in GitHub issues and PR Handoff sections; see `docs/CONTINUITY.md`._
 
-**Trip mode (2026-11-09 to 2026-12-05):** the owner is away and checks nothing. Scheduled sessions follow `docs/CONTINUITY.md`, "Trip mode": the pause label `agents-paused`, one implementer at a time, touch features behind off-by-default Labs flags labelled `tier3-deferred`, and a weekly digest on #123. The M3/M4 plan (#105–#121, owner-approved 2026-11-06) is in `notes/m3-m4-issue-drafts.md`; after the M2 queue below, take #105 and #106 first.
+**Trip mode (2026-11-09 to 2026-12-05):** the owner is away and checks nothing. Scheduled sessions follow `docs/CONTINUITY.md`, "Trip mode": the pause label `agents-paused`, one implementer at a time, touch features behind off-by-default Labs flags labelled `tier3-deferred`, and a weekly digest on #123. The M3/M4 plan (#105–#121, owner-approved 2026-11-06) is in `notes/m3-m4-issue-drafts.md`; after the M2 queue below, take #105 and #106 first. Trip extension issues #130–#137 (owner, 2026-11-07) are listed in the same notes file.
 
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
@@ -28,11 +28,11 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **Things a new agent must know:**
 - Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
 - The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
-- Limits: 64 scenarios per run (32 until #109) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+- Limits: 64 scenarios per run (raised from 32 by #109, PR #122, merged 2026-11-07) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
 - ~~**Measured values in save descriptions:**~~ Decided (owner, 2026-11-06, planning session): values measured in Tier 2 may go in save descriptions, as `harness/saves/disc1-md1stin.json` does. #80 and #101 can build boot points the same way. `docs/SECURITY.md` still says "the author chose"; aligning its wording is an optional `needs-owner` PR.
-- **The Tier 2 scenario limit:** the owner approved raising it from 32 to 64 (2026-11-06). The change is in #109's PR, which touches protected paths and waits for the owner's review and merge. Until it merges, Tier 2 stays at 32.
+- ~~**The Tier 2 scenario limit:**~~ Done: raised from 32 to 64 (#109, PR #122, owner-merged 2026-11-07). New scenarios no longer need to replace old ones.
 - **Optional:** the owner accepted #38's boot point (md1stin, not a save point) in the coordinator session. The coordinator recorded this on #38 (comment 6694044922) from the shared account. A reply from the owner there would make it unambiguous.
 - Done since the last update: PR #94 (the `web` job in the pinned Playwright image) and the pad-echo baseline re-recording (#97) are both merged.
 

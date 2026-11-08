@@ -8,6 +8,7 @@ Planned before the owner's six-week trip so scheduled agents can keep working wi
 - **The game side is proved in Tier 2, the UI side in Tier 1.** UI issues use a fake semantic source in Tier 1. The game behaviour they rely on (state addresses, the planner's pad sequences) has its own Tier 2 issue.
 - **Input only.** Panels compile taps into pad sequences through one planner (S3), and confirm by reading memory (`docs/ARCHITECTURE_SURVEY.md` §6). No memory writes.
 - **No game text.** Panel labels are project-written English or generic ("Choice 2"). Names decoded from RAM at runtime may be shown on the device, never committed or reported from Tier 2.
+- **FF7 knowledge stays platform-neutral** (owner decision, 2026-11-08; `CLAUDE.md`, Engineering standards). Addresses, mode/state decoding, the planner's pad sequences, crop/cover regions in PS1 framebuffer pixels, and what each button means in each mode go in `semantic/` as plain data or pure functions over `readMem`, with no DOM, Worker, Node or timer dependencies, so a future native frontend (3DS, C) can reuse them. `web/js` only renders and handles touch, and gets game facts from `semantic/`.
 - **Tier 2 budget.** 64 scenarios per run since #109 (PR #122, merged 2026-11-07). Batch hypotheses; find addresses in the decomp first.
 
 ## Issues and order

@@ -8,7 +8,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#81** (M2 exit). #24 and #25 become ready for M3 when #81 is done. #140 (the save-booted world map is live) is a follow-up from #80.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#81** (M2 exit, blocked). Ready M2 work: #129 (replace the a0_cloud checks), #140. #24 and #25 become ready for M3 when #81 is done. #140 (the save-booted world map is live) is a follow-up from #80.
 
 **Done in M2:**
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
@@ -24,6 +24,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **#101** (PR #128): `partyHp1` and `partyHp2` are confirmed, and party slots 1 and 2 are seen holding Barret and Tifa. Generated saves at md1stin with party Cloud, Barret, (empty or Tifa); holding Up+Left reaches a random battle in md1_1 after 5236 frames, where each slot's HP falls with max HP unchanged. g_ActiveCharacters + 0x000 is **not** the character ID (it reads 0 for every slot); take the character from Savemap partyID (`notes/101-barret-party.md`).
 - **#99** (PR #126): `playerPosition()` reads the field model `g_PlayerModelId` names (new `playerModel` entry; `fieldX`/`fieldY` are arrays over the 16 models). Only model 0 is confirmed (md1stin and nmkin_1): no reachable state has another value, in seven fields with Cloud or Barret leading (`notes/99-player-model.md`). Generated saves at triangle 0 load in md1_2, nmkin_1, md8_1, mds7st1 and mds7, which helps #80's catalogue.
 - **#80** (PR #139): save descriptions take an optional `module: { state, exitAction }`, so a generated save can start in the world map at an entry point (`disc1-wm1-kalm`, `disc1-wm0-midgar`) or directly in a minigame (`disc1-highway`, the motorcycle game). **gameState 3 (world) and 6 (`minigame`) are confirmed.** The motorcycle race is shown live (its track position advances). The world map is **not** shown to be live: the player actor (world pool element 7) did not move under the pad (#140). None of these is a save point (`notes/80-boot-catalogue.md`).
+- **#107** (PR #141): prevGameState 0 is labelled `none` and confirmed (`reactor-mode-1-field` now checks it, Tier 2 green twice), so a new game's Mode badge is confirmed from the start. The overlay clears the movie sample window each time it is switched on.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**
@@ -37,10 +38,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **Optional:** the owner accepted #38's boot point (md1stin, not a save point) in the coordinator session. The coordinator recorded this on #38 (comment 6694044922) from the shared account. A reply from the owner there would make it unambiguous.
 - Done since the last update: PR #94 (the `web` job in the pinned Playwright image) and the pad-echo baseline re-recording (#97) are both merged.
 
-**Known follow-ups (non-blocking review notes):**
-- From #92 (PR #103), for #93 or a small issue:
-  - A new game's Mode badge reads "hypothesis" until the first mode change, because prevGameState 0 has no label. Labelling 0 and confirming it would fix this.
-  - The movie sample window is not cleared when the overlay is switched off and on.
+**Known follow-ups (non-blocking review notes):** none open. #92's two (the prevGameState 0 badge, the movie window reset) were done in #107.
 
 **State:** Phase 0 merged (PR #2). M1 issues #3–#8 and #14 are filed. #3 is done: `core/build.sh` builds the pinned core to a reproducible Wasm archive (PR #9). #4 is done: `runner/` links it into a headless Node runner with the backend interface and deterministic JSON output. #5 is done: scenario format 1 (`harness/README.md`), `runner/scenario.js`, and the `pad-echo` homebrew, which shows injected input reaching a PS1 program. #6 is done: `tools/asset-guard/check.js` fails on disc images, saves, game executables, oversize binaries and deny-listed hashes. #7 is done (PR #21): `web/` runs the core in the browser (Worker + WORKERFS file import, canvas, AudioWorklet, virtual gamepad and keyboard, memory card in IndexedDB with export/import); Tier 1 on Chromium and WebKit, and the owner's iPhone 14 Pro / iOS 27 check passed.
 

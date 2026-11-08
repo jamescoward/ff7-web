@@ -159,3 +159,15 @@ The emulator gives full control over presentation, but the game always runs unde
 4. Save loss from browser eviction, mitigated by export/import and the home-screen app.
 5. Verification gaps: an agent cannot test on a real iPhone (Playwright WebKit is not iOS Safari) and cannot use private game data. Both run on the owner's devices.
 6. Legal: bring-your-own-files does not settle trademark or copyright questions. No game names or logos in public branding; no game data, screenshots or derived code in the repository.
+
+## 8. Possible later frontends (not planned)
+
+The owner may later build a native frontend for another device, for example the New 3DS / New 2DS XL: homebrew, using PCSX ReARMed's existing 3DS build, with the game on the top screen and touch panels on the bottom screen (owner, 2026-11-08).
+
+What would carry over is the confirmed game knowledge in `semantic/`, so it must not depend on the browser (`CLAUDE.md`, "Keep FF7 knowledge platform-neutral"). The reason: the game and its memory layout are the same on every frontend, while the UI and the platform glue get rewritten anyway.
+
+3DS limits that affect today's design:
+- **Little spare CPU.** The semantic layer has to be cheap to run every frame, and it can't count on replaying input faster than real time (the hidden high-speed replay in §6's input path may not be available there).
+- **Frame counts, not calls or wall time.** `mode()` and anything else that looks back over time should work on frame numbers from the backend, not on how often the caller polls or on timers.
+
+Agents must not plan or start work on another frontend; this section exists only to explain the semantic/ rule.

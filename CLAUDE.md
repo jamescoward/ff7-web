@@ -40,6 +40,14 @@ When a change needs the owner's iPhone check, post one batched request (preview 
   - semantic layer;
   - touch UI;
   - file and save handling.
+- **Keep FF7 knowledge platform-neutral** (owner decision, 2026-11-08), so a future native frontend (for example 3DS, in C) can reuse it (see `docs/ARCHITECTURE_SURVEY.md`, [§8 "Possible later frontends (not planned)"](docs/ARCHITECTURE_SURVEY.md#8-possible-later-frontends-not-planned)). Everything that encodes FF7 knowledge goes in `semantic/` as plain data or pure functions over `readMem`, with no DOM, Worker, Node or timer dependencies. That covers:
+  - addresses;
+  - mode and state decoding;
+  - the menu planner's pad sequences;
+  - crop and cover regions, in PS1 framebuffer pixels;
+  - what each button means in each mode.
+
+  `web/js` only renders and handles touch, and gets game facts from `semantic/`.
 - **Only inject input by default.** Write to game memory only when an issue explicitly allows it, with a scenario proving save integrity.
 - **Keep the classic virtual gamepad working at all times.**
 - **Design for iPhone Safari:** ≤256 MB Wasm heap, storage eviction (saves are exportable), no element fullscreen, touch targets ≥44 px.

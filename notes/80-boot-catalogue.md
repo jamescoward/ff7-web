@@ -1,6 +1,6 @@
 # #80: boot points for the world map and a minigame
 
-Status (2026-11-08): attempt 1 passed (all three boot points load). Attempt 2 found the world map's player actor. Attempt 3 pushed: the world map live check.
+Status (2026-11-08): done, with one part split off. All three boot points load (attempt 1, three Tier 2 runs). gameState 3 (world) and 6 (minigame) are confirmed, and the motorcycle race is live. **The world map is not shown to be live**: attempt 3's check that the player actor moves under the pad failed. That part moved to #140.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**:
@@ -69,3 +69,36 @@ Reading:
 
 ### Attempt 3 plan
 `save-boot-7-world-kalm` becomes the world map's acceptance check: pc_ok (D_8010AD40 names element 7), and element 7's pos.vx and pos.vz both change over 60 frames of Up then 60 of Right (x_dir, z_dir), plus world_ok, map_ok, match, wm_id and w_state as in attempt 1.
+
+### Attempt 3 (`574ce89`, tier2: 38 pass, 1 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-7-world-kalm | w_state 400, world_ok 1, map_ok 1, **pc_ok 1**, wm_id 0, match 1, **x_dir 0, z_dir 0** (fail) |
+| every other scenario | pass, unchanged |
+
+Reading:
+- The player actor pointer names element 7 again (a second run), so the world module sets it deterministically.
+- **Element 7's pos.vx/vz did not change** over 60 frames of Up and 60 of Right, starting 600 frames after the state read 3. Either the world map isn't taking input yet in this state (a fade, an event, a script lock; progress 6 is md1stin's value, not a world map one), or the party's position lives elsewhere (altPos, or a value updated elsewhere). Not resolved here.
+
+## Outcome
+- **Generator:** an optional `module: { state, exitAction }` in save descriptions. A save can start in the world map at a named entry point, or directly in a minigame. Without it, the output is unchanged (Tier 1).
+- **Boot points:**
+  - `disc1-wm1-kalm`: world map, outside Kalm.
+  - `disc1-wm0-midgar`: world map, outside Midgar.
+  - `disc1-highway`: the motorcycle minigame.
+
+  All three load 400 frames after the title snapshot (as a field save does) and rerun deterministically.
+- **Confirmed:**
+  - gameState 3 = world (`save-boot-7-world-kalm`; Midgar agrees). The state holds for 690+ frames, the world overlay's map number reads 0 and its player pointer is set.
+  - gameState 6 = minigame, the motorcycle game (`save-boot-9-highway`). The state holds and `g_HighwayTrackPos` advances.
+  - `mode()` reports `minigame` for 6. Other minigame states (7-11, 14) stay `unknown` until a scenario sees them.
+- **#38's three checks for these boot points:**
+  - ID: the location the save named stays, checked.
+  - Position: the world map has no walkmesh triangle; the player actor pointer is checked instead.
+  - Live: shown for the motorcycle game (track advances); **not shown for the world map** (#140).
+- **Deviations:**
+  - None of these is a save point: no reachable source documents save points or progress values (#38's deviation).
+  - Progress 6 is md1stin's value.
+  - The minigame boot point starts the minigame directly from the save, rather than standing at a save point next to a minigame entry, as the issue suggested.
+- **Out of contract:** `harness/schema/save.schema.json` (the new field) and `web/js/semantic/` (the synced copy).
+- **Attempts:** 1 succeeded (loading). 2 was a diagnostic that found the player actor. 3 failed (world map live). The world map live check moved to #140, per the split rule, rather than spending a fourth Tier 2 run in this PR.

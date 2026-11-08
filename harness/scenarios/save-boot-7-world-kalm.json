@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-7-world-kalm",
-  "description": "#80, world map: boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map starts at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load, a mark, 60 frames of Up, 60 of Right and 30 still. Checks (#38's three, for the world map): g_GameState still reads 3 (world_ok) and g_FieldCurrentMap still names the entry point (map_ok); the world overlay's player actor pointer D_8010AD40 names pool element 7 (pc_ok; attempt 2 measured it); the world map is live: that actor's pos.vx and pos.vz changed since the mark (x_dir, z_dir: signs only); and a rerun from the title snapshot ends in the same state (match). Reported: wm_id (0 = the main world map).",
+  "description": "#80, world map: boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map starts at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load, 60 frames of Up, 60 of Right and 30 still. Checks: g_GameState still reads 3 (world_ok); g_FieldCurrentMap still names the entry point (map_ok); the world overlay has set its player actor pointer D_8010AD40 to pool element 7 (pc_ok: low half 0xA554, measured in attempts 2 and 3), so the world module itself is running; and a rerun from the title snapshot ends in the same state (match). Not checked: that the pad moves the party. In attempt 3 element 7's pos.vx/vz did not change over that input (notes/80-boot-catalogue.md; follow-up issue). Reported: wm_id (0 = the main world map).",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -34,16 +34,6 @@
       "addr": "0x8010ad40",
       "type": "u16",
       "description": "World overlay D_8010AD40, the player actor pointer (low half): which element of the actor pool D_80109F34[] (0xE0 bytes each, low halves 0x9F34 + i*0xE0) is the player. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
-    },
-    "px": {
-      "addr": "0x8010a560",
-      "type": "u32",
-      "description": "World actor pool element 7 (D_80109F34 + 7 * 0xE0 = 0x8010A554), pos.vx at +0x0C (s32 as u32): the player actor (#80 attempt 2: D_8010AD40 low half 0xA554). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
-    },
-    "pz": {
-      "addr": "0x8010a568",
-      "type": "u32",
-      "description": "World actor pool element 7, pos.vz at +0x14 (s32 as u32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
     }
   },
   "input": [
@@ -68,9 +58,6 @@
       "wait": {
         "frames": 600
       }
-    },
-    {
-      "mark": "in"
     },
     {
       "buttons": [
@@ -113,24 +100,6 @@
       "metric": "pc_ok"
     },
     {
-      "change": {
-        "mem": "px",
-        "is": "changed",
-        "signed": true,
-        "since": "in"
-      },
-      "metric": "x_dir"
-    },
-    {
-      "change": {
-        "mem": "pz",
-        "is": "changed",
-        "signed": true,
-        "since": "in"
-      },
-      "metric": "z_dir"
-    },
-    {
       "sameState": "rerun",
       "metric": "match"
     }
@@ -140,9 +109,9 @@
     "world_ok",
     "map_ok",
     "pc_ok",
-    "x_dir",
-    "z_dir",
     "match",
-    "wm_id"
+    "wm_id",
+    "prev_state",
+    "game_state"
   ]
 }

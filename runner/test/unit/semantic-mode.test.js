@@ -50,8 +50,16 @@ describe('mode(): confirmation per raw value (shipped table)', () => {
   test('the previous mode follows the same rule: an unconfirmed previous value leaves the result unconfirmed', async () => {
     assert.equal((await layerOver(ram({ state: 1, prev: 2 })).mode()).confirmed, true);
     assert.deepEqual(await layerOver(ram({ state: 1, prev: 3 })).mode(), { value: { mode: 'field', raw: 1, previous: 'world' }, confirmed: false });
-    // 0 before the first mode change of a new game: no label, so not confirmed.
-    assert.deepEqual(await layerOver(ram({ state: 1, prev: 0 })).mode(), { value: { mode: 'field', raw: 1, previous: 'unknown' }, confirmed: false });
+  });
+
+  test('prevGameState 0 (before the first mode change of a new game) is none, confirmed (#107)', async () => {
+    assert.deepEqual(await layerOver(ram({ state: 1, prev: 0 })).mode(), { value: { mode: 'field', raw: 1, previous: 'none' }, confirmed: true });
+    const prev = ADDRESS_TABLE.entries.find((e) => e.name === 'prevGameState');
+    assert.equal(prev.confirmedValues[0], 'harness/scenarios/reactor-mode-1-field.json');
+    // gameState's own 0 (the title) stays unlabelled and unconfirmed.
+    assert.deepEqual(await layerOver(ram({ state: 0, prev: 0 })).mode(), { value: { mode: 'unknown', raw: 0, previous: 'none' }, confirmed: false });
+    // An unlabelled previous value still leaves the result unconfirmed.
+    assert.deepEqual(await layerOver(ram({ state: 1, prev: 4 })).mode(), { value: { mode: 'field', raw: 1, previous: 'unknown' }, confirmed: false });
   });
 
   test('valueConfirmed: status, then labels, then confirmedValues', () => {
@@ -70,8 +78,7 @@ describe('mode(): movies (movieFrame advancing while gameState reads field)', ()
     const mem = ram({ state: 1, prev: 0 });
     const layer = layerOver(mem);
     const r = await sampleMovie(layer, mem, [100, 104, 108]);
-    assert.deepEqual(r.value, { mode: 'movie', raw: 1, previous: 'unknown' });
-    // prev 0 is unlabelled (the opening of a new game), so this one is not confirmed; with a confirmed previous it is.
+    assert.deepEqual(r, { value: { mode: 'movie', raw: 1, previous: 'none' }, confirmed: true });
     const mem2 = ram({ state: 1, prev: 5 });
     assert.deepEqual(await sampleMovie(layerOver(mem2), mem2, [100, 104]), { value: { mode: 'movie', raw: 1, previous: 'menu' }, confirmed: true });
   });
@@ -150,6 +157,17 @@ describe('mode(): movies (movieFrame advancing while gameState reads field)', ()
     }));
     const mem = ram({ state: 1, prev: 5 });
     assert.deepEqual(await sampleMovie(layerOver(mem, hyp), mem, [10, 14]), { value: { mode: 'movie', raw: 1, previous: 'menu' }, confirmed: false });
+  });
+
+  test('clearMovieWindow forgets old samples: the next single sample is not a movie (#107)', async () => {
+    const mem = ram({ state: 1, prev: 5 });
+    const layer = layerOver(mem);
+    assert.equal((await sampleMovie(layer, mem, [100, 104, 108])).value.mode, 'movie');
+    // Without clearing, a stuck counter right after still reads as a movie (the window holds the advance).
+    assert.equal((await sampleMovie(layer, mem, [108])).value.mode, 'movie');
+    layer.clearMovieWindow();
+    assert.equal((await sampleMovie(layer, mem, [108])).value.mode, 'field');
+    assert.equal((await sampleMovie(layer, mem, [112])).value.mode, 'movie', 'a fresh advance after clearing is a movie again');
   });
 
   test('movieAdvancing skips 0 and failed reads', () => {

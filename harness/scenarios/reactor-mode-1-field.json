@@ -2,7 +2,7 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "name": "reactor-mode-1-field",
-  "description": "#76: field. At reactor-entrance (#74: a still, non-blank picture that ignored five Circle presses, frame 11095 from power-on), g_GameState reads field (1): field_wait is the first frame it does (1 = at once), field_ok the 0/1 check after 5 s more. g_PrevGameState reads 0 (nothing before the first field; unchecked metric). No movie plays: Stframe_no holds the opening's last frame number 1790 (no_movie). match: a rerun from the same snapshot.",
+  "description": "#76: field. At reactor-entrance (#74: a still, non-blank picture that ignored five Circle presses, frame 11095 from power-on), g_GameState reads field (1): field_wait is the first frame it does (1 = at once), field_ok the 0/1 check after 5 s more. g_PrevGameState reads 0 (nothing before the first field): a check since #107, which confirms 0 as prevGameState none; its value is the prev_state metric. No movie plays: Stframe_no holds the opening's last frame number 1790 (no_movie). match: a rerun from the same snapshot.",
   "tier": 2,
   "boot": {
     "from": "reactor-entrance"
@@ -48,6 +48,12 @@
         "equals": 1
       },
       "metric": "field_ok"
+    },
+    {
+      "expect": {
+        "mem": "prev_state",
+        "equals": 0
+      }
     },
     {
       "expect": {

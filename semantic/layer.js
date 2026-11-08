@@ -150,6 +150,15 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       return { value: { mode: label('gameState', raw), raw, previous }, confirmed: r.confirmed };
     },
 
+    /**
+     * Forget the movieFrame samples mode() looks back over (#107). The overlay
+     * calls it each time it starts polling, so samples taken before it was
+     * switched off can't make the first new ones read as a movie.
+     */
+    clearMovieWindow() {
+      movieSamples.length = 0;
+    },
+
     /** { value: field id } */
     async fieldId() {
       const r = await read(['fieldId']);

@@ -9,6 +9,7 @@ import { createKeyboard } from './keyboard.js';
 import { cardProblem, createCardStore, downloadCard, readCardFile } from './memcard.js';
 import { createOverlay } from './overlay.js';
 import { createInputMixer } from './pad.js';
+import * as labs from './labs.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('screen');
@@ -45,6 +46,9 @@ document.addEventListener('pointerdown', (e) => {
   if (cardMenu.open && !cardMenu.contains(e.target)) cardMenu.open = false;
 });
 const closeCardMenu = () => { cardMenu.open = false; };
+
+// Labs (#105): off-by-default feature flags.
+labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 
 // The debug overlay (#79): off by default, and its toggle stays hidden unless
 // the worker's hash gate says this is the USA disc.
@@ -212,5 +216,6 @@ window.ff7web = {
   cards,
   mixer,
   overlay,
+  labs,
   drawnFrame: () => drawn,
 };

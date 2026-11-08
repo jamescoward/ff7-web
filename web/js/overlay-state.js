@@ -65,6 +65,8 @@ export function createStatePoller({ semantic, post, hz = OVERLAY_HZ, timers = gl
     start() {
       if (handle !== null) return;
       last = '';
+      // Old movie samples would make the first new ones read as a movie (#107).
+      semantic.clearMovieWindow?.();
       handle = timers.setInterval(tick, Math.round(1000 / hz));
       tick();
     },

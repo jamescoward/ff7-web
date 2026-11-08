@@ -62,6 +62,13 @@ export const TYPES = Object.freeze({ u8: 1, s8: 1, u16: 2, s16: 2, u32: 4, s32: 
  */
 const GAME_STATES = Object.freeze({ 1: 'field', 2: 'battle', 3: 'world', 5: 'menu', 6: 'minigame' });
 
+/**
+ * g_PrevGameState's labels: g_GameState's, plus 0 = none, which it holds from
+ * a new game's start until the first mode change (#76, confirmed by #107).
+ * g_GameState's own 0 (the title) stays unlabelled.
+ */
+const PREV_GAME_STATES = Object.freeze({ 0: 'none', ...GAME_STATES });
+
 const SC = (name) => `harness/scenarios/${name}.json`;
 const CAVEAT = 'chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)';
 
@@ -133,12 +140,12 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     name: 'prevGameState',
     address: 0x800965ec,
     type: 's16',
-    meaning: 'the previous game mode (g_PrevGameState), same values as gameState; 0 before the first mode change of a new game',
-    source: `${DECOMP} config/symbols.main.us.txt: g_PrevGameState; notes/36-disc-boot.md. Tier 2 (#76): 0 at reactor-entrance, field 1 in the menu and in battle, menu 5 after closing the menu, battle 2 after the battle; ${CAVEAT}`,
+    meaning: 'the previous game mode (g_PrevGameState), same values as gameState, plus none = 0 before the first mode change of a new game',
+    source: `${DECOMP} config/symbols.main.us.txt: g_PrevGameState; notes/36-disc-boot.md. Tier 2 (#76): 0 at reactor-entrance, field 1 in the menu and in battle, menu 5 after closing the menu, battle 2 after the battle; ${CAVEAT}. Tier 2 (#107): 0 at reactor-entrance is a check, not only a metric`,
     status: 'confirmed',
     scenario: SC('reactor-mode-3-menu-close'),
-    values: GAME_STATES,
-    confirmedValues: Object.freeze({ 1: SC('reactor-mode-2-menu-open'), 2: SC('reactor-mode-5-battle-end'), 5: SC('reactor-mode-3-menu-close') }),
+    values: PREV_GAME_STATES,
+    confirmedValues: Object.freeze({ 0: SC('reactor-mode-1-field'), 1: SC('reactor-mode-2-menu-open'), 2: SC('reactor-mode-5-battle-end'), 5: SC('reactor-mode-3-menu-close') }),
   },
   {
     name: 'movieFrame',

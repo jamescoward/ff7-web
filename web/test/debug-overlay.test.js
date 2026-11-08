@@ -140,6 +140,20 @@ describe('overlay state (no browser)', () => {
     assert.ok(calls > 0);
   });
 
+  test('each start clears the layer\'s movie window, so old samples cannot make a movie (#107)', async () => {
+    let clears = 0;
+    const semantic = { clearMovieWindow: () => { clears++; }, mode: async () => ({ value: null, confirmed: false, reason: 'no address' }) };
+    const timers = { setInterval: () => 1, clearInterval: () => {} };
+    const p = createStatePoller({ semantic: new Proxy(semantic, { get: (o, k) => o[k] ?? (async () => ({ value: null, confirmed: false, reason: 'no address' })) }), post: () => {}, timers });
+    p.start();
+    p.start(); // already running: no second clear
+    assert.equal(clears, 1);
+    p.stop();
+    p.start();
+    assert.equal(clears, 2);
+    p.stop();
+  });
+
   test('the layer handed to the overlay has no way to write', async () => {
     const { createSemantic } = await import('../js/semantic/layer.js');
     const s = createSemantic({ backend: { readMem: () => new Uint8Array(8) }, exeSha1: null });
@@ -224,6 +238,42 @@ for (const name of BROWSERS) {
         const reads = await page.evaluate(() => window.fake.state.reads);
         await page.waitForTimeout(250);
         assert.equal(await page.evaluate(() => window.fake.state.reads), reads);
+        assert.deepEqual(errors, []);
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('a new game reads "was none", confirmed; switching the overlay off and on clears the movie window (#107)', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser);
+      try {
+        await page.evaluate(() => {
+          window.fake.set(0x8009c560, 'Int16', 1); // gameState field
+          window.fake.set(0x800965ec, 'Int16', 0); // prevGameState 0: a new game before its first mode change
+          window.fake.set(0x80071740, 'Uint32', 100); // movieFrame
+          window.fake.load(true, 'real');
+          // Advance movieFrame faster than the 20 Hz poller, so every sample sees an advance.
+          window.movieTimer = setInterval(() => {
+            const v = window.fake.view;
+            v.setUint32(0x80071740 & 0x1fffffff, v.getUint32(0x80071740 & 0x1fffffff, true) + 4, true);
+          }, 10);
+        });
+        await page.click('#debug-btn');
+        await until(async () => (await rows(page)).mode?.val === 'movie (1), was none', { what: 'the movie' });
+        assert.equal((await rows(page)).mode.badge, SHIPPED_MODE_BADGE);
+        // Stop the movie (the counter holds) and switch the overlay off in the same task, then on again.
+        await page.evaluate(() => {
+          clearInterval(window.movieTimer);
+          document.querySelector('#debug-btn').click();
+        });
+        assert.equal(await visible(page, '#debug'), false);
+        await page.click('#debug-btn');
+        // The first sample after switching on: without the clear, the old window (which holds
+        // advances) would still say movie for up to MOVIE_WINDOW samples.
+        await until(async () => (await rows(page)).mode, { what: 'the first sample after switching on' });
+        assert.deepEqual((await rows(page)).mode, { val: 'field (1), was none', badge: SHIPPED_MODE_BADGE, reason: null });
+        assert.deepEqual(await page.evaluate(() => window.fake.state.overlayCalls), [true, false, true]);
         assert.deepEqual(errors, []);
       } finally {
         await context.close();

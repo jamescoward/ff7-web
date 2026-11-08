@@ -1,6 +1,6 @@
 # #80: boot points for the world map and a minigame
 
-Status (2026-11-08): attempt 1 passed (all three boot points load). Attempt 2 pushed: semantic confirmations plus a world map live diagnostic.
+Status (2026-11-08): attempt 1 passed (all three boot points load). Attempt 2 found the world map's player actor. Attempt 3 pushed: the world map live check.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `9411173034bde2ae4c9b0312167e79c3645ca1be`**:
@@ -55,3 +55,17 @@ Reading:
 ### Attempt 2 plan
 - `semantic/addresses.js`: gameState 3 (world) is confirmed by `save-boot-7-world-kalm`, and a new label 6 = `minigame` is confirmed by `save-boot-9-highway`. `mode()` reports `minigame` for 6. Other minigame states stay unlabelled (`unknown`). Two existing unit tests that listed the confirmed values are updated to match (3 and 6 move from unconfirmed to confirmed; 7 is still unknown). `web/js/semantic/` is re-synced (`node semantic/sync-web.js`).
 - `save-boot-7-world-kalm` (diagnostic): the world overlay's player actor pointer `D_8010AD40` (low half, `pc_lo`) and the sign of the change of pos.vx/vz of actor pool elements 0-2 over the walk (`D_80109F34[i]`, 0xE0 bytes each, pos at +0x0C/+0x14). The pool is a free list handed out from element 0, so the player should be an early element; the one `pc_lo` names should move, the others need not, so their checks may fail. If the player's element moves, attempt 3 turns it into the acceptance check (the world map's "live" check) and drops the others.
+
+### Attempt 2 (`635cf52`, tier2: 38 pass, 1 fail; the fail is the diagnostic)
+| scenario | metrics |
+|---|---|
+| save-boot-7-world-kalm | **pc_lo 42324 (0xA554)**, x0..z2_dir all 0, match 1 |
+| save-boot-8-world-midgar, save-boot-9-highway | as attempt 1 (every metric equal) |
+| every other scenario | pass, unchanged |
+
+Reading:
+- The player actor pointer's low half is 0xA554 = 0x9F34 + 7 × 0xE0: **pool element 7**, exactly on an element boundary, so the pointer reading is consistent with the decomp's layout. Elements 0-2 did not move: they are other actors (or unused).
+- The semantic confirmations (gameState 3 and 6) passed the unit and Tier 1 checks. The Midgar and motorcycle scenarios repeat attempt 1's metrics exactly, a second Tier 2 run.
+
+### Attempt 3 plan
+`save-boot-7-world-kalm` becomes the world map's acceptance check: pc_ok (D_8010AD40 names element 7), and element 7's pos.vx and pos.vz both change over 60 frames of Up then 60 of Right (x_dir, z_dir), plus world_ok, map_ok, match, wm_id and w_state as in attempt 1.

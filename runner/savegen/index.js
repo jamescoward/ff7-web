@@ -54,8 +54,9 @@ export function planWrites(desc) {
   // menu draws nothing there whatever the baseline holds (#38).
   put('previewNameEnd', FF_TEXT_END);
   put('previewPlaceEnd', FF_TEXT_END);
-  put('module', MODULE_FIELD);
-  put('moduleAux', MODULE_AUX_FIELD);
+  // A description without 'module' is a field save, as before #80.
+  put('module', desc.module?.state ?? MODULE_FIELD);
+  put('moduleAux', desc.module?.exitAction ?? MODULE_AUX_FIELD);
   put('fieldId', field.id);
   put('fieldX', field.x);
   put('fieldY', field.y);

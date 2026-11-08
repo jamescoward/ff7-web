@@ -41,6 +41,22 @@
       "items": { "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 255] }
     },
     "progress": { "description": "Main progress variable (savemap 0x0BA4, u16).", "$ref": "#/$defs/u16" },
+    "module": {
+      "description": "Optional (#80): the game state the save loads into, and the world map exit action. Left out: field (state 1, exit action 0), as before. The title's load copies state into g_GameState and exitAction into the world map's entry argument (Xeeynamo/ff7-decomp InitFieldFromSavemap, reference only). With state 3 (world map) and exit action 0, field.id names the world map entry point (wm0-wm63 are field IDs 1-64, ff7-flat-wiki Field_ID), as when a field exit leads to the world map. States 6-14 start a minigame directly. notes/80-boot-catalogue.md.",
+      "type": "object",
+      "required": ["state", "exitAction"],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "description": "Savemap 0x0B94 (u16): 1 field, 3 world map, 6 motorcycle, 7 chocobo race, 8 snowboard, 9 Fort Condor, 10 submarine, 11 speed square, 14 snowboard (Gold Saucer); decomp include/game.h GAMESTATE_*.",
+          "enum": [1, 3, 6, 7, 8, 9, 10, 11, 14]
+        },
+        "exitAction": {
+          "description": "Savemap 0x0B90 (u32, worldmap_exit_action): 0 enter the world map at the entry point field.id names, 1 return from a battle, 2 resume at the world position saved in bank 4 (decomp src/main/110B8.c func_800112E8, src/world/world.c WORLD_Main).",
+          "enum": [0, 1, 2]
+        }
+      }
+    },
     "gil": { "description": "Gil (savemap 0x0B7C, u32; mirrored to the preview at 0x0020).", "$ref": "#/$defs/u32" },
     "seconds": {
       "description": "Play time in seconds (savemap 0x0B80, u32; mirrored to the preview at 0x0024 and to the H/M/S timer at 0x0BB4-0x0BB6, so at most 255:59:59).",

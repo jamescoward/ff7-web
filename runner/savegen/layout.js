@@ -40,7 +40,7 @@ export const SAVEMAP = Object.freeze({
   gil: { offset: 0x0b7c, type: 'u32', source: 'wiki' },
   seconds: { offset: 0x0b80, type: 'u32', source: 'wiki' },
   moduleAux: { offset: 0x0b90, type: 'u32', source: 'decomp SaveWork.worldmap_exit_action (InitWorldFromSavemap stores 0 in a field, 2 on the world map; the wiki says the opposite, #38)' },
-  module: { offset: 0x0b94, type: 'u16', source: 'wiki (1 = field, 3 = world map)' },
+  module: { offset: 0x0b94, type: 'u16', source: 'wiki (1 = field, 3 = world map); decomp InitFieldFromSavemap copies it into g_GameState, so a minigame state (6-14, include/game.h) starts that minigame (#80)' },
   fieldId: { offset: 0x0b96, type: 'u16', source: 'wiki (current location)' },
   fieldX: { offset: 0x0b9a, type: 's16', source: 'wiki' },
   fieldY: { offset: 0x0b9c, type: 's16', source: 'wiki' },

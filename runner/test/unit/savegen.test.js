@@ -121,6 +121,11 @@ describe('save description schema', () => {
     'var overlapping progress': (d) => { d.vars.push({ bank: 1, offset: 1, size: 1, value: 0 }); },
     'var overlapping the timer': (d) => { d.vars.push({ bank: 1, offset: 0x11, size: 2, value: 0 }); },
     'two vars on one byte': (d) => { d.vars.push({ bank: 2, offset: 0x0f, size: 2, value: 0 }); },
+    'module state 2 (battle)': (d) => { d.module = { state: 2, exitAction: 0 }; },
+    'module state 5 (menu)': (d) => { d.module = { state: 5, exitAction: 0 }; },
+    'module exit action 3': (d) => { d.module = { state: 3, exitAction: 3 }; },
+    'module without exit action': (d) => { d.module = { state: 3 }; },
+    'unknown module member': (d) => { d.module = { state: 3, exitAction: 0, x: 1 }; },
   };
   for (const [name, mutate] of Object.entries(bad)) {
     test(`rejects: ${name}`, () => {
@@ -132,6 +137,45 @@ describe('save description schema', () => {
       assert.throws(() => generateCard(pattern(1), d), SaveDescriptionError);
     });
   }
+});
+
+describe('module (#80)', () => {
+  const baseline = pattern(0x5a);
+  const at = (sm, off, n) => [...sm.subarray(off, off + n)];
+
+  test('left out, the save is a field save: state 1 at 0x0B94, exit action u32 0 at 0x0B90', () => {
+    const d = clone(base);
+    delete d.module;
+    const { savemap } = buildSavemap(baseline, d);
+    assert.deepEqual(at(savemap, 0x0b94, 2), [1, 0]);
+    assert.deepEqual(at(savemap, 0x0b90, 4), [0, 0, 0, 0]);
+  });
+
+  test('world map entry: state 3 and exit action 0', () => {
+    const { savemap } = buildSavemap(baseline, { ...clone(base), module: { state: 3, exitAction: 0 } });
+    assert.deepEqual(at(savemap, 0x0b94, 2), [3, 0]);
+    assert.deepEqual(at(savemap, 0x0b90, 4), [0, 0, 0, 0]);
+    assert.deepEqual(at(savemap, 0x0b96, 2), [0x23, 0x01], 'field.id still goes to 0x0B96');
+  });
+
+  test('world map resume: exit action 2 as a little-endian u32', () => {
+    const { savemap } = buildSavemap(baseline, { ...clone(base), module: { state: 3, exitAction: 2 } });
+    assert.deepEqual(at(savemap, 0x0b90, 4), [2, 0, 0, 0]);
+  });
+
+  test('a minigame state: 6 (motorcycle)', () => {
+    const { savemap } = buildSavemap(baseline, { ...clone(base), module: { state: 6, exitAction: 0 } });
+    assert.deepEqual(at(savemap, 0x0b94, 2), [6, 0]);
+  });
+
+  test('only 0x0B90-0x0B95 and the checksum differ from the same description without module', () => {
+    const plain = buildSavemap(baseline, base).savemap;
+    const world = buildSavemap(baseline, { ...clone(base), module: { state: 3, exitAction: 2 } }).savemap;
+    for (let i = 0; i < SAVEMAP_SIZE; i++) {
+      if (CHECKSUM_BYTES.includes(i) || (i >= 0x0b90 && i < 0x0b96)) continue;
+      assert.equal(world[i], plain[i], `0x${i.toString(16)}`);
+    }
+  });
 });
 
 describe('placement', () => {

@@ -40,7 +40,7 @@ When a change needs the owner's iPhone check, post one batched request (preview 
   - semantic layer;
   - touch UI;
   - file and save handling.
-- **Keep FF7 knowledge platform-neutral** (owner decision, 2026-11-08), so a future native frontend (for example 3DS, in C) can reuse it. Everything that encodes FF7 knowledge goes in `semantic/` as plain data or pure functions over `readMem`, with no DOM, Worker, Node or timer dependencies. That covers:
+- **Keep FF7 knowledge platform-neutral** (owner decision, 2026-11-08), so a future native frontend (for example 3DS, in C) can reuse it (see `docs/ARCHITECTURE_SURVEY.md`, [§8 "Possible later frontends (not planned)"](docs/ARCHITECTURE_SURVEY.md#8-possible-later-frontends-not-planned)). Everything that encodes FF7 knowledge goes in `semantic/` as plain data or pure functions over `readMem`, with no DOM, Worker, Node or timer dependencies. That covers:
   - addresses;
   - mode and state decoding;
   - the menu planner's pad sequences;

@@ -81,8 +81,7 @@
           "every": 30,
           "hold": 4
         }
-      },
-      "metric": "w_state"
+      }
     },
     {
       "wait": {

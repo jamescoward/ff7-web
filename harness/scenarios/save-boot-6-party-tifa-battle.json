@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-6-party-tifa-battle",
-  "description": "#101: party slot 2's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-tifa.json (party Cloud, Barret, Tifa; author-chosen, to see slot 2 with a character in it). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[2] reads Tifa (0x02) and its current HP is in 1..9999 (hp2_ok). Then 3000 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[2].hp decreases since the mark (hp2_dir -1) while max HP is unchanged (max2_dir 0), and the battle is still on. act_id2: the raw byte at g_ActiveCharacters[2] + 0 at the end (attempt 1: not the character ID). Signs, 1/0 and that byte only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state. Slot 2 is the same layout one stride on; this scenario is the evidence for partySlot2 and partyHp2 holding a character.",
+  "description": "#101: party slot 2's current HP is the value a battle lowers. Boot from the generated save harness/saves/disc1-md1stin-tifa.json (party Cloud, Barret, Tifa; author-chosen, to see slot 2 with a character in it). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Hold Up+Left (59 of every 60 frames) until g_GameState reads battle (2; battle_wait): up-left leaves md1stin for md1_1 (#77), where #78's attempt 3 met a random battle. 600 frames for the battle to start, then at the mark: partyID[2] reads Tifa (0x02) and its current HP is in 1..9999 (hp2_ok). Then 3000 frames with no input (the enemies attack; nobody acts): g_ActiveCharacters[2].hp decreases since the mark (hp2_dir -1) while max HP is unchanged (max2_dir 0), and the battle is still on. At the end, g_ActiveCharacters[2] holds a Tifa weapon (equipMask 0x0004; w2_tifa) and g_ActiveCharacters[0] a Cloud weapon (0x0201): #129 replaces the raw id byte at + 0 (act_id2, 0 for every character in #101) with a field that tells the characters apart. Signs and 1/0 only; no HP leaves. map_cur: the field the battle started from. match: a rerun from the title snapshot ends in the same state. Slot 2 is the same layout one stride on; this scenario is the evidence for partySlot2 and partyHp2 holding a character.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-tifa",
@@ -30,10 +30,15 @@
       "type": "u8",
       "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x04FA partyID[2] (confirmed #78; ff7-flat-wiki Savemap: 0x00 Cloud, 0x01 Barret, 0x02 Tifa, 0xFF none)"
     },
-    "act_id2": {
-      "addr": "0x8009e0cc",
-      "type": "u8",
-      "description": "g_ActiveCharacters[2] (0x8009D84C, ActiveCharacterData size 0x440, indexed by party slot) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    "weapon0": {
+      "addr": "0x8009dc62",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot) + 0x416: the equipped weapon's equipMask. Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h: ActiveCharacterData + 0x408 weapon (WeaponRecord, 0x2C bytes) + 0x0E equipMask, equippable-by-character bitmask (bit0 Cloud, bit1 Barret, bit2 Tifa, bit9 Young Cloud; Cloud weapons 0x0201). #129: tells the character in the slot apart, where + 0x000 does not (#101); Cloud 0x0201"
+    },
+    "weapon2": {
+      "addr": "0x8009e4e2",
+      "type": "u16",
+      "description": "g_ActiveCharacters[2] (0x8009D84C, stride 0x440, indexed by party slot) + 0x416: the equipped weapon's equipMask. Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h: ActiveCharacterData + 0x408 weapon (WeaponRecord, 0x2C bytes) + 0x0E equipMask, equippable-by-character bitmask (bit0 Cloud, bit1 Barret, bit2 Tifa, bit9 Young Cloud; Cloud weapons 0x0201). #129: tells the character in the slot apart, where + 0x000 does not (#101); Tifa 0x0004"
     },
     "hp2": {
       "addr": "0x8009e0dc",
@@ -160,13 +165,26 @@
       }
     },
     {
+      "expect": {
+        "mem": "weapon2",
+        "equals": 4
+      },
+      "metric": "w2_tifa"
+    },
+    {
+      "expect": {
+        "mem": "weapon0",
+        "equals": 513
+      }
+    },
+    {
       "sameState": "rerun",
       "metric": "match"
     }
   ],
   "metrics": [
     "battle_wait",
-    "act_id2",
+    "w2_tifa",
     "hp2_ok",
     "hp2_dir",
     "max2_dir",

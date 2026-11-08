@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-4-party-barret-menu",
-  "description": "#101: Barret in party slot 1, in the field menu (the menu draws party HP, as #78's reactor-mode-2e). Boot from the generated save harness/saves/disc1-md1stin-barret.json: #38's md1stin boot point with party Cloud, Barret, empty (author-chosen). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Then Triangle (4 frames every second) until g_GameState reads menu (5; menu_wait), and 30 frames more. Savemap partyID reads Cloud (0x00), Barret (0x01), empty (0xFF); g_ActiveCharacters[1] has current and max HP in 1..9999. act_id1: the raw byte at g_ActiveCharacters[1] + 0 (attempt 1: not 0x01, so the wiki's \"character ID\" there is not the party member's ID; reported to find out what it is). Otherwise only 1/0 leaves. match: a rerun from the title snapshot ends in the same state.",
+  "description": "#101: Barret in party slot 1, in the field menu (the menu draws party HP, as #78's reactor-mode-2e). Boot from the generated save harness/saves/disc1-md1stin-barret.json: #38's md1stin boot point with party Cloud, Barret, empty (author-chosen). Load as save-boot-1-load does: from the title, Circle every 30 frames until field mode, then #77's field-loaded rule; the field is md1stin (116). Then Triangle (4 frames every second) until g_GameState reads menu (5; menu_wait), and 30 frames more. Savemap partyID reads Cloud (0x00), Barret (0x01), empty (0xFF); g_ActiveCharacters[1] has current and max HP in 1..9999. At the end, g_ActiveCharacters[1] holds a Barret weapon (equipMask 0x0002; w1_barret) and g_ActiveCharacters[0] a Cloud weapon (0x0201): #129 replaces the raw id byte at + 0 (act_id1, 0 for every character in #101) with a field that tells the characters apart. Otherwise only 1/0 leaves. match: a rerun from the title snapshot ends in the same state.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-barret",
@@ -40,10 +40,15 @@
       "type": "u8",
       "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x04FA partyID[2] (confirmed #78; ff7-flat-wiki Savemap: 0x00 Cloud, 0x01 Barret, 0x02 Tifa, 0xFF none)"
     },
-    "act_id1": {
-      "addr": "0x8009dc8c",
-      "type": "u8",
-      "description": "g_ActiveCharacters[1] (0x8009D84C, ActiveCharacterData size 0x440, indexed by party slot) + 0x000 id. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    "weapon0": {
+      "addr": "0x8009dc62",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot) + 0x416: the equipped weapon's equipMask. Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h: ActiveCharacterData + 0x408 weapon (WeaponRecord, 0x2C bytes) + 0x0E equipMask, equippable-by-character bitmask (bit0 Cloud, bit1 Barret, bit2 Tifa, bit9 Young Cloud; Cloud weapons 0x0201). #129: tells the character in the slot apart, where + 0x000 does not (#101); Cloud 0x0201"
+    },
+    "weapon1": {
+      "addr": "0x8009e0a2",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot) + 0x416: the equipped weapon's equipMask. Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h: ActiveCharacterData + 0x408 weapon (WeaponRecord, 0x2C bytes) + 0x0E equipMask, equippable-by-character bitmask (bit0 Cloud, bit1 Barret, bit2 Tifa, bit9 Young Cloud; Cloud weapons 0x0201). #129: tells the character in the slot apart, where + 0x000 does not (#101); Barret 0x0002"
     },
     "hp1": {
       "addr": "0x8009dc9c",
@@ -161,6 +166,19 @@
       }
     },
     {
+      "expect": {
+        "mem": "weapon1",
+        "equals": 2
+      },
+      "metric": "w1_barret"
+    },
+    {
+      "expect": {
+        "mem": "weapon0",
+        "equals": 513
+      }
+    },
+    {
       "sameState": "rerun",
       "metric": "match"
     }
@@ -170,7 +188,7 @@
     "menu_wait",
     "s1_barret",
     "s2_empty",
-    "act_id1",
+    "w1_barret",
     "hp1_ok",
     "max1_ok",
     "match"

@@ -128,10 +128,10 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
     table,
 
     /**
-     * { value: { mode: 'field'|'battle'|'world'|'menu'|'movie'|'unknown', raw, previous } }
+     * { value: { mode: 'field'|'battle'|'world'|'menu'|'minigame'|'movie'|'unknown', raw, previous } }
      * confirmed only for confirmed raw values (#76: field 1, battle 2, menu 5;
-     * world 3 is a hypothesis; an unlabelled value is 'unknown', never
-     * confirmed). 'movie' is reported while gameState reads field and
+     * #80: world 3, minigame 6 = the motorcycle game; an unlabelled value,
+     * such as another minigame, is 'unknown', never confirmed). 'movie' is reported while gameState reads field and
      * movieFrame advanced over the last MOVIE_WINDOW calls; raw stays 1. Each
      * call is one sample, so call it at a steady rate (the overlay: 4 Hz).
      */

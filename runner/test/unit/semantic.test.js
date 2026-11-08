@@ -94,7 +94,8 @@ describe('address table', () => {
       }
       for (const raw of Object.keys(e.confirmedValues ?? {})) assert.ok(raw in e.values, `${e.name}: confirmed value ${raw} has a label`);
     }
-    assert.deepEqual(Object.keys(ADDRESS_TABLE.entries.find((e) => e.name === 'gameState').confirmedValues), ['1', '2', '5']);
+    // #80 added world 3 and the motorcycle minigame 6.
+    assert.deepEqual(Object.keys(ADDRESS_TABLE.entries.find((e) => e.name === 'gameState').confirmedValues), ['1', '2', '3', '5', '6']);
     const state = ADDRESS_TABLE.entries.find((e) => e.name === 'gameState');
     assert.equal(state.address, 0x8009c560);
     assert.equal(state.type, 's16');

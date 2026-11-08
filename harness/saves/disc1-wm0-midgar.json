@@ -1,0 +1,23 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web wm0 midgar",
+  "slot": 1,
+  "field": {
+    "id": 1,
+    "x": 0,
+    "y": 0,
+    "triangle": 0,
+    "direction": 0
+  },
+  "party": [
+    0,
+    1,
+    2
+  ],
+  "progress": 6,
+  "module": {
+    "state": 3,
+    "exitAction": 0
+  }
+}

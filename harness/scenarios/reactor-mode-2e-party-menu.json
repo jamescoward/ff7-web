@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-2e-party-menu",
-  "description": "#78: the party in the field menu at reactor-entrance (the menu draws party HP). From menu-open, 1 frame. Savemap partyID[0] reads Cloud (0x00) and slots 1 and 2 are empty (0xFF): Cloud is alone here (attempt 1: slot 1 is not Barret). g_ActiveCharacters[0] (slot 0) has id Cloud, current HP in 1..9999 and MP in 0..999. Only 1/0 leaves.",
+  "description": "#78: the party in the field menu at reactor-entrance (the menu draws party HP). From menu-open, 1 frame. Savemap partyID[0] reads Cloud (0x00) and slots 1 and 2 are empty (0xFF): Cloud is alone here (attempt 1: slot 1 is not Barret). g_ActiveCharacters[0] (slot 0) holds a Cloud weapon (equipMask 0x0201; #129 replaces the id-byte check a0_cloud, which #101 showed reads 0 for every character), current HP in 1..9999 and MP in 0..999. Only 1/0 leaves.",
   "boot": {
     "from": "menu-open"
   },
@@ -28,10 +28,10 @@
       "type": "u8",
       "description": "Savemap (0x8009C6E4, Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h SaveWork) + 0x04FA partyID[2]"
     },
-    "act_id0": {
-      "addr": "0x8009d84c",
-      "type": "u8",
-      "description": "g_ActiveCharacters[0] (0x8009D84C, ActiveCharacterData size 0x440) + 0x000, documented as the character id (#101: it reads 0 for Barret in slot 1 and Tifa in slot 2 too, so it is not the character ID; Cloud is 0x00, so this check holds without telling slots apart). Xeeynamo/ff7-decomp@9411173 (reference only, no code) symbols.main.us.txt, include/game.h; ff7-flat-wiki Battle_Mechanics \"Active Character Data\". Indexed by party slot (savemenu.c reads g_ActiveCharacters[i] for Savemap.partyID[i])"
+    "weapon0": {
+      "addr": "0x8009dc62",
+      "type": "u16",
+      "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot) + 0x416: the equipped weapon's equipMask. Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h: ActiveCharacterData + 0x408 weapon (WeaponRecord, 0x2C bytes) + 0x0E equipMask, equippable-by-character bitmask (bit0 Cloud, bit1 Barret, bit2 Tifa, bit9 Young Cloud; Cloud weapons 0x0201). #129: tells the character in the slot apart, where + 0x000 does not (#101); Cloud 0x0201"
     },
     "hp0": {
       "addr": "0x8009d85c",
@@ -80,10 +80,10 @@
     },
     {
       "expect": {
-        "mem": "act_id0",
-        "equals": 0
+        "mem": "weapon0",
+        "equals": 513
       },
-      "metric": "a0_cloud"
+      "metric": "w0_cloud"
     },
     {
       "expect": {
@@ -127,7 +127,7 @@
     "s0_cloud",
     "s1_empty",
     "s2_empty",
-    "a0_cloud",
+    "w0_cloud",
     "hp0_ok",
     "mp0_ok",
     "max0_ok",

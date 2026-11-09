@@ -1,6 +1,6 @@
 # #140: is the save-booted world map live?
 
-Status (2026-11-09): **cause found** in attempt 3: a message window is open when the save-booted world map starts, and it holds the player. Closing it with Circle makes the world map live. The confirmation run (the live check in `save-boot-7-world-kalm`) is pushed, waiting for Tier 2.
+Status (2026-11-09): **done.** A message window is open when the save-booted world map starts, and it holds the player (attempt 3). After three Circle presses close it, the pad moves the party: `save-boot-7-world-kalm` checks this (Tier 2 green at `1247393`).
 
 ## Starting point (#80, `notes/80-boot-catalogue.md`)
 `disc1-wm1-kalm` and `disc1-wm0-midgar` load into the world map (g_GameState 3, the entry point holds, map number 0, player actor pointer D_8010AD40 = pool element 7, 0x8010A554). In #80 attempt 3, element 7's pos.vx/vz did not change over 60 frames of Up and 60 of Right, 600 frames after the state read 3.
@@ -113,3 +113,20 @@ Strictly this is not a fourth approach. It applies attempt 3's finding, as the i
 - The other attempt 3 diagnostics are removed (results above; definitions in `28be3b1`).
 
 Risks: a random battle within the 60 frames of walking (the rerun would still match, but world_ok would fail), or a diagonal blocked by terrain (one of x_dir/z_dir 0). Either would show in the metrics.
+
+## Confirmation result (`1247393`, tier2: 40 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-7-world-kalm | w_state 400, world_ok 1, map_ok 1, pc_ok 1, **win_ok 1, x_dir -1, z_dir 1**, match 1 |
+| save-boot-7h-world-kalm-window | **win_open 1, btn_off 1, ctx_3 1**, playing 1, match 1, win1 0, game_state 3 |
+| every other scenario | pass, unchanged |
+
+**The save-booted world map is live.** After the window is closed, 60 frames of Down+Left move the player actor: pos.vx decreased (Left) and pos.vz increased (Down), still in the world map at the same entry point, and a rerun matches. The cause is checked by its own scenario, which ran a second time with the same values as attempt 3.
+
+## Outcome
+- **Cause of #80's result:** a message window (`g_WindowData[0]`, state 6 = WSTATE_TXT_DONE) is open when the world map starts from these saves, and the world's button flag is off (reason 3) until it closes. Circle closes it; Cross does not.
+- **Live check:** `save-boot-7-world-kalm` closes the window, walks Down+Left and checks both position signs (the issue's acceptance, first bullet).
+- **What the window says is not known** (game text, not read). It may come from progress 6 being md1stin's value rather than a world map one. Not needed for the acceptance.
+- **For #81 and the touch layer:** a world map reached from a save needs Circle before the pad moves the party. Walking Up from the Kalm entry point enters Kalm.
+- **Not done:** a live check for Midgar (`save-boot-8`), not required. A semantic entry for the world position (the issue allowed one; nothing needs it yet).
+- **Attempts:** 1 and 2 diagnostic; 3 found the cause; one confirmation run applied it.

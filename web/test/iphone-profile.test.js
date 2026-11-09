@@ -36,7 +36,7 @@ const PROFILES = [
 // any other problem fails the test, and so does an entry that no longer matches
 // anything in its case (a fixed defect must be removed from this list). Each
 // entry: profile, layout ('gamepad' | 'field' | '*'), and a regexp over the
-// problem message. Follow-up issue: see notes/106-iphone-profile.md.
+// problem message. Fix: #152.
 const KNOWN_DEFECTS = [
   // .pad is position:absolute; inset:0, so the body's safe-area padding does
   // not reach it: landscape controls sit in the left/right/bottom insets.

@@ -315,3 +315,47 @@ body {
   .field-action { flex-basis: 100%; }
   .field-back { margin-left: auto; }
 }
+
+/* Safe-area layout (#152), Labs flag `safe-layout` (off by default; set as
+   <html data-safe-layout> by js/safe-layout.js). Without the flag nothing below
+   applies. */
+
+/* Portrait: the picture gives up height so the whole pad fits on screen
+   (Safari with its toolbars is 660 px tall). --pad-h is the classic pad's
+   content height: shoulders 44 + face buttons 180 (taller than the 156 px
+   d-pad) + Start/Select 44 + two 12 px gaps + 12 px padding top and bottom.
+   --bar-h is the top bar's measured height. */
+:root[data-safe-layout] { --pad-h: 316px; }
+@media not all and (orientation: landscape) and (max-height: 600px) {
+  :root[data-safe-layout] body { height: 100dvh; min-height: 0; overflow: hidden; }
+  :root[data-safe-layout] .screen {
+    --screen-h: min(60dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--bar-h, 112px) - var(--pad-h)));
+    width: min(100%, calc(var(--screen-h) * 4 / 3));
+    max-height: var(--screen-h);
+    flex: none;
+  }
+  :root[data-safe-layout] .pad { min-height: var(--pad-h); }
+  /* With the debug strip (#93) shown, the old portrait sizing applies again:
+     the strip adds height below the picture, so the page may scroll. */
+  :root[data-safe-layout] .screen[data-debug-on] { width: 100%; max-height: none; }
+  :root[data-safe-layout]:has(.screen[data-debug-on]) body { height: auto; min-height: 100dvh; overflow: visible; }
+}
+
+/* Landscape: the pad layer keeps to the safe area (it is position:absolute, so
+   the body's padding does not reach it). Side columns size to their controls,
+   and Start/Select sit at the bottom of the middle column, so the pad needs
+   two rows, not three, and fits a 343 px Safari viewport. */
+@media (orientation: landscape) and (max-height: 600px) {
+  :root[data-safe-layout] .pad {
+    inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    height: auto; /* #pad is also .vpad, whose height:100% would override the bottom inset */
+  }
+  :root[data-safe-layout] .vpad {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "shl . shr"
+      "dpad center face";
+  }
+  :root[data-safe-layout] .vp-center { align-self: end; }
+}

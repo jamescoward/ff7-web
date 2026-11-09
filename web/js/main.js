@@ -10,6 +10,7 @@ import { cardProblem, createCardStore, downloadCard, readCardFile } from './memc
 import { createOverlay } from './overlay.js';
 import { createInputMixer } from './pad.js';
 import * as labs from './labs.js';
+import { initSafeLayout } from './safe-layout.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('screen');
@@ -49,6 +50,7 @@ const closeCardMenu = () => { cardMenu.open = false; };
 
 // Labs (#105): off-by-default feature flags.
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
+initSafeLayout();
 
 // The debug overlay (#79): off by default, and its toggle stays hidden unless
 // the worker's hash gate says this is the USA disc.

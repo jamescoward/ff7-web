@@ -74,7 +74,10 @@ for (const name of BROWSERS) {
       try {
         assert.equal(await page.evaluate(() => window.ff7web.labs.isOn('labs-demo')), true);
         assert.equal(await page.evaluate(() => window.ff7web.labs.isOn('nope')), false);
-        assert.deepEqual(await page.evaluate(() => window.ff7web.labs.listFlags().map((f) => f.name)), ['labs-demo']);
+        // Only registered flags are listed: the unknown name is not (other features register their own flags).
+        const names = await page.evaluate(() => window.ff7web.labs.listFlags().map((f) => f.name));
+        assert.ok(names.includes('labs-demo') && !names.includes('nope'), String(names));
+        assert.deepEqual(await page.evaluate(() => window.ff7web.labs.listFlags().filter((f) => f.on).map((f) => f.name)), ['labs-demo']);
         assert.equal(await stored(page), null, 'the URL writes nothing');
         await page.click('#labs-btn');
         assert.match(await page.locator('.labs-row').first().textContent(), /this visit/);

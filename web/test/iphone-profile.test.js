@@ -36,7 +36,10 @@ const PROFILES = [
 // any other problem fails the test, and so does an entry that no longer matches
 // anything in its case (a fixed defect must be removed from this list). Each
 // entry: profile, layout ('gamepad' | 'field' | '*'), and a regexp over the
-// problem message. Fix: #152.
+// problem message. Fix: #152, behind the Labs flag `safe-layout` (off by
+// default). With that flag on none of these apply, so a case with it on must
+// show none of them; they stay for every case without it.
+const FIXED_BY = 'safe-layout';
 const KNOWN_DEFECTS = [
   // .pad is position:absolute; inset:0, so the body's safe-area padding does
   // not reach it: landscape controls sit in the left/right/bottom insets.
@@ -46,7 +49,8 @@ const KNOWN_DEFECTS = [
   { profile: 'portrait browser', layout: 'gamepad', match: /: vp-btn vp-pill \d[^ ]* leaves the safe area/ },
   { profile: 'landscape browser', layout: 'gamepad', match: /: vp-btn vp-pill \d[^ ]* leaves the safe area/ },
 ];
-const knownFor = (profile, layout) => KNOWN_DEFECTS.filter((d) => d.profile === profile.name && (d.layout === '*' || d.layout === layout));
+const knownFor = (profile, layout, flag) => (flag === FIXED_BY ? [] : KNOWN_DEFECTS)
+  .filter((d) => d.profile === profile.name && (d.layout === '*' || d.layout === layout));
 
 /** Fail on unknown problems and on stale known-defect entries; report the rest. */
 function settle(t, problems, known, where) {
@@ -93,7 +97,7 @@ const fmt = (r) => `${Math.round(r.width * 10) / 10}x${Math.round(r.height * 10)
 
 const envInsets = (insets) => (css) => css.replace(/env\(safe-area-inset-(top|right|bottom|left)\)/g, (_, side) => `${insets[side]}px`);
 
-async function openApp(browser, device, query, insets = ZERO, viewport) {
+async function openApp(browser, device, query, insets = ZERO, viewport, srv = server) {
   const context = await browser.newContext({ ...pw.devices[device], ...(viewport && { viewport }) });
   const page = await context.newPage();
   const errors = [];
@@ -110,7 +114,7 @@ async function openApp(browser, device, query, insets = ZERO, viewport) {
     const res = await route.fetch();
     await route.fulfill({ response: res, body: rewrite(await res.text()) });
   });
-  await page.goto(server.url + query);
+  await page.goto(srv.url + query);
   await page.evaluate(() => window.ff7web.ready);
   return { context, page, errors };
 }
@@ -173,20 +177,33 @@ const fire = (page, type, id, p) => page.locator('#field').dispatchEvent(type, {
   clientX: p.x, clientY: p.y, bubbles: true, cancelable: true,
 });
 
+// The registered Labs flags, read from the page before the tests are declared:
+// node:test declares the per-flag cases synchronously, so a list filled in a
+// before() hook would come too late and only the fallback would be covered.
+const pageFlags = async (browser, srv = server) => {
+  const { context, page } = await openApp(browser, 'iPhone 14 Pro', '', ZERO, undefined, srv);
+  try { return await page.evaluate(() => window.ff7web.labs.listFlags().map((f) => f.name)); } finally { await context.close(); }
+};
+let FLAGS = ['labs-demo'];
+for (const name of BROWSERS) {
+  const r = await launch(pw, name).catch(() => ({}));
+  if (!r.browser) continue;
+  const own = await serveWeb();
+  try { FLAGS = await pageFlags(r.browser, own); } finally { await r.browser.close(); own.close(); }
+  break;
+}
+
 for (const name of BROWSERS) {
   describe(`iphone profile: ${name}`, () => {
     let browser;
     let skip;
-    let flags = ['labs-demo'];
+    const flags = FLAGS;
     before(async () => {
       const r = await launch(pw, name);
       browser = r.browser;
       skip = r.skip;
-      if (browser) {
-        const { context, page } = await openApp(browser, 'iPhone 14 Pro', '');
-        flags = await page.evaluate(() => window.ff7web.labs.listFlags().map((f) => f.name));
-        await context.close();
-      }
+      // Every browser must see the same flags as the declared cases.
+      if (browser) assert.deepEqual(await pageFlags(browser), flags);
     });
     after(() => browser?.close());
 
@@ -200,7 +217,7 @@ for (const name of BROWSERS) {
           const want = profile.viewport ?? d.viewport;
           assert.deepEqual([got.w, got.h], [want.width, want.height]);
           assert.ok(got.touch, 'touch is enabled');
-          assert.ok(flags.length >= 1);
+          assert.ok(flags.includes(FIXED_BY), `the ${FIXED_BY} flag is registered: ${flags}`);
         } finally { await context.close(); }
       });
 
@@ -241,7 +258,7 @@ for (const name of BROWSERS) {
                 const b = await row.boundingBox();
                 if (!(b.width >= MIN_TARGET && b.height >= MIN_TARGET)) problems.push(`${label}: labs row ${fmt(b)} under ${MIN_TARGET}px`);
               }
-              settle(t, problems, knownFor(profile, layout), label);
+              settle(t, problems, knownFor(profile, layout, flag), label);
               assert.deepEqual(errors, []);
             } finally { await context.close(); }
           });

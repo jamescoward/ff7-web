@@ -1,0 +1,168 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-7b-world-kalm-long",
+  "description": "Diagnostic for #140 (why the save-booted world map did not move under the pad in #80 attempt 3). Signs only (-1/0/1) for positions and angles; no coordinate leaves the run. Load as save-boot-7-world-kalm does (Circle every 30 frames until g_GameState 3). Then 3000 frames (50 s, for a long fade or event), a mark, 300 frames of Up, 300 of Right and 10 still. Reported: wl_state, flags1, and the signs of the change since the mark of pos.vx/vz, altPos.vx/vz, direction and unk3E (rotation).",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-wm1-kalm",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; world 3 confirmed #80)."
+    },
+    "wl_state": {
+      "addr": "0x800e566c",
+      "type": "u16",
+      "description": "World overlay D_800E566C (s32, low half): the world loop's state. WORLD_Main sets it to -15 and WmUpdateWorldState counts it up to 0, then sets 1 (playing) and starts the fade-in; 2 is the menu, 3/8 a field or battle exit, >= 6 leaves the loop. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c WORLD_Main, WmUpdateWorldState."
+    },
+    "flags1": {
+      "addr": "0x8010a5a5",
+      "type": "u8",
+      "description": "Player actor + 0x51 flags1: bit 0x10 is set by WmScriptDisableForPcEntity(1) (the script disables the player), bit 0x80 means its position needs recalculating. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c."
+    },
+    "pos_x": {
+      "addr": "0x8010a560",
+      "type": "u32",
+      "description": "Player actor + 0x0C pos.vx (s32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor; WmGetPosFromPcEntity reads it."
+    },
+    "pos_z": {
+      "addr": "0x8010a568",
+      "type": "u32",
+      "description": "Player actor + 0x14 pos.vz (s32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
+    },
+    "alt_x": {
+      "addr": "0x8010a570",
+      "type": "u32",
+      "description": "Player actor + 0x1C altPos.vx (s32; WmGetPos2FromPcEntity). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
+    },
+    "alt_z": {
+      "addr": "0x8010a578",
+      "type": "u32",
+      "description": "Player actor + 0x24 altPos.vz (s32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
+    },
+    "dir": {
+      "addr": "0x8010a594",
+      "type": "u16",
+      "description": "Player actor + 0x40 direction (s16). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
+    },
+    "rot": {
+      "addr": "0x8010a592",
+      "type": "u16",
+      "description": "Player actor + 0x3E unk3E, added to unk3C for the total rotation (WmGetPcEntityTotalRot). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 3
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 3000
+      }
+    },
+    {
+      "mark": "ready"
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 300
+    },
+    {
+      "buttons": [
+        "right"
+      ],
+      "frames": 300
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    }
+  ],
+  "assert": [
+    {
+      "change": {
+        "mem": "pos_x",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "x_dir"
+    },
+    {
+      "change": {
+        "mem": "pos_z",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "z_dir"
+    },
+    {
+      "change": {
+        "mem": "alt_x",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "ax_dir"
+    },
+    {
+      "change": {
+        "mem": "alt_z",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "az_dir"
+    },
+    {
+      "change": {
+        "mem": "dir",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "dir_d"
+    },
+    {
+      "change": {
+        "mem": "rot",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "rot_d"
+    }
+  ],
+  "metrics": [
+    "wl_state",
+    "flags1",
+    "x_dir",
+    "z_dir",
+    "ax_dir",
+    "az_dir",
+    "dir_d",
+    "rot_d"
+  ]
+}

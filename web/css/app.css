@@ -335,6 +335,10 @@ body {
     flex: none;
   }
   :root[data-safe-layout] .pad { min-height: var(--pad-h); }
+  /* With the debug strip (#93) shown, the old portrait sizing applies again:
+     the strip adds height below the picture, so the page may scroll. */
+  :root[data-safe-layout] .screen[data-debug-on] { width: 100%; max-height: none; }
+  :root[data-safe-layout]:has(.screen[data-debug-on]) body { height: auto; min-height: 100dvh; overflow: visible; }
 }
 
 /* Landscape: the pad layer keeps to the safe area (it is position:absolute, so

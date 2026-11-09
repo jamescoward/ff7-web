@@ -43,3 +43,7 @@ and each browser's `before()` asserts it sees the same list.
 - Trade-off for the owner's check: in portrait Safari the picture is smaller so the
   pad fits; in landscape the face buttons overlap the picture's edges a little more
   (as before, at 0.8 opacity).
+- With the debug strip on (#93) in portrait, the flag steps back to the old sizing
+  (`:has(.screen[data-debug-on])`), so the strip is neither clamped nor clipped; the page
+  may scroll then, as on main. Not covered by a test: the Debug toggle needs the core and
+  the USA disc gate.

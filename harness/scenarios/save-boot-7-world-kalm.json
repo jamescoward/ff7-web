@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-7-world-kalm",
-  "description": "#80, world map: boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map starts at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load, 60 frames of Up, 60 of Right and 30 still. Checks: g_GameState still reads 3 (world_ok); g_FieldCurrentMap still names the entry point (map_ok); the world overlay has set its player actor pointer D_8010AD40 to pool element 7 (pc_ok: low half 0xA554, measured in attempts 2 and 3), so the world module itself is running; and a rerun from the title snapshot ends in the same state (match). Not checked: that the pad moves the party. In attempt 3 element 7's pos.vx/vz did not change over that input (notes/80-boot-catalogue.md; follow-up issue). Reported: wm_id (0 = the main world map).",
+  "description": "#80, world map; live check #140. Boot from the generated save harness/saves/disc1-wm1-kalm.json: module state 3 (world map) with exit action 0, and location 2 (wm1, 'Outside Kalm' in ff7-flat-wiki Field_ID); party Cloud, Barret, Tifa; progress 6 (md1stin's value: no reachable source documents the progress value here). In the decomp (reference only) the title's load copies the state into g_GameState and the exit action into the world map's entry argument, so the world map starts at that entry point, as when a field exit leads there. Load as save-boot-1-load does, but wait for g_GameState 3 (w_state). Then 600 frames for the world map to load. A message window is open at that point and holds the player (#140 attempt 3; save-boot-7h-world-kalm-window), so three Circle presses one second apart close it, then 60 frames, a mark, 60 frames of Down+Left (away from Kalm: walking onto the town enters it, #140 attempts 1 and 3) and 10 still. Checks: g_GameState still reads 3 (world_ok); g_FieldCurrentMap still names the entry point (map_ok); the world overlay's player actor pointer D_8010AD40 names pool element 7 (pc_ok: low half 0xA554, #80 attempts 2 and 3); message window 0 is closed (win_ok); the player actor's pos.vx and pos.vz both changed since the mark (x_dir, z_dir: signs only, no coordinate leaves); and a rerun from the title snapshot ends in the same state (match). wm_id, prev_state and game_state, reported in #80, are no longer reported (8-metric limit; their values are in notes/80-boot-catalogue.md).",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -15,25 +15,30 @@
       "type": "u16",
       "description": "g_GameState (s16 as u16; field 1, battle 2, menu 5 confirmed #76)."
     },
-    "prev_state": {
-      "addr": "0x800965ec",
-      "type": "u16",
-      "description": "g_PrevGameState (s16 as u16; confirmed #76)."
-    },
     "map_cur": {
       "addr": "0x8009a05c",
       "type": "u16",
       "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): in the world map, the entry point the save names."
     },
-    "wm_id": {
-      "addr": "0x800e5634",
-      "type": "u16",
-      "description": "World overlay D_800E5634 (WmGetWmId; s32, low half): which world map runs, 0 = the main map. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c, config/symbols.world.txt."
-    },
     "pc_lo": {
       "addr": "0x8010ad40",
       "type": "u16",
       "description": "World overlay D_8010AD40, the player actor pointer (low half): which element of the actor pool D_80109F34[] (0xE0 bytes each, low halves 0x9F34 + i*0xE0) is the player. Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h."
+    },
+    "win0": {
+      "addr": "0x800832a0",
+      "type": "u16",
+      "description": "g_WindowData[0].state (0x80083274 + 0x2C; s16 as u16): 0 = WSTATE_INIT (no window), 6 = WSTATE_TXT_DONE. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h WindowData, WindowState."
+    },
+    "pos_x": {
+      "addr": "0x8010a560",
+      "type": "u32",
+      "description": "Player actor (pool element 7) + 0x0C pos.vx (s32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor; WmGetPosFromPcEntity reads it."
+    },
+    "pos_z": {
+      "addr": "0x8010a568",
+      "type": "u32",
+      "description": "Player actor + 0x14 pos.vz (s32). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.h WorldActor."
     }
   },
   "input": [
@@ -61,19 +66,55 @@
     },
     {
       "buttons": [
-        "up"
+        "circle"
       ],
-      "frames": 60
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
     },
     {
       "buttons": [
-        "right"
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "mark": "ready"
+    },
+    {
+      "buttons": [
+        "down",
+        "left"
       ],
       "frames": 60
     },
     {
       "wait": {
-        "frames": 30
+        "frames": 10
       }
     }
   ],
@@ -100,6 +141,31 @@
       "metric": "pc_ok"
     },
     {
+      "expect": {
+        "mem": "win0",
+        "equals": 0
+      },
+      "metric": "win_ok"
+    },
+    {
+      "change": {
+        "mem": "pos_x",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "x_dir"
+    },
+    {
+      "change": {
+        "mem": "pos_z",
+        "is": "changed",
+        "signed": true,
+        "since": "ready"
+      },
+      "metric": "z_dir"
+    },
+    {
       "sameState": "rerun",
       "metric": "match"
     }
@@ -109,9 +175,9 @@
     "world_ok",
     "map_ok",
     "pc_ok",
-    "match",
-    "wm_id",
-    "prev_state",
-    "game_state"
+    "win_ok",
+    "x_dir",
+    "z_dir",
+    "match"
   ]
 }

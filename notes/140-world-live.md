@@ -1,6 +1,6 @@
 # #140: is the save-booted world map live?
 
-Status (2026-11-09): attempts 1 and 2 (diagnostic) done; attempt 3 (message window at entry) pushed, waiting for Tier 2. Attempt 3 is the last in the budget.
+Status (2026-11-09): **cause found** in attempt 3: a message window is open when the save-booted world map starts, and it holds the player. Closing it with Circle makes the world map live. The confirmation run (the live check in `save-boot-7-world-kalm`) is pushed, waiting for Tier 2.
 
 ## Starting point (#80, `notes/80-boot-catalogue.md`)
 `disc1-wm1-kalm` and `disc1-wm0-midgar` load into the world map (g_GameState 3, the entry point holds, map number 0, player actor pointer D_8010AD40 = pool element 7, 0x8010A554). In #80 attempt 3, element 7's pos.vx/vz did not change over 60 frames of Up and 60 of Right, 600 frames after the state read 3.
@@ -90,3 +90,26 @@ The attempt 1 and 2 diagnostic scenarios are removed from the branch (their resu
 | save-boot-7k-world-kalm-presses-state | attempt 1's presses, 60 frames, no D-pad | world_ok, game_state, wl_state, win0, btn_ok, btn_ctx |
 
 If 7i or 7j moves, that becomes the live check in `save-boot-7-world-kalm` (with a rerun match). Otherwise the cause is recorded as far as the reachable sources allow, and the blockers are reported on #140.
+
+## Attempt 3 results (`28be3b1`, tier2: 40 pass, 3 fail; the fails are diagnostics)
+| scenario | metrics |
+|---|---|
+| save-boot-7h-world-kalm-window | **win0 6** (no_win0 0), win1 0, btn_ok 0, btn_ctx 3, wl_state 1, game_state 3 |
+| save-boot-7i-world-kalm-circle-walk | win0 0, btn_ok 0, btn_ctx 0, **game_state 1** (world_ok 0), x_dir -1, z_dir -1 |
+| save-boot-7j-world-kalm-cross-walk | win0 6, btn_ok 0, btn_ctx 3, game_state 3, x_dir 0, z_dir 0 |
+| save-boot-7k-world-kalm-presses-state | **win0 0, btn_ok 1**, btn_ctx 3, wl_state 1, game_state 3 (pass) |
+| every other scenario | pass, unchanged |
+
+Reading:
+- **Cause:** message window 0 is open 600 frames after the world map starts, in state 6 (WSTATE_TXT_DONE: its text is shown and it waits for OK), and the world's button flag is off (reason 3). The window holds the player. That is why the D-pad did nothing in #80 attempt 3 and in this issue's attempts 1 and 2. What the window says is not read: that would be game text.
+- **Circle closes it; Cross does not** (7j: still open after four Cross presses). After three Circle presses (7k) the window is closed and the button flag is back on (btn_ok 1), still in the world map.
+- **Then the D-pad works:** in 7i (and attempt 1's 7c), holding Up after the window closed ended in field mode. The entry point is outside Kalm, and walking onto a town on the world map enters it. So the world map is live; Up just leads into Kalm. The "position changes" in 7i and 7c are the overlay's memory being reused by the field, not movement.
+- In 7i the button flag reads 0 again with reason 0: `func_800A2108(0, 0)` is what the decompiled field-exit requests call (`WmRequestFieldLoad`'s neighbours), which fits a town entry.
+
+## Confirmation (the acceptance check)
+Strictly this is not a fourth approach. It applies attempt 3's finding, as the issue asks ("adds a passing live check to `save-boot-7-world-kalm`").
+- `save-boot-7-world-kalm`: after the 600 frames, three Circle presses one second apart, 60 frames, a mark, 60 frames of **Down+Left** (away from Kalm), 10 still. Checks: world_ok, map_ok, pc_ok (as before), **win_ok** (window 0 closed), **x_dir and z_dir** (pool element 7's pos.vx and pos.vz both changed since the mark; signs only), match (rerun). wm_id and prev_state are no longer reported, because of the 8-metric limit; #80 recorded their values (0 and 0).
+- `save-boot-7h-world-kalm-window` now checks the cause as a passing scenario: window 0 open in state 6 (win_open), button flag 0 (btn_off), reason 3 (ctx_3), loop playing, rerun match.
+- The other attempt 3 diagnostics are removed (results above; definitions in `28be3b1`).
+
+Risks: a random battle within the 60 frames of walking (the rerun would still match, but world_ok would fail), or a diagonal blocked by terrain (one of x_dir/z_dir 0). Either would show in the metrics.

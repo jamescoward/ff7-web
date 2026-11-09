@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-7h-world-kalm-window",
-  "description": "#140 attempt 3 (notes/140-world-live.md). Load as save-boot-7-world-kalm does (Circle every 30 frames until g_GameState 3), then 600 frames. No input. Reported: the state of message windows 0 and 1 (0 = none open), the world's button flag and the reason it was last cleared, the world loop state. Is a message window holding the player after this boot?",
+  "description": "#140 attempt 3: the cause of #80's 'world map not live'. Load as save-boot-7-world-kalm does (Circle every 30 frames until g_GameState 3), then 600 frames, no input. Checks: message window 0 is open, in state 6 (WSTATE_TXT_DONE: its text is done and it waits for OK) (win_open); the world's button flag D_800E55FC is 0 (btn_off), last cleared by func_800A2108(0, 3) (ctx_3); the world loop is playing (playing). So the window holds the player until it is closed; three Circle presses close it (save-boot-7-world-kalm). Measured in #140 attempt 3; attempt 2 measured btn_ok 0 and reason 3 the same way.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -68,18 +68,43 @@
     {
       "expect": {
         "mem": "win0",
+        "equals": 6
+      },
+      "metric": "win_open"
+    },
+    {
+      "expect": {
+        "mem": "btn_ok",
         "equals": 0
       },
-      "metric": "no_win0"
+      "metric": "btn_off"
+    },
+    {
+      "expect": {
+        "mem": "btn_ctx",
+        "equals": 3
+      },
+      "metric": "ctx_3"
+    },
+    {
+      "expect": {
+        "mem": "wl_state",
+        "equals": 1
+      },
+      "metric": "playing"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
     }
   ],
   "metrics": [
-    "no_win0",
-    "win0",
+    "win_open",
+    "btn_off",
+    "ctx_3",
+    "playing",
+    "match",
     "win1",
-    "btn_ok",
-    "btn_ctx",
-    "wl_state",
     "game_state"
   ]
 }

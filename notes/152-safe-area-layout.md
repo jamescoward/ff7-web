@@ -19,11 +19,11 @@ same layout as before.
     343 px landscape viewport. They sat in the middle column before too, over the
     picture, so they cover the same picture area as before.
 - **Portrait**: the picture gives up height so the whole pad fits. Its height is
-  `min(60dvh, 100dvh − insets − bar − 292 px)` and its width follows at 4:3.
+  `min(60dvh, 100dvh − insets − bar − 316 px)` and its width follows at 4:3.
   The body is held to `100dvh` with no page scroll. On the Home Screen app
   (852 px tall) the budget is above the old 4:3 height, so nothing changes there; in
-  Safari with toolbars (660 px) the picture is smaller (about 340 px wide, not 393).
-  292 px is the classic pad's content height (shoulders 44, d-pad 156, Start/Select 44,
+  Safari with toolbars (660 px) the picture is smaller (about 309 px wide, not 393).
+  316 px is the classic pad's content height (shoulders 44, face buttons 180, Start/Select 44,
   two 12 px gaps, 12 px padding top and bottom).
 
 ## Test

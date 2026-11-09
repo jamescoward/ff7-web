@@ -322,9 +322,10 @@ body {
 
 /* Portrait: the picture gives up height so the whole pad fits on screen
    (Safari with its toolbars is 660 px tall). --pad-h is the classic pad's
-   content height: shoulders 44 + d-pad 156 + Start/Select 44 + two 12 px gaps
-   + 12 px padding top and bottom. --bar-h is the top bar's measured height. */
-:root[data-safe-layout] { --pad-h: 292px; }
+   content height: shoulders 44 + face buttons 180 (taller than the 156 px
+   d-pad) + Start/Select 44 + two 12 px gaps + 12 px padding top and bottom.
+   --bar-h is the top bar's measured height. */
+:root[data-safe-layout] { --pad-h: 316px; }
 @media not all and (orientation: landscape) and (max-height: 600px) {
   :root[data-safe-layout] body { height: 100dvh; min-height: 0; overflow: hidden; }
   :root[data-safe-layout] .screen {
@@ -343,6 +344,7 @@ body {
 @media (orientation: landscape) and (max-height: 600px) {
   :root[data-safe-layout] .pad {
     inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    height: auto; /* #pad is also .vpad, whose height:100% would override the bottom inset */
   }
   :root[data-safe-layout] .vpad {
     grid-template-columns: auto minmax(0, 1fr) auto;

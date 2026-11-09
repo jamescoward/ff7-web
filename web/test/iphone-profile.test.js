@@ -97,7 +97,7 @@ const fmt = (r) => `${Math.round(r.width * 10) / 10}x${Math.round(r.height * 10)
 
 const envInsets = (insets) => (css) => css.replace(/env\(safe-area-inset-(top|right|bottom|left)\)/g, (_, side) => `${insets[side]}px`);
 
-async function openApp(browser, device, query, insets = ZERO, viewport) {
+async function openApp(browser, device, query, insets = ZERO, viewport, srv = server) {
   const context = await browser.newContext({ ...pw.devices[device], ...(viewport && { viewport }) });
   const page = await context.newPage();
   const errors = [];
@@ -114,7 +114,7 @@ async function openApp(browser, device, query, insets = ZERO, viewport) {
     const res = await route.fetch();
     await route.fulfill({ response: res, body: rewrite(await res.text()) });
   });
-  await page.goto(server.url + query);
+  await page.goto(srv.url + query);
   await page.evaluate(() => window.ff7web.ready);
   return { context, page, errors };
 }
@@ -180,16 +180,16 @@ const fire = (page, type, id, p) => page.locator('#field').dispatchEvent(type, {
 // The registered Labs flags, read from the page before the tests are declared:
 // node:test declares the per-flag cases synchronously, so a list filled in a
 // before() hook would come too late and only the fallback would be covered.
-const pageFlags = async (browser) => {
-  const { context, page } = await openApp(browser, 'iPhone 14 Pro', '');
+const pageFlags = async (browser, srv = server) => {
+  const { context, page } = await openApp(browser, 'iPhone 14 Pro', '', ZERO, undefined, srv);
   try { return await page.evaluate(() => window.ff7web.labs.listFlags().map((f) => f.name)); } finally { await context.close(); }
 };
 let FLAGS = ['labs-demo'];
 for (const name of BROWSERS) {
   const r = await launch(pw, name).catch(() => ({}));
   if (!r.browser) continue;
-  server = await serveWeb();
-  try { FLAGS = await pageFlags(r.browser); } finally { await r.browser.close(); server.close(); server = undefined; }
+  const own = await serveWeb();
+  try { FLAGS = await pageFlags(r.browser, own); } finally { await r.browser.close(); own.close(); }
   break;
 }
 

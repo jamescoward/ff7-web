@@ -1,6 +1,6 @@
 # #140: is the save-booted world map live?
 
-Status (2026-11-09): attempt 1 (diagnostic) done; attempt 2 (diagnostic plus the walk-out route) pushed, waiting for Tier 2.
+Status (2026-11-09): attempts 1 and 2 (diagnostic) done; attempt 3 (message window at entry) pushed, waiting for Tier 2. Attempt 3 is the last in the budget.
 
 ## Starting point (#80, `notes/80-boot-catalogue.md`)
 `disc1-wm1-kalm` and `disc1-wm0-midgar` load into the world map (g_GameState 3, the entry point holds, map number 0, player actor pointer D_8010AD40 = pool element 7, 0x8010A554). In #80 attempt 3, element 7's pos.vx/vz did not change over 60 frames of Up and 60 of Right, 600 frames after the state read 3.
@@ -61,3 +61,32 @@ What decides attempt 3:
 - btn_ok 0 with btn_ctx 4 and pend ≥ 300 → the map-loading stall. Next: why blocks don't load (the CD read path, or a position with no block, since bank 4 is all zero at New Game); try exit action 2 or another entry point.
 - btn_ok 1, move_req never 1 → `WmHandleButtons` doesn't request a move; look at sub_state and the entry state.
 - 7g moves → the world map entered through a field exit is live: use that route for the acceptance check (the issue allows another route to a live world map).
+
+## Attempt 2 results (`4b7604e`, tier2: 41 pass, 6 fail; the fails are the diagnostics)
+| scenario | metrics |
+|---|---|
+| save-boot-7d-world-kalm-stream | **btn_ok 0, btn_ctx 3**, pend 0, stream 1, move_req 0, sub_state 0, queue_empty 1, x_dir 0 |
+| save-boot-7e-world-kalm-circle | still_world 1, game_state 3, prev_state 0, map_cur 2, wl_state 1 |
+| save-boot-7f-world-kalm-cross | still_world 1, game_state 3, prev_state 0, map_cur 2, wl_state 1 |
+| save-boot-7g-world-kalm-walk-out | load_done 0 (the field never loaded: timeout), w_world 0, map_cur 2, pc_lo 0xA554, x_dir 0, z_dir 0 |
+| attempt 1's four diagnostics | the same metrics as attempt 1 (a second run) |
+| every earlier scenario | pass, unchanged |
+
+Reading:
+- **Not the map-loading stall:** no map blocks are queued and the stall counter is 0. But the world's button flag `D_800E55FC` **is 0**, last cleared by `func_800A2108(0, 3)`. No decompiled code passes 3, so the caller is in code that exists only as assembly (`WmHandleButtons`, `func_800A3C74`, the UI map functions and others). Only `func_800A2108(1, 3)` (or `(1, n)` after a 6) sets the flag again. The move request is never 1 while Up is held. This is the gate that holds the player.
+- **Circle alone or Cross alone does not leave the world map** (7e, 7f). In 7g, after attempt 1's presses (Circle ×3, then Cross ×3) the game did *not* reach field mode without more input. So in attempt 1 (7c) it was the **Up after those presses** that ended in g_GameState 1, with the location still 2. The walk-out route was not reached.
+- Leading hypothesis for attempt 3: a **message window** (the world map's `WmDialogUpdate` runs while `g_WindowData[0].state` is not INIT) is open after this boot and holds the player (reason 3). A choice in it would explain why Circle, Cross, then Up changed the mode.
+
+The attempt 1 and 2 diagnostic scenarios are removed from the branch (their results are recorded here; their definitions are in commits `8b8eabb` and `4b7604e`), so Tier 2 runs only what attempt 3 needs.
+
+## Attempt 3 plan (one Tier 2 push; the last in the budget)
+`g_WindowData` is at 0x80083274 (`config/symbols.main.us.txt`), 0x30 bytes per window; `state` is at +0x2C (`include/game.h`), so window 0's state is at 0x800832A0.
+
+| scenario | what | checks / reported |
+|---|---|---|
+| save-boot-7h-world-kalm-window | 600 frames, no input | no_win0 (window 0 closed), win0, win1, btn_ok, btn_ctx, wl_state |
+| save-boot-7i-world-kalm-circle-walk | Circle ×4, 120 frames, mark, Up 120 | x_dir, z_dir (moved), world_ok; win0, btn_ok, btn_ctx |
+| save-boot-7j-world-kalm-cross-walk | the same with Cross ×4 | the same |
+| save-boot-7k-world-kalm-presses-state | attempt 1's presses, 60 frames, no D-pad | world_ok, game_state, wl_state, win0, btn_ok, btn_ctx |
+
+If 7i or 7j moves, that becomes the live check in `save-boot-7-world-kalm` (with a rerun match). Otherwise the cause is recorded as far as the reachable sources allow, and the blockers are reported on #140.

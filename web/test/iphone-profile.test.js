@@ -1,6 +1,6 @@
 // Tier 1: iPhone 14 Pro profile checks (#106): layout, touch targets, safe
 // area and the field drag gesture, in portrait and landscape, with every Labs
-// flag on in turn. Playwright WebKit is not iOS Safari: see web/test/README.md.
+// flag on in turn. Playwright WebKit is not iOS Safari: see notes/106-iphone-profile.md.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { PAD } from '../js/pad.js';

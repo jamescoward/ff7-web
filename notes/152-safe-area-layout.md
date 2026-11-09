@@ -45,5 +45,7 @@ and each browser's `before()` asserts it sees the same list.
   (as before, at 0.8 opacity).
 - With the debug strip on (#93) in portrait, the flag steps back to the old sizing
   (`:has(.screen[data-debug-on])`), so the strip is neither clamped nor clipped; the page
-  may scroll then, as on main. Not covered by a test: the Debug toggle needs the core and
-  the USA disc gate.
+  may scroll then, as on main. Covered since #157 by `web/test/safe-layout-debug.test.js`
+  (a fake backend passes the gate with synthetic RAM, as in `debug-overlay.test.js`).
+- #157 also runs the field drag test with the flag on in all four iPhone profiles, and
+  checks that in landscape the field layer is inset by the safe area.

@@ -287,6 +287,38 @@ for (const name of BROWSERS) {
         } finally { await context.close(); }
       });
 
+      // #157: the same drag with `safe-layout` on. In landscape the flag insets the
+      // field layer (position:absolute) by the safe area, so check that too.
+      test(`touch drag on the field layer gives the expected pad bits, flag ${FIXED_BY}: ${profile.name}`, async (t) => {
+        if (skip) return t.skip(skip);
+        const { context, page, errors } = await openApp(browser, profile.device, `?labs=${FIXED_BY}`, profile.insets, profile.viewport);
+        try {
+          assert.equal(await page.evaluate((f) => window.ff7web.labs.isOn(f), FIXED_BY), true);
+          await page.click('#controls-btn');
+          const box = await page.locator('#field').boundingBox();
+          const vp = page.viewportSize();
+          if (vp.width > vp.height) {
+            const ins = profile.insets;
+            const got = [box.x, box.y, vp.width - box.x - box.width, vp.height - box.y - box.height];
+            const want = [ins.left, ins.top, ins.right, ins.bottom];
+            assert.ok(got.every((g, i) => Math.abs(g - want[i]) <= TOL),
+              `${profile.name}: field layer ${fmt(box)} is inset by (left, top, right, bottom) ${got.map(Math.round)}, want ${want}`);
+          }
+          const o = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+          const mask = () => page.evaluate(() => window.ff7web.mixer.mask);
+          await fire(page, 'pointerdown', 1, o);
+          assert.equal(await mask(), 0);
+          const cases = [[30, 0, PAD.right], [0, -30, PAD.up], [-30, 0, PAD.left], [0, 30, PAD.down], [0, -80, PAD.up | PAD.cross]];
+          for (const [dx, dy, want] of cases) {
+            await fire(page, 'pointermove', 1, { x: o.x + dx, y: o.y + dy });
+            assert.equal(await mask(), want, `${profile.name}, flag ${FIXED_BY}: drag (${dx},${dy})`);
+          }
+          await fire(page, 'pointerup', 1, o);
+          assert.equal(await mask(), 0);
+          assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+      });
+
       test(`the classic pad still sends bits on a tap: ${profile.name}`, async (t) => {
         if (skip) return t.skip(skip);
         const { context, page } = await openApp(browser, profile.device, '', profile.insets, profile.viewport);

@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-7h-world-kalm-window",
-  "description": "#140 attempt 3: the cause of #80's 'world map not live'. Load as save-boot-7-world-kalm does (Circle every 30 frames until g_GameState 3), then 600 frames, no input. Checks: message window 0 is open, in state 6 (WSTATE_TXT_DONE: its text is done and it waits for OK) (win_open); the world's button flag D_800E55FC is 0 (btn_off), last cleared by func_800A2108(0, 3) (ctx_3); the world loop is playing (playing). So the window holds the player until it is closed; three Circle presses close it (save-boot-7-world-kalm). Measured in #140 attempt 3; attempt 2 measured btn_ok 0 and reason 3 the same way.",
+  "description": "#140 attempt 3: the cause of #80's 'world map not live'. Load as save-boot-7-world-kalm does (Circle every 30 frames until g_GameState 3), then 600 frames, no input. Checks: message window 0 is open, in state 6 (WSTATE_TXT_DONE: its text is done and it waits for OK) (win_open); the world's button flag D_800E55FC is 0 (btn_off), last cleared by func_800A2108(0, 3) (ctx_3); the world loop is playing (playing). So the window holds the player until it is closed; three Circle presses close it (save-boot-7-world-kalm checks the window closed and the player moving). Measured in #140 attempt 3; attempt 2 measured btn_ok 0 and reason 3 the same way.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",

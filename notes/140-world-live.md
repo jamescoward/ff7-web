@@ -102,8 +102,8 @@ If 7i or 7j moves, that becomes the live check in `save-boot-7-world-kalm` (with
 
 Reading:
 - **Cause:** message window 0 is open 600 frames after the world map starts, in state 6 (WSTATE_TXT_DONE: its text is shown and it waits for OK), and the world's button flag is off (reason 3). The window holds the player. That is why the D-pad did nothing in #80 attempt 3 and in this issue's attempts 1 and 2. What the window says is not read: that would be game text.
-- **Circle closes it; Cross does not** (7j: still open after four Cross presses). After three Circle presses (7k) the window is closed and the button flag is back on (btn_ok 1), still in the world map.
-- **Then the D-pad works:** in 7i (and attempt 1's 7c), holding Up after the window closed ended in field mode. The entry point is outside Kalm, and walking onto a town on the world map enters it. So the world map is live; Up just leads into Kalm. The "position changes" in 7i and 7c are the overlay's memory being reused by the field, not movement.
+- **Circle closes it; Cross does not** (7j: still open after four Cross presses). After three Circle presses **and** three Cross presses (7k) the window is closed and the button flag is back on (btn_ok 1), still in the world map. Since Cross alone leaves the window open (7j), Circle is what closes it; the flag after Circle alone was not read.
+- **Then the D-pad works:** in 7i (and attempt 1's 7c), holding Up after the window closed ended in field mode. Which field was not read; the entry point is outside Kalm, so the most likely explanation is that Up walks onto the town and enters it (a hypothesis). Leaving the world map under the D-pad already suggested it was live; the confirmation below shows it directly. The "position changes" in 7i and 7c are the overlay's memory being reused by the field, not movement.
 - In 7i the button flag reads 0 again with reason 0: `func_800A2108(0, 0)` is what the decompiled field-exit requests call (`WmRequestFieldLoad`'s neighbours), which fits a town entry.
 
 ## Confirmation (the acceptance check)
@@ -124,9 +124,9 @@ Risks: a random battle within the 60 frames of walking (the rerun would still ma
 **The save-booted world map is live.** After the window is closed, 60 frames of Down+Left move the player actor: pos.vx decreased (Left) and pos.vz increased (Down), still in the world map at the same entry point, and a rerun matches. The cause is checked by its own scenario, which ran a second time with the same values as attempt 3.
 
 ## Outcome
-- **Cause of #80's result:** a message window (`g_WindowData[0]`, state 6 = WSTATE_TXT_DONE) is open when the world map starts from these saves, and the world's button flag is off (reason 3) until it closes. Circle closes it; Cross does not.
+- **Cause of #80's result:** a message window (`g_WindowData[0]`, state 6 = WSTATE_TXT_DONE) is open when the world map starts from `disc1-wm1-kalm`, and the world's button flag is off (reason 3). Circle closes it; Cross does not. The flag was seen back on after Circle and Cross presses (7k); after Circle alone, only the window closing and the movement were measured.
 - **Live check:** `save-boot-7-world-kalm` closes the window, walks Down+Left and checks both position signs (the issue's acceptance, first bullet).
 - **What the window says is not known** (game text, not read). It may come from progress 6 being md1stin's value rather than a world map one. Not needed for the acceptance.
-- **For #81 and the touch layer:** a world map reached from a save needs Circle before the pad moves the party. Walking Up from the Kalm entry point enters Kalm.
+- **For #81 and the touch layer:** a world map reached from a save needs Circle before the pad moves the party (measured: three Circle presses, then the window is closed and Down+Left moves the player). Holding Up from the Kalm entry point ends in field mode (measured); that it is Kalm is a hypothesis.
 - **Not done:** a live check for Midgar (`save-boot-8`), not required. A semantic entry for the world position (the issue allowed one; nothing needs it yet).
 - **Attempts:** 1 and 2 diagnostic; 3 found the cause; one confirmation run applied it.

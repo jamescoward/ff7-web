@@ -27,6 +27,8 @@ are known device figures taken as a hypothesis, not measured here. "standalone"
 profiles use the full 393x852 screen (Home Screen app, `viewport-fit=cover`);
 "browser" profiles use Playwright's own viewport with zero insets.
 
-Known page defects are listed in `KNOWN_DEFECTS` and reported as TODO: the
-assertions still run and print the failing elements, but do not fail the suite
-until the page is fixed. See `notes/106-iphone-profile.md`.
+Known page defects are listed element by element in `KNOWN_DEFECTS` (profile,
+layout, and a pattern over the problem message). A matching problem is printed as
+a `known defect:` diagnostic instead of failing; any other problem fails the test,
+and so does an entry that no longer matches anything (remove it once the page is
+fixed). See `notes/106-iphone-profile.md`.

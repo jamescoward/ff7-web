@@ -31,15 +31,31 @@ const PROFILES = [
   { name: 'portrait browser', device: 'iPhone 14 Pro', insets: ZERO },
   { name: 'landscape browser', device: 'iPhone 14 Pro landscape', insets: ZERO },
 ];
-// Page defects this test found on main (#106). The checks are NOT weakened: each
-// stays a full assertion, and is reported by node:test as TODO (a failure does not
-// fail the run) until the page is fixed. Remove an entry when its fix merges.
-const KNOWN_DEFECTS = {
-  'landscape standalone': 'landscape pad/field controls ignore the left/right safe-area insets (.pad is absolutely positioned at inset:0, so body padding does not apply)',
-  'portrait browser:gamepad': 'Start/Select sit below the fold in Safari with toolbars (660px viewport): the page scrolls vertically',
-  'landscape browser:gamepad': 'Start/Select sit below the fold in a 343px-high landscape Safari viewport',
-};
-const knownDefect = (profile, layout) => KNOWN_DEFECTS[profile.name] ?? KNOWN_DEFECTS[`${profile.name}:${layout}`];
+// Page defects this test found on main (#106), listed element by element. A
+// problem that matches an entry is reported (t.diagnostic) instead of failing;
+// any other problem fails the test, and so does an entry that no longer matches
+// anything in its case (a fixed defect must be removed from this list). Each
+// entry: profile, layout ('gamepad' | 'field' | '*'), and a regexp over the
+// problem message. Follow-up issue: see notes/106-iphone-profile.md.
+const KNOWN_DEFECTS = [
+  // .pad is position:absolute; inset:0, so the body's safe-area padding does
+  // not reach it: landscape controls sit in the left/right/bottom insets.
+  { profile: 'landscape standalone', layout: 'gamepad', match: /: (vp-btn vp-sh|vp-dpad|vp-btn vp-round vp-circle|vp-btn vp-pill) \d[^ ]* leaves the safe area/ },
+  { profile: 'landscape standalone', layout: 'field', match: /: btn (field-action\[(circle|triangle)\]|field-back\[cross\]) \d[^ ]* leaves the safe area/ },
+  // Start/Select (vp-pill) below the fold in Safari with its toolbars.
+  { profile: 'portrait browser', layout: 'gamepad', match: /: vp-btn vp-pill \d[^ ]* leaves the safe area/ },
+  { profile: 'landscape browser', layout: 'gamepad', match: /: vp-btn vp-pill \d[^ ]* leaves the safe area/ },
+];
+const knownFor = (profile, layout) => KNOWN_DEFECTS.filter((d) => d.profile === profile.name && (d.layout === '*' || d.layout === layout));
+
+/** Fail on unknown problems and on stale known-defect entries; report the rest. */
+function settle(t, problems, known, where) {
+  const unknown = problems.filter((p) => !known.some((d) => d.match.test(p)));
+  for (const p of problems) if (!unknown.includes(p)) t.diagnostic(`known defect: ${p}`);
+  const stale = known.filter((d) => !problems.some((p) => d.match.test(p)));
+  assert.deepEqual(unknown, [], `${where}: ${unknown.length} problem(s)`);
+  assert.deepEqual(stale.map((d) => String(d.match)), [], `${where}: known defect(s) no longer seen; remove them from KNOWN_DEFECTS`);
+}
 const MIN_TARGET = 44;
 const TOL = 1; // px
 
@@ -99,9 +115,8 @@ async function openApp(browser, device, query, insets = ZERO, viewport) {
   return { context, page, errors };
 }
 
-/** Layout checks on the page as it stands. `where` labels failures. */
-async function checkLayout(page, profile, where) {
-  const problems = [];
+/** Layout checks on the page as it stands. Returns problem messages labelled with `where`. */
+async function checkLayout(page, profile, where, problems = []) {
   const check = (ok, msg) => { if (!ok) problems.push(msg); };
   const vp = page.viewportSize();
   const { insets } = profile;
@@ -150,7 +165,7 @@ async function checkLayout(page, profile, where) {
       check(!intersects(a.rect, b.rect), `${where}: ${a.id} ${fmt(a.rect)} overlaps ${b.id} ${fmt(b.rect)}`);
     }
   }
-  assert.deepEqual(problems, [], `${where}: ${problems.length} problem(s)`);
+  return problems;
 }
 
 const fire = (page, type, id, p) => page.locator('#field').dispatchEvent(type, {
@@ -192,38 +207,41 @@ for (const name of BROWSERS) {
       for (const flag of [null, ...flags]) {
         for (const layout of ['gamepad', 'field']) {
           const label = `${profile.name}, ${layout}, ${flag ? `flag ${flag}` : 'no flags'}`;
-          test(`layout checks: ${label}`, { todo: knownDefect(profile, layout) }, async (t) => {
+          test(`layout checks: ${label}`, async (t) => {
             if (skip) return t.skip(skip);
             const { context, page, errors } = await openApp(browser, profile.device, flag ? `?labs=${flag}` : '', profile.insets, profile.viewport);
             try {
               if (flag) assert.equal(await page.evaluate((f) => window.ff7web.labs.isOn(f), flag), true);
               if (layout === 'field') await page.click('#controls-btn');
               assert.equal(await page.locator('#field').isVisible(), layout === 'field');
-              await checkLayout(page, profile, label);
+              const problems = await checkLayout(page, profile, label);
               // Panels opened from the bar must also stay inside the viewport and the safe area.
               await page.click('#labs-btn');
               const panel = await page.locator('#labs-panel').boundingBox();
               const vp = page.viewportSize();
               const ins = profile.insets;
-              assert.ok(panel.x >= ins.left - TOL && panel.y >= ins.top - TOL
-                && panel.x + panel.width <= vp.width - ins.right + TOL && panel.y + panel.height <= vp.height - ins.bottom + TOL,
-              `${label}: labs panel ${fmt(panel)} leaves the safe area`);
+              if (!(panel.x >= ins.left - TOL && panel.y >= ins.top - TOL
+                && panel.x + panel.width <= vp.width - ins.right + TOL && panel.y + panel.height <= vp.height - ins.bottom + TOL)) {
+                problems.push(`${label}: labs panel ${fmt(panel)} leaves the safe area`);
+              }
               await page.click('#labs-btn'); // close
               await page.click('summary');
               const menu = await page.locator('.menu-body').boundingBox();
-              assert.ok(menu.x >= ins.left - TOL && menu.y >= ins.top - TOL
-                && menu.x + menu.width <= vp.width - ins.right + TOL && menu.y + menu.height <= vp.height - ins.bottom + TOL,
-              `${label}: card menu ${fmt(menu)} leaves the safe area`);
+              if (!(menu.x >= ins.left - TOL && menu.y >= ins.top - TOL
+                && menu.x + menu.width <= vp.width - ins.right + TOL && menu.y + menu.height <= vp.height - ins.bottom + TOL)) {
+                problems.push(`${label}: card menu ${fmt(menu)} leaves the safe area`);
+              }
               for (const b of await page.locator('.menu-body .btn').all()) {
                 const bb = await b.boundingBox();
-                assert.ok(bb.width >= MIN_TARGET && bb.height >= MIN_TARGET, `${label}: card menu item ${fmt(bb)} under ${MIN_TARGET}px`);
+                if (!(bb.width >= MIN_TARGET && bb.height >= MIN_TARGET)) problems.push(`${label}: card menu item ${fmt(bb)} under ${MIN_TARGET}px`);
               }
               await page.click('summary');
               await page.click('#labs-btn');
               for (const row of await page.locator('.labs-row').all()) {
                 const b = await row.boundingBox();
-                assert.ok(b.width >= MIN_TARGET && b.height >= MIN_TARGET, `${label}: labs row ${fmt(b)} under ${MIN_TARGET}px`);
+                if (!(b.width >= MIN_TARGET && b.height >= MIN_TARGET)) problems.push(`${label}: labs row ${fmt(b)} under ${MIN_TARGET}px`);
               }
+              settle(t, problems, knownFor(profile, layout), label);
               assert.deepEqual(errors, []);
             } finally { await context.close(); }
           });

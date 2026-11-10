@@ -48,6 +48,28 @@
 export const EXE_USA_SHA1 = 'a95e8b16b97071203b953bb81a33980509262f30';
 
 const DECOMP = 'Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be';
+/** The decomp commit #130 read (include/game.h ActiveCharacterData, SavePartyMember; src/battle/battle.h BattleWork). */
+const DECOMP_130 = 'Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0';
+
+/** g_ActiveCharacters: one ActiveCharacterData (0x440 bytes) per party slot (#78, #101). */
+const ACTIVE_CHARACTERS = 0x8009d84c;
+const ACTIVE_CHARACTER_SIZE = 0x440;
+
+/**
+ * g_BattleWork, the battle module's work area (only meaningful in battle).
+ * The decomp's config/symbols.battle.txt says 0x800F5BB8 and
+ * config/sym_export_battle.us.txt 0x800f5bbc; #130's Tier 2 scenarios decide.
+ */
+export const BATTLE_WORK = 0x800f5bb8;
+const BATTLE_TURN_SIZE = 0x44; // BattleTurnWork; turn[i] for party slot i
+const BATTLE_PARTY = 0x2a8; // BattleWork.party[3] (BattlePartyWork, 0x34 bytes)
+const BATTLE_PARTY_SIZE = 0x34;
+
+/** Savemap character records: nine of 0x84 bytes from savemap + 0x0054 (#130). */
+export const SAVEMAP = 0x8009c6e4;
+export const CHARACTER_RECORDS = SAVEMAP + 0x54;
+export const CHARACTER_RECORD_SIZE = 0x84;
+export const CHARACTER_RECORD_COUNT = 9;
 const SAVEMAP_NOTE = 'notes/32-save-format.md savemap layout (ff7-mods flat wiki)';
 
 export const TYPES = Object.freeze({ u8: 1, s8: 1, u16: 2, s16: 2, u32: 4, s32: 4 });
@@ -123,6 +145,54 @@ export function validateTable(table) {
     }
   }
 }
+
+const ACTIVE_SOURCE = `${DECOMP_130} include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics "Active Character Data" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP)`;
+const BATTLE_SOURCE = `${DECOMP_130} src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc)`;
+
+/**
+ * #130: MP, maximums, limit and ATB per party slot. Hypotheses until the
+ * Tier 2 scenarios listed in notes/130-party-status.md confirm them.
+ */
+const STAT_ENTRIES = [
+  ...[0, 1, 2].flatMap((i) => [
+    ['partyMaxHp', 0x12, 'max HP (baseHp: base HP plus materia; what the menu shows as the maximum)'],
+    ['partyMp', 0x14, 'current MP'],
+    ['partyMaxMp', 0x16, 'max MP (baseMp: base MP plus materia)'],
+  ].map(([name, off, what]) => ({
+    name: `${name}${i}`,
+    address: ACTIVE_CHARACTERS + i * ACTIVE_CHARACTER_SIZE + off,
+    type: 's16',
+    meaning: `${what} of the character in party slot ${i} (g_ActiveCharacters[${i}] + 0x${off.toString(16).toUpperCase().padStart(3, '0')}). Meaningless for an empty slot: check partySlot${i}`,
+    source: ACTIVE_SOURCE,
+    status: 'hypothesis',
+  }))),
+  ...[0, 1, 2].map((i) => ({
+    name: `partyLimit${i}`,
+    address: BATTLE_WORK + BATTLE_PARTY + i * BATTLE_PARTY_SIZE + 0x08,
+    type: 'u16',
+    meaning: `limit gauge of party slot ${i} in battle (g_BattleWork.party[${i}].limitBar, 0-255; 255 = limit break ready). Only meaningful in battle; outside it read characterLimit`,
+    source: BATTLE_SOURCE,
+    status: 'hypothesis',
+  })),
+  ...[0, 1, 2].map((i) => ({
+    name: `partyAtb${i}`,
+    address: BATTLE_WORK + i * BATTLE_TURN_SIZE + 0x04,
+    type: 'u16',
+    meaning: `ATB gauge of party slot ${i} in battle (g_BattleWork.turn[${i}].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle`,
+    source: BATTLE_SOURCE,
+    status: 'hypothesis',
+  })),
+  {
+    name: 'characterLimit',
+    address: CHARACTER_RECORDS + 0x0f,
+    type: 'u8',
+    stride: CHARACTER_RECORD_SIZE,
+    count: CHARACTER_RECORD_COUNT,
+    meaning: 'limit bar kept in each character record (0-255; 255 = limit break ready), indexed by record (0 Cloud, 1 Barret, 2 Tifa, 3 Aeris, 4 Red XIII, 5 Yuffie, 6 Cait Sith, 7 Vincent, 8 Cid). The battle works on its own copy (partyLimit) and writes it back here when it ends',
+    source: `${DECOMP_130} include/game.h (SavePartyMember.limit_charge at +0x0F; Savemap.party at +0x54); ${SAVEMAP_NOTE}: "Character Record" +0x0F current limit bar`,
+    status: 'hypothesis',
+  },
+];
 
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
@@ -244,4 +314,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     status: 'confirmed',
     scenario: SC(['reactor-mode-4c-party-hp-damage', 'save-boot-5-party-barret-battle', 'save-boot-6-party-tifa-battle'][i]),
   })),
+  ...STAT_ENTRIES,
 ]);

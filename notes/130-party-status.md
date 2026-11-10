@@ -1,6 +1,6 @@
 # #130: party MP, max HP/MP, limit gauge and ATB gauge
 
-Status (2026-11-10): attempt 1 pushed (Tier 2 probe). Attempts used: 1 of 3.
+Status (2026-11-10): attempt 2 pushed. Attempts used: 2 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `d4db3de3c3aaf61269e048cf3f6a458996290de0`** (2026-11-08):
@@ -34,3 +34,30 @@ The schema change is outside the issue's "only if a check kind is missing" claus
 | reactor-mode-4e-limit-damage | first guard battle, 1800 frames of damage: limitBar rises (both bases), unk1A and the record's bar reported |
 
 Only 1/0, signs and frame counts leave the sandbox.
+
+### Attempt 1 (`00901d8`, tier2: 45 pass, 5 fail)
+| scenario | status | metrics |
+|---|---|---|
+| save-boot-10a-party-stats-menu-slot0 | pass | load_done 371, menu_wait 1, hp0_ok 1, max0_ok 1, mp0_ok 1, maxmp0_ok 1, lim0_ok 1, match 1 |
+| save-boot-10b-party-stats-menu-slot1 | pass | the same, all 1, for slot 1 |
+| save-boot-10c-party-stats-menu-slot2 | pass | the same, all 1, for slot 2 |
+| save-boot-11-party-stats-battle | pass | load_done 371, battle_wait 5236, map_cur 117, match 1 |
+| save-boot-11a-stats-battle-limit-b8 | pass | **lim_wait 91**, lim1_ok 1, lim2_ok 1, match 1 |
+| save-boot-11b-stats-battle-limit-bc | fail | lim_wait 0 (timed out after 1500 frames), the rest 0 |
+| save-boot-11c-stats-battle-limit-fixed | fail | b8_lim 1, **bc_lim 0**, act_lim 1, mp_battle 1, battle_ok 1, match 1 |
+| save-boot-11d-stats-battle-atb-slots | fail | b8_rise1 0, b8_rise2 0, bc_rise1 0, bc_rise2 0, match 1 |
+| reactor-mode-4d-atb-command | fail | **b8_drop -1, b8_rise 1**, bc_drop 0, bc_rise 0, act_drop -1, act_rise 1, battle_ok 1, match 1 |
+| reactor-mode-4e-limit-damage | fail | hp_dir -1, **b8_dir 1**, bc_dir 0, act_dir 1, rec_dir 0, battle_ok 1, match 1 |
+
+Every earlier scenario passed unchanged.
+
+Reading:
+- **Max HP (+0x12), MP (+0x14) and max MP (+0x16) of g_ActiveCharacters[0..2]** equal the generated save's values in the field menu, and the character records' limit bars hold them too. MP still equals the described values in battle.
+- **g_BattleWork is at 0x800F5BB8** (config/symbols.battle.txt). At that base, party[i].limitBar holds the described limit bars 91 frames after battle mode starts, Cloud's rises while the guards hit him, and turn[0].atbGauge empties after Attack and fills again. At 0x800F5BBC nothing matches or moves.
+- g_ActiveCharacters[i].atbTimer (+0x18) moves like the gauge (act_drop -1, act_rise 1), and unk1A's high byte holds the limit bar at battle start and changes with damage. The record's limit bar does not change during the battle (written back at its end, per the decomp).
+- 11d: slots 1 and 2's gauges did not change between frames 240 and 300 of the random battle. Both were probably already full: Cloud's was full 900 frames into the guard battle. Attempt 2 measures from battle init instead.
+
+### Attempt 2 plan (one push)
+The 0x800F5BBC probes are removed. 11a keeps only the right base, plus unk1A and MP in battle. 11b (new) checks that slots 1 and 2's gauge and atbTimer rise over 240 frames from battle init (detected by limitBar reaching 100, as in 11a). 4d and 4e keep their checks, without the other base.
+
+Confirmed now (attempt 1): partyMaxHp0..2, partyMp0..2, partyMaxMp0..2, characterLimit, partyLimit0..2 and partyAtb0. partyAtb1/2 wait for 11b.

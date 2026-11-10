@@ -56,9 +56,10 @@ const ACTIVE_CHARACTERS = 0x8009d84c;
 const ACTIVE_CHARACTER_SIZE = 0x440;
 
 /**
- * g_BattleWork, the battle module's work area (only meaningful in battle).
- * The decomp's config/symbols.battle.txt says 0x800F5BB8 and
- * config/sym_export_battle.us.txt 0x800f5bbc; #130's Tier 2 scenarios decide.
+ * g_BattleWork, the battle module's work area (only meaningful in battle):
+ * 0x800F5BB8 as the decomp's config/symbols.battle.txt says. #130's attempt 1
+ * ruled out 0x800f5bbc (config/sym_export_battle.us.txt): its limitBar never
+ * read the described values and its gauges never moved.
  */
 export const BATTLE_WORK = 0x800f5bb8;
 const BATTLE_TURN_SIZE = 0x44; // BattleTurnWork; turn[i] for party slot i
@@ -150,9 +151,14 @@ const ACTIVE_SOURCE = `${DECOMP_130} include/game.h (ActiveCharacterData, size 0
 const BATTLE_SOURCE = `${DECOMP_130} src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc)`;
 
 /**
- * #130: MP, maximums, limit and ATB per party slot. Hypotheses until the
- * Tier 2 scenarios listed in notes/130-party-status.md confirm them.
+ * #130: MP, maximums, limit and ATB per party slot (notes/130-party-status.md).
+ * The maximums, MP and record limits equal the values of a generated save with
+ * author-chosen stats (save-boot-10a/b/c); the battle limitBar holds them at
+ * battle start (save-boot-11a) and rises with damage (reactor-mode-4e); slot
+ * 0's ATB gauge empties when a command is taken and fills again
+ * (reactor-mode-4d).
  */
+const STATS_10 = ['save-boot-10a-party-stats-menu-slot0', 'save-boot-10b-party-stats-menu-slot1', 'save-boot-10c-party-stats-menu-slot2'];
 const STAT_ENTRIES = [
   ...[0, 1, 2].flatMap((i) => [
     ['partyMaxHp', 0x12, 'max HP (baseHp: base HP plus materia; what the menu shows as the maximum)'],
@@ -163,24 +169,27 @@ const STAT_ENTRIES = [
     address: ACTIVE_CHARACTERS + i * ACTIVE_CHARACTER_SIZE + off,
     type: 's16',
     meaning: `${what} of the character in party slot ${i} (g_ActiveCharacters[${i}] + 0x${off.toString(16).toUpperCase().padStart(3, '0')}). Meaningless for an empty slot: check partySlot${i}`,
-    source: ACTIVE_SOURCE,
-    status: 'hypothesis',
+    source: `${ACTIVE_SOURCE}. Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches${name === 'partyMp' ? '. MP also holds in a random battle (save-boot-11a)' : ''}`,
+    status: 'confirmed',
+    scenario: SC(STATS_10[i]),
   }))),
   ...[0, 1, 2].map((i) => ({
     name: `partyLimit${i}`,
     address: BATTLE_WORK + BATTLE_PARTY + i * BATTLE_PARTY_SIZE + 0x08,
     type: 'u16',
     meaning: `limit gauge of party slot ${i} in battle (g_BattleWork.party[${i}].limitBar, 0-255; 255 = limit break ready). Only meaningful in battle; outside it read characterLimit`,
-    source: BATTLE_SOURCE,
-    status: 'hypothesis',
+    source: `${BATTLE_SOURCE}. Tier 2 (#130): 91 frames into a random battle it holds each slot's author-chosen limit bar (Cloud 100, Barret 50, Tifa 200; save-boot-11a); slot 0 rises over 1800 frames of the first guard battle while Cloud takes damage (reactor-mode-4e); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(i === 0 ? 'reactor-mode-4e-limit-damage' : 'save-boot-11a-stats-battle-limit'),
   })),
   ...[0, 1, 2].map((i) => ({
     name: `partyAtb${i}`,
     address: BATTLE_WORK + i * BATTLE_TURN_SIZE + 0x04,
     type: 'u16',
     meaning: `ATB gauge of party slot ${i} in battle (g_BattleWork.turn[${i}].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle`,
-    source: BATTLE_SOURCE,
-    status: 'hypothesis',
+    source: `${BATTLE_SOURCE}.${i === 0 ? ' Tier 2 (#130): in the first guard battle it reads lower after Cloud takes Attack than before, and higher 90 frames later (reactor-mode-4d); g_ActiveCharacters[0].atbTimer (+0x18) moves the same way; a rerun matches' : ' Slots 1 and 2 are checked by save-boot-11b (rise from battle init)'}`,
+    status: i === 0 ? 'confirmed' : 'hypothesis',
+    ...(i === 0 ? { scenario: SC('reactor-mode-4d-atb-command') } : {}),
   })),
   {
     name: 'characterLimit',
@@ -189,8 +198,9 @@ const STAT_ENTRIES = [
     stride: CHARACTER_RECORD_SIZE,
     count: CHARACTER_RECORD_COUNT,
     meaning: 'limit bar kept in each character record (0-255; 255 = limit break ready), indexed by record (0 Cloud, 1 Barret, 2 Tifa, 3 Aeris, 4 Red XIII, 5 Yuffie, 6 Cait Sith, 7 Vincent, 8 Cid). The battle works on its own copy (partyLimit) and writes it back here when it ends',
-    source: `${DECOMP_130} include/game.h (SavePartyMember.limit_charge at +0x0F; Savemap.party at +0x54); ${SAVEMAP_NOTE}: "Character Record" +0x0F current limit bar`,
-    status: 'hypothesis',
+    source: `${DECOMP_130} include/game.h (SavePartyMember.limit_charge at +0x0F; Savemap.party at +0x54); ${SAVEMAP_NOTE}: "Character Record" +0x0F current limit bar. Tier 2 (#130): records 0, 1 and 2 hold the author-chosen limit bars after loading harness/saves/disc1-md1stin-stats.json (save-boot-10a/b/c); record 0 is unchanged during the first guard battle while the battle's copy rises (reactor-mode-4e)`,
+    status: 'confirmed',
+    scenario: SC(STATS_10[0]),
   },
 ];
 

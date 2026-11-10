@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-4d-atb-command",
-  "description": "#130: Cloud's ATB gauge in the first guard battle. From \"battle\" (600 frames into it), 300 frames with no input so the gauge fills, mark \"full\"; then Circle every 20 frames for 240 frames (Attack, then the default target: a command is taken), mark \"taken\", then 90 frames with no input. Each candidate must read lower at the end than at \"full\" (*_drop -1: the command emptied the gauge) and higher than at \"taken\" (*_rise 1: it fills again): turn[0].atbGauge at g_BattleWork base 0x800F5BB8 (b8) and 0x800F5BBC (bc), and g_ActiveCharacters[0].atbTimer (+0x18, act). Signs only. match: a rerun from the same snapshot.",
+  "description": "#130: Cloud's ATB gauge in the first guard battle. From \"battle\" (600 frames into it), 300 frames with no input so the gauge fills, mark \"full\"; then Circle every 20 frames for 240 frames (Attack, then the default target: a command is taken), mark \"taken\", then 90 frames with no input. g_BattleWork.turn[0].atbGauge must read lower at the end than at \"full\" (atb_drop -1: the command emptied it) and higher than at \"taken\" (atb_rise 1: it fills again); g_ActiveCharacters[0].atbTimer (+0x18) the same (act_drop, act_rise). Attempt 1 ruled out the other documented g_BattleWork base, 0x800F5BBC (0 and 0). Signs only. match: a rerun from the same snapshot.",
   "boot": {
     "from": "battle"
   },
@@ -13,20 +13,15 @@
       "type": "u16",
       "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
     },
-    "b8_atb0": {
+    "atb0": {
       "addr": "0x800f5bbc",
       "type": "u16",
-      "description": "g_BattleWork candidate base 0x800f5bb8 (Xeeynamo/ff7-decomp@d4db3de (reference only, no code): config/symbols.battle.txt 0x800F5BB8, config/sym_export_battle.us.txt 0x800f5bbc) + turn[0] (BattleTurnWork, 0x44 bytes) + 0x04 atbGauge (src/battle/battle.h: ATB fill gauge, saturates at 0xFFFF; batini.c sets it to 0)"
-    },
-    "bc_atb0": {
-      "addr": "0x800f5bc0",
-      "type": "u16",
-      "description": "g_BattleWork candidate base 0x800f5bbc (Xeeynamo/ff7-decomp@d4db3de (reference only, no code): config/symbols.battle.txt 0x800F5BB8, config/sym_export_battle.us.txt 0x800f5bbc) + turn[0] (BattleTurnWork, 0x44 bytes) + 0x04 atbGauge (src/battle/battle.h: ATB fill gauge, saturates at 0xFFFF; batini.c sets it to 0)"
+      "description": "g_BattleWork (0x800F5BB8, Xeeynamo/ff7-decomp@d4db3de (reference only, no code) config/symbols.battle.txt; #130 attempt 1 ruled out 0x800f5bbc) + turn[0] (BattleTurnWork, 0x44 bytes) + 0x04 atbGauge (src/battle/battle.h: ATB fill gauge, saturates at 0xFFFF; batini.c sets it to 0)"
     },
     "act_atb0": {
       "addr": "0x8009d864",
       "type": "u16",
-      "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x018: atbTimer (u16; the decomp says it is seeded from BattleWork.turn[].atbGauge). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+      "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x018: atbTimer (u16; the decomp says it is seeded from BattleWork.turn[].atbGauge; attempt 1 saw it follow the gauge). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
     }
   },
   "input": [
@@ -182,35 +177,19 @@
   "assert": [
     {
       "change": {
-        "mem": "b8_atb0",
+        "mem": "atb0",
         "is": "decreased",
         "since": "full"
       },
-      "metric": "b8_drop"
+      "metric": "atb_drop"
     },
     {
       "change": {
-        "mem": "b8_atb0",
+        "mem": "atb0",
         "is": "increased",
         "since": "taken"
       },
-      "metric": "b8_rise"
-    },
-    {
-      "change": {
-        "mem": "bc_atb0",
-        "is": "decreased",
-        "since": "full"
-      },
-      "metric": "bc_drop"
-    },
-    {
-      "change": {
-        "mem": "bc_atb0",
-        "is": "increased",
-        "since": "taken"
-      },
-      "metric": "bc_rise"
+      "metric": "atb_rise"
     },
     {
       "change": {
@@ -241,10 +220,8 @@
     }
   ],
   "metrics": [
-    "b8_drop",
-    "b8_rise",
-    "bc_drop",
-    "bc_rise",
+    "atb_drop",
+    "atb_rise",
     "act_drop",
     "act_rise",
     "battle_ok",

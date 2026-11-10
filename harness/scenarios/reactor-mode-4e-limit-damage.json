@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-4e-limit-damage",
-  "description": "#130: Cloud's limit gauge rises when he takes damage. From \"battle\", 1800 frames with no input (the guards attack, as in reactor-mode-4c): current HP decreased (hp_dir -1, the control), and the sign of each limit candidate's change: g_BattleWork party[0].limitBar at base 0x800F5BB8 (b8_dir) and 0x800F5BBC (bc_dir), g_ActiveCharacters[0].unk1A (act_dir), and the savemap record's limit bar (rec_dir, expected 0 until the battle ends). Only b8/bc are checks (one of them is expected to fail if its base is wrong), the others are reported. Signs only. match: a rerun from the same snapshot.",
+  "description": "#130: Cloud's limit gauge rises when he takes damage. From \"battle\", 1800 frames with no input (the guards attack, as in reactor-mode-4c): current HP decreased (hp_dir -1, the control), g_BattleWork.party[0].limitBar increased (lim_dir 1), and the savemap record's limit bar is unchanged during the battle (rec_dir 0). act_dir: the sign of g_ActiveCharacters[0].unk1A's change, reported only. Attempt 1 ruled out the other documented g_BattleWork base, 0x800F5BBC. Signs only. match: a rerun from the same snapshot.",
   "boot": {
     "from": "battle"
   },
@@ -18,15 +18,10 @@
       "type": "u16",
       "description": "g_ActiveCharacters[0] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x010: current HP (s16; confirmed #78). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
     },
-    "b8_lim0": {
+    "lim0": {
       "addr": "0x800f5e68",
       "type": "u16",
-      "description": "g_BattleWork candidate base 0x800f5bb8 (Xeeynamo/ff7-decomp@d4db3de (reference only, no code): config/symbols.battle.txt says 0x800F5BB8, config/sym_export_battle.us.txt 0x800f5bbc) + 0x2A8 party[0] (BattlePartyWork, 0x34 bytes) + 0x08 limitBar (src/battle/battle.h; batini.c seeds it from the record's limit_charge, batres.c writes it back)"
-    },
-    "bc_lim0": {
-      "addr": "0x800f5e6c",
-      "type": "u16",
-      "description": "g_BattleWork candidate base 0x800f5bbc (Xeeynamo/ff7-decomp@d4db3de (reference only, no code): config/symbols.battle.txt says 0x800F5BB8, config/sym_export_battle.us.txt 0x800f5bbc) + 0x2A8 party[0] (BattlePartyWork, 0x34 bytes) + 0x08 limitBar (src/battle/battle.h; batini.c seeds it from the record's limit_charge, batres.c writes it back)"
+      "description": "g_BattleWork (0x800F5BB8, Xeeynamo/ff7-decomp@d4db3de (reference only, no code) config/symbols.battle.txt; #130 attempt 1 ruled out 0x800f5bbc from config/sym_export_battle.us.txt) + 0x2A8 party[0] (BattlePartyWork, 0x34 bytes) + 0x08 limitBar (src/battle/battle.h; batini.c seeds it from the record's limit_charge, batres.c writes it back)"
     },
     "act_lim0": {
       "addr": "0x8009d866",
@@ -36,7 +31,7 @@
     "lim_rec0": {
       "addr": "0x8009c747",
       "type": "u8",
-      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 0 (character record 0) + 0x0F: the limit bar (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.limit_charge). Written back from the battle's limitBar when the battle ends (batres.c), so expected unchanged during it."
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 0 (character record 0) + 0x0F: the limit bar (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.limit_charge). Written back from the battle's limitBar when the battle ends (batres.c), so unchanged during it."
     }
   },
   "input": [
@@ -57,17 +52,10 @@
     },
     {
       "change": {
-        "mem": "b8_lim0",
+        "mem": "lim0",
         "is": "increased"
       },
-      "metric": "b8_dir"
-    },
-    {
-      "change": {
-        "mem": "bc_lim0",
-        "is": "increased"
-      },
-      "metric": "bc_dir"
+      "metric": "lim_dir"
     },
     {
       "change": {
@@ -97,8 +85,7 @@
   ],
   "metrics": [
     "hp_dir",
-    "b8_dir",
-    "bc_dir",
+    "lim_dir",
     "act_dir",
     "rec_dir",
     "battle_ok",

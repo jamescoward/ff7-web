@@ -140,4 +140,20 @@ describe('the shipped table (#130 entries)', () => {
     const lim = byName.get('characterLimit');
     assert.deepEqual([lim.address, lim.stride, lim.count, lim.type], [0x8009c6e4 + 0x54 + 0x0f, 0x84, 9, 'u8']);
   });
+
+  test('partyStatus with the shipped table: confirmed fields read, slot 1 ATB (a hypothesis) is null', async () => {
+    const act = (i, off) => 0x8009d84c + 0x440 * i + off;
+    const bw = 0x800f5bb8;
+    const b = ram([
+      [0x8009c560, 's16', 2], [0x8009cbdc, 'u8', 0], [0x8009cbdd, 'u8', 1], [0x8009cbde, 'u8', 0xff],
+      [act(0, 0x10), 's16', 271], [act(0, 0x12), 's16', 314], [act(0, 0x14), 's16', 41], [act(0, 0x16), 's16', 54],
+      [act(1, 0x10), 's16', 300], [act(1, 0x12), 's16', 333], [act(1, 0x14), 's16', 20], [act(1, 0x16), 's16', 27],
+      [bw + 0x2a8 + 0x08, 'u16', 100], [bw + 0x2a8 + 0x34 + 0x08, 'u16', 50],
+      [bw + 0x04, 'u16', 0x8000], [bw + 0x44 + 0x04, 'u16', 0x4000],
+    ]);
+    const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
+    assert.deepEqual(await layer.partyStatus(0), { value: { hp: 271, maxHp: 314, mp: 41, maxMp: 54, limit: 100, atb: 0x8000 }, confirmed: true });
+    assert.deepEqual(await layer.partyStatus(1), { value: { hp: 300, maxHp: 333, mp: 20, maxMp: 27, limit: 50, atb: null }, confirmed: true });
+    assert.deepEqual(await layer.partyStatus(2), { value: null, confirmed: true, reason: 'empty slot' });
+  });
 });

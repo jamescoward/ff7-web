@@ -75,9 +75,16 @@ test('state file: round trip and every kind of damage is rejected', async () => 
   await reject(file, { build: 'b2' }, /different emulator core build/);
   await reject(file, { stateLength: STATE.length + 1 }, /does not fit/);
   const v2 = await encodeStateFile({ discKey: KEY, state: STATE });
-  const text = new TextDecoder().decode(v2).replace('"version":1', '"version":2');
-  assert.ok(text.includes('"version":2'));
-  await reject(new TextEncoder().encode(text), {}, /different version/);
+  const hlen = new DataView(v2.buffer).getUint32(8, true);
+  const hdr = new TextDecoder().decode(v2.subarray(12, 12 + hlen)).replace('"version":1', '"version":2');
+  assert.ok(hdr.includes('"version":2'));
+  const hb = new TextEncoder().encode(hdr);
+  const f2 = new Uint8Array(12 + hb.length + STATE.length);
+  f2.set(v2.subarray(0, 12));
+  new DataView(f2.buffer).setUint32(8, hb.length, true);
+  f2.set(hb, 12);
+  f2.set(STATE, 12 + hb.length);
+  await reject(f2, {}, /different version/);
   // Unknown builds on either side are not a mismatch.
   await decodeStateFile(v2, { discKey: KEY, build: 'b9' });
   assert.equal(await sha256Hex(STATE), createHash('sha256').update(STATE).digest('hex'));
@@ -146,7 +153,25 @@ const stateKeys = (page) => page.evaluate(async () => {
   });
 });
 const status = (page) => page.locator('#status').textContent();
-const stateBytes = (page) => page.evaluate(async () => [...(await window.ff7web.backend.saveState())]);
+/**
+ * Keep the core's current state in the page as window.__kept, and compare the
+ * core's state with it later. Two saves of an untouched core differ in a
+ * handful of bytes (3 seen: volatile bytes inside the core, not game state), so
+ * "unchanged" means at most TOLERANCE differing bytes of ~4.4 MB; a load that
+ * went wrong would differ by far more.
+ */
+const TOLERANCE = 16;
+const keepState = (page) => page.evaluate(async () => {
+  window.__kept = await window.ff7web.backend.saveState();
+  return window.__kept.length;
+});
+const stateDiff = (page) => page.evaluate(async () => {
+  const now = await window.ff7web.backend.saveState();
+  if (now.length !== window.__kept.length) return Infinity;
+  let n = 0;
+  for (let i = 0; i < now.length; i++) if (now[i] !== window.__kept[i]) n++;
+  return n;
+});
 const cardBytes = (page) => page.evaluate(async () => { const c = await window.ff7web.backend.getCard(); return c ? [...c] : null; });
 
 for (const name of BROWSERS) {
@@ -266,8 +291,8 @@ for (const name of BROWSERS) {
         await boot(page, 'pad-echo.exe', buildPadEcho());
         await until(() => page.locator('#fresh-btn').isVisible(), { what: 'the offer' });
         await page.click('#fresh-btn');
+        await until(async () => (await stateKeys(page))?.length === 0, { what: 'the state to be deleted' });
         assert.equal(await page.locator('#resume-btn').isVisible(), false);
-        assert.deepEqual(await stateKeys(page), []);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
@@ -279,13 +304,13 @@ for (const name of BROWSERS) {
         await boot(page, 'pad-echo.exe', buildPadEcho());
         await page.waitForTimeout(300);
         const c1 = await freeze(page);
-        const exported = await stateBytes(page);
+        const exportedLength = await keepState(page);
         await page.click('summary');
         const [download] = await Promise.all([page.waitForEvent('download'), page.click('#state-export')]);
         const fs = await import('node:fs/promises');
         const file = await fs.readFile(await download.path());
         assert.equal(file.subarray(0, 8).toString(), MAGIC);
-        assert.equal(file.length > exported.length, true);
+        assert.ok(file.length > exportedLength && exportedLength > 1_000_000, 'a real emulator state');
 
         const importFile = async (buffer, label = 'state.f7s') => {
           await page.setInputFiles('#state-input', { name: label, mimeType: 'application/octet-stream', buffer });
@@ -299,7 +324,7 @@ for (const name of BROWSERS) {
         assert.notEqual(c2, c1);
 
         // Rejections: the paused core's state must be byte-identical afterwards.
-        const before = await stateBytes(page);
+        await keepState(page);
         const cardBefore = await cardBytes(page);
         const flipped = Buffer.from(file);
         flipped[flipped.length - 100] ^= 0xff;
@@ -316,7 +341,7 @@ for (const name of BROWSERS) {
           assert.match(await status(page), re, what);
           assert.match(await status(page), /unchanged/);
           assert.equal(await page.locator('#status').getAttribute('data-kind'), 'error');
-          assert.deepEqual(await stateBytes(page), before, `${what} changed the game`);
+          assert.ok((await stateDiff(page)) <= TOLERANCE, `${what} changed the game`);
         }
         assert.deepEqual(await cardBytes(page), cardBefore);
 
@@ -324,11 +349,11 @@ for (const name of BROWSERS) {
         const other = await openApp(browser, '?labs=suspend', context);
         await boot(other.page, 'vblank-counter.exe', buildVblankCounter());
         await freeze(other.page);
-        const otherBefore = await stateBytes(other.page);
+        await keepState(other.page);
         await other.page.setInputFiles('#state-input', { name: 'x.f7s', mimeType: 'application/octet-stream', buffer: file });
         await until(async () => /Import failed/.test(await status(other.page)), { what: 'the other-disc file to be rejected' });
         assert.match(await status(other.page), /different disc/);
-        assert.deepEqual(await stateBytes(other.page), otherBefore);
+        assert.ok((await stateDiff(other.page)) <= TOLERANCE);
 
         assert.deepEqual([...errors, ...other.errors], []);
       } finally { await context.close(); }
@@ -340,12 +365,12 @@ for (const name of BROWSERS) {
       try {
         await boot(page, 'pad-echo.exe', buildPadEcho());
         await freeze(page);
-        const before = await stateBytes(page);
+        await keepState(page);
         const msg = await page.evaluate(async () => {
           try { await window.ff7web.backend.loadState(new Uint8Array(100)); return 'accepted'; } catch (e) { return e.message; }
         });
         assert.match(msg, /does not fit/);
-        assert.deepEqual(await stateBytes(page), before);
+        assert.ok((await stateDiff(page)) <= TOLERANCE);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

@@ -41,7 +41,12 @@ const cardMenu = document.querySelector('.menu');
 const cardPanel = cardMenu.querySelector('.menu-body');
 function placeCardPanel() {
   const below = cardMenu.querySelector('summary').getBoundingClientRect().bottom;
-  cardPanel.style.top = `${Math.round(below + 8)}px`;
+  const top = Math.round(below + 8);
+  cardPanel.style.top = `${top}px`;
+  // Stay inside the viewport above the home-bar inset: the panel scrolls if it is taller.
+  const inset = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+  cardPanel.style.maxHeight = `${Math.max(88, Math.floor(window.innerHeight - inset - top - 8))}px`;
+  cardPanel.style.overflowY = 'auto';
 }
 cardMenu.querySelector('summary').addEventListener('click', placeCardPanel);
 window.addEventListener('resize', () => { if (cardMenu.open) placeCardPanel(); });
@@ -90,11 +95,9 @@ const suspend = createSuspend({
   labs,
   store: createStateStore(),
   ui: {
-    tools: $('state-tools'),
+    menu: cardPanel,
     resume: $('resume-btn'),
     fresh: $('fresh-btn'),
-    exportBtn: $('state-export'),
-    importInput: $('state-input'),
   },
   setStatus,
   closeMenu: closeCardMenu,

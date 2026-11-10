@@ -69,8 +69,46 @@ export function createSuspend({ getBackend, labs, store, ui, setStatus, closeMen
   };
   const say = (text, kind = '') => setStatus(text, kind, { clearAfter: notice });
 
+  // The Export/Import buttons exist in the page only while the flag is on.
+  let tools = null;
+  function buildTools() {
+    const el = document.createElement('div');
+    el.className = 'state-tools';
+    el.id = 'state-tools';
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'btn';
+    exportBtn.id = 'state-export';
+    exportBtn.textContent = 'Export state';
+    exportBtn.addEventListener('click', exportState);
+    const label = document.createElement('label');
+    label.className = 'btn';
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'state-input';
+    input.accept = '.f7s';
+    input.hidden = true;
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) importState(file);
+    });
+    label.append(input, 'Import state');
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = 'A state is a snapshot of the running game, kept only on this device. Import works for the same disc only.';
+    el.append(exportBtn, label, hint);
+    return el;
+  }
+
   function render() {
-    ui.tools.hidden = !on();
+    if (on() && !tools) {
+      tools = buildTools();
+      ui.menu.insertBefore(tools, ui.menu.querySelector('.hint'));
+    } else if (!on() && tools) {
+      tools.remove();
+      tools = null;
+    }
     ui.resume.hidden = ui.fresh.hidden = !(on() && offer);
   }
 
@@ -179,12 +217,6 @@ export function createSuspend({ getBackend, labs, store, ui, setStatus, closeMen
 
   ui.resume.addEventListener('click', resume);
   ui.fresh.addEventListener('click', startFresh);
-  ui.exportBtn.addEventListener('click', exportState);
-  ui.importInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    e.target.value = '';
-    if (file) importState(file);
-  });
   // pagehide as well as visibilitychange: iOS fires visibilitychange first, and
   // saveNow() skips the second call because no frame ran in between.
   window.addEventListener('pagehide', () => { saveNow(); });

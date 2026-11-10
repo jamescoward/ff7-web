@@ -76,7 +76,7 @@ describe('address table', () => {
       'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0', 'partyHp1', 'partyHp2',
       // #130
       'partyMaxHp0', 'partyMaxHp1', 'partyMaxHp2', 'partyMp0', 'partyMp1', 'partyMp2', 'partyMaxMp0', 'partyMaxMp1', 'partyMaxMp2',
-      'partyLimit0', 'partyLimit1', 'partyLimit2', 'partyAtb0', 'characterLimit'];
+      'partyLimit0', 'partyLimit1', 'partyLimit2', 'partyAtb0', 'partyAtb1', 'partyAtb2', 'characterLimit'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

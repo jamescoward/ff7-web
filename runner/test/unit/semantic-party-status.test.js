@@ -141,7 +141,7 @@ describe('the shipped table (#130 entries)', () => {
     assert.deepEqual([lim.address, lim.stride, lim.count, lim.type], [0x8009c6e4 + 0x54 + 0x0f, 0x84, 9, 'u8']);
   });
 
-  test('partyStatus with the shipped table: confirmed fields read, slot 1 ATB (a hypothesis) is null', async () => {
+  test('partyStatus with the shipped table: every field of slots 0 and 1 reads in battle', async () => {
     const act = (i, off) => 0x8009d84c + 0x440 * i + off;
     const bw = 0x800f5bb8;
     const b = ram([
@@ -153,7 +153,7 @@ describe('the shipped table (#130 entries)', () => {
     ]);
     const layer = createSemantic({ backend: b, exeSha1: EXE_USA_SHA1 });
     assert.deepEqual(await layer.partyStatus(0), { value: { hp: 271, maxHp: 314, mp: 41, maxMp: 54, limit: 100, atb: 0x8000 }, confirmed: true });
-    assert.deepEqual(await layer.partyStatus(1), { value: { hp: 300, maxHp: 333, mp: 20, maxMp: 27, limit: 50, atb: null }, confirmed: true });
+    assert.deepEqual(await layer.partyStatus(1), { value: { hp: 300, maxHp: 333, mp: 20, maxMp: 27, limit: 50, atb: 0x4000 }, confirmed: true });
     assert.deepEqual(await layer.partyStatus(2), { value: null, confirmed: true, reason: 'empty slot' });
   });
 });

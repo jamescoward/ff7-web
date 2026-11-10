@@ -1,6 +1,6 @@
 # #130: party MP, max HP/MP, limit gauge and ATB gauge
 
-Status (2026-11-10): attempt 2 pushed. Attempts used: 2 of 3.
+Status (2026-11-10): done. Attempt 2 (`890a5d0`, tier2: 48 pass, 0 fail) confirms everything. Attempts used: 2 of 3.
 
 ## Sources (reference only; no code copied)
 - **Xeeynamo/ff7-decomp @ `d4db3de3c3aaf61269e048cf3f6a458996290de0`** (2026-11-08):
@@ -61,3 +61,25 @@ Reading:
 The 0x800F5BBC probes are removed. 11a keeps only the right base, plus unk1A and MP in battle. 11b (new) checks that slots 1 and 2's gauge and atbTimer rise over 240 frames from battle init (detected by limitBar reaching 100, as in 11a). 4d and 4e keep their checks, without the other base.
 
 Confirmed now (attempt 1): partyMaxHp0..2, partyMp0..2, partyMaxMp0..2, characterLimit, partyLimit0..2 and partyAtb0. partyAtb1/2 wait for 11b.
+
+### Attempt 2 (`890a5d0`, tier2: 48 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-10a/b/c | as in attempt 1, all 1 |
+| save-boot-11-party-stats-battle | load_done 371, battle_wait 5236, map_cur 117, match 1 |
+| save-boot-11a-stats-battle-limit | lim_wait 91, lim1_ok 1, lim2_ok 1, act_lim 1, mp_battle 1, match 1 |
+| save-boot-11b-stats-battle-atb-slots | lim_wait 91, **atb1_dir 1, atb2_dir 1, act1_dir 1, act2_dir 1**, match 1 |
+| reactor-mode-4d-atb-command | atb_drop -1, atb_rise 1, act_drop -1, act_rise 1, battle_ok 1, match 1 |
+| reactor-mode-4e-limit-damage | hp_dir -1, lim_dir 1, act_dir 1, rec_dir 0, battle_ok 1, match 1 |
+
+Every earlier scenario passed unchanged.
+
+## Outcome
+- **Confirmed** (`semantic/addresses.js`): partyMaxHp0..2 (+0x12), partyMp0..2 (+0x14), partyMaxMp0..2 (+0x16) of g_ActiveCharacters; partyLimit0..2 (g_BattleWork.party[i].limitBar, 0x800F5BB8 + 0x2A8 + 0x34 i + 8); partyAtb0..2 (g_BattleWork.turn[i].atbGauge, 0x800F5BB8 + 0x44 i + 4); characterLimit (record + 0x0F, records 0-8).
+- `partyStatus(slot)` (`semantic/layer.js`) returns `{ hp, maxHp, mp, maxMp, limit, atb }`, with null for an unconfirmed entry. In battle, limit and atb come from g_BattleWork. Elsewhere, limit comes from the character's record and atb is null.
+- The acceptance holds: the generated save's values equal RAM (10a-c, 11a); partyAtb0 rises and drops after a command (4d); the limit gauge rises after Cloud takes damage (4e). Every scenario has a matching rerun.
+
+## Limits and follow-ups
+- Party IDs 9-11 (Young Cloud, Sephiroth) map to records in a way no scenario checks, so partyStatus gives null limit for them outside battle.
+- g_BattleWork is the battle overlay's area: outside battle it holds stale values, which is why partyStatus reads it only when gameState is battle.
+- ActiveCharacterData +0x18 (atbTimer) and unk1A's high byte also track the ATB and limit in battle. They are not in the table because nothing needs a second copy.

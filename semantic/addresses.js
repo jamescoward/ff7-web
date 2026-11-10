@@ -154,9 +154,9 @@ const BATTLE_SOURCE = `${DECOMP_130} src/battle/battle.h (BattleWork: turn[10] o
  * #130: MP, maximums, limit and ATB per party slot (notes/130-party-status.md).
  * The maximums, MP and record limits equal the values of a generated save with
  * author-chosen stats (save-boot-10a/b/c); the battle limitBar holds them at
- * battle start (save-boot-11a) and rises with damage (reactor-mode-4e); slot
- * 0's ATB gauge empties when a command is taken and fills again
- * (reactor-mode-4d).
+ * battle start (save-boot-11a) and rises with damage (reactor-mode-4e); the
+ * ATB gauges rise from battle init (save-boot-11b), and slot 0's empties when
+ * a command is taken and fills again (reactor-mode-4d).
  */
 const STATS_10 = ['save-boot-10a-party-stats-menu-slot0', 'save-boot-10b-party-stats-menu-slot1', 'save-boot-10c-party-stats-menu-slot2'];
 const STAT_ENTRIES = [
@@ -187,9 +187,9 @@ const STAT_ENTRIES = [
     address: BATTLE_WORK + i * BATTLE_TURN_SIZE + 0x04,
     type: 'u16',
     meaning: `ATB gauge of party slot ${i} in battle (g_BattleWork.turn[${i}].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle`,
-    source: `${BATTLE_SOURCE}.${i === 0 ? ' Tier 2 (#130): in the first guard battle it reads lower after Cloud takes Attack than before, and higher 90 frames later (reactor-mode-4d); g_ActiveCharacters[0].atbTimer (+0x18) moves the same way; a rerun matches' : ' Slots 1 and 2 are checked by save-boot-11b (rise from battle init)'}`,
-    status: i === 0 ? 'confirmed' : 'hypothesis',
-    ...(i === 0 ? { scenario: SC('reactor-mode-4d-atb-command') } : {}),
+    source: `${BATTLE_SOURCE}. Tier 2 (#130): ${i === 0 ? 'in the first guard battle it reads lower after Cloud takes Attack than before, and higher 90 frames later (reactor-mode-4d); g_ActiveCharacters[0].atbTimer (+0x18) moves the same way' : `in a random battle with party Cloud, Barret, Tifa it rises over the 240 frames after battle init (save-boot-11b), as g_ActiveCharacters[${i}].atbTimer (+0x18) does`}; a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(i === 0 ? 'reactor-mode-4d-atb-command' : 'save-boot-11b-stats-battle-atb-slots'),
   })),
   {
     name: 'characterLimit',

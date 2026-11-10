@@ -359,7 +359,7 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
-    test('the core refuses a wrong-size state and the game is unchanged', { skip: NEEDS_CORE }, async (t) => {
+    test('the worker rejects a wrong-size state before the core and the game is unchanged', { skip: NEEDS_CORE }, async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser);
       try {
@@ -370,6 +370,26 @@ for (const name of BROWSERS) {
           try { await window.ff7web.backend.loadState(new Uint8Array(100)); return 'accepted'; } catch (e) { return e.message; }
         });
         assert.match(msg, /does not fit/);
+        assert.ok((await stateDiff(page)) <= TOLERANCE);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('the core refuses a right-size garbage state; the backup is restored and the game is unchanged', { skip: NEEDS_CORE }, async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser);
+      try {
+        await boot(page, 'pad-echo.exe', buildPadEcho());
+        await freeze(page);
+        await keepState(page);
+        const before = await counter(page);
+        const msg = await page.evaluate(async () => {
+          const b = window.ff7web.backend;
+          const size = (await b.saveState()).length;
+          try { await b.loadState(new Uint8Array(size)); return 'accepted'; } catch (e) { return e.message; }
+        });
+        assert.match(msg, /core refused/);
+        assert.equal(await counter(page), before);
         assert.ok((await stateDiff(page)) <= TOLERANCE);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }

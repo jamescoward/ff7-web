@@ -182,6 +182,17 @@ export async function createWorkerBackend(opts = {}) {
     pause: () => worker.postMessage({ type: 'pause' }),
     resume: () => worker.postMessage({ type: 'run' }),
 
+    /** Suspend/resume (#119): the whole emulator state as bytes, and the key of the loaded disc (on-device only). */
+    async saveState() {
+      return new Uint8Array(await request({ type: 'getState' }));
+    },
+    /** Restore a state; rejects, with the game unchanged, if the core refuses it. */
+    async loadState(bytes) {
+      const copy = bytes.slice().buffer;
+      await request({ type: 'setState', bytes: new Uint8Array(copy) });
+    },
+    discKey: () => request({ type: 'discKey' }),
+
     /** The slot 1 card as the core holds it now, or null before a load. */
     getCard: () => request({ type: 'getCard' }),
     /** Replace the slot 1 card in the running core. */

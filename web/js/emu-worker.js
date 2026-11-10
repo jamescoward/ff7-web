@@ -7,6 +7,8 @@
 //   { type: 'run' } / { type: 'pause' }
 //   { type: 'setCard', bytes }                   replace the slot 1 card
 //   { type: 'getCard', id } / { type: 'readMem', id, addr, len }
+//   { type: 'getState', id } / { type: 'setState', id, bytes }   suspend/resume (#119): the whole emulator state; a failed load leaves the game as it was; the memory card is kept as it was
+//   { type: 'discKey', id }                      on-device key of the loaded disc (state-file.js)
 //   { type: 'recycle', buffer }                  a frame buffer to reuse
 //   { type: 'speed', speed }                     1, 2 or 3 core frames per displayed frame (#118); audio is dropped above 1x
 //   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
@@ -21,8 +23,9 @@
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
-import { gateForFiles } from './disc-gate.js';
+import { gateForFiles, pickImage } from './disc-gate.js';
 import { pickBootFile } from './files.js';
+import { discKey } from './state-file.js';
 import { clampSpeed, createGovernor, stepDown } from './speed.js';
 import { createStatePoller } from './overlay-state.js';
 import { ADDRESS_TABLE } from './semantic/addresses.js';
@@ -46,6 +49,8 @@ let cardDigest = 0;
 let timer = 0;
 let poller = null; // the overlay's state sampler; exists only when the hash gate is on
 let overlayOn = false;
+let keyFile = null; // the file the disc key is taken from
+let keyPromise = null;
 const spare = [];
 
 const post = (msg, transfer) => self.postMessage(msg, transfer ?? []);
@@ -224,6 +229,51 @@ function peek(addr, len) {
   return m.HEAPU8.slice(p + off, p + off + len);
 }
 
+/** Whole-emulator state as a fresh byte array. Only the core's own serializer touches the heap. */
+function readState() {
+  if (!loaded) throw new Error('no program loaded');
+  const size = m._fe_state_size();
+  const p = m._malloc(size);
+  if (!p) throw new Error('out of memory while saving the state');
+  try {
+    if (!m._fe_state_save(p, size)) throw new Error('the core could not save its state');
+    return m.HEAPU8.slice(p, p + size);
+  } finally {
+    m._free(p);
+  }
+}
+
+function loadStateBytes(bytes) {
+  if (!loaded) throw new Error('no program loaded');
+  const size = m._fe_state_size();
+  if (!(bytes instanceof Uint8Array) || bytes.length !== size) throw new Error('this state does not fit the running core');
+  const backup = readState();
+  const p = m._malloc(size);
+  if (!p) throw new Error('out of memory while loading the state');
+  const card = cardView()?.slice() ?? null; // the memory card is not part of resume
+  try {
+    m.HEAPU8.set(bytes, p);
+    if (!m._fe_state_load(p, size)) {
+      // The core may have half-applied it: put everything back.
+      m.HEAPU8.set(backup, p);
+      m._fe_state_load(p, size);
+      throw new Error('the core refused the state');
+    }
+  } finally {
+    m._free(p);
+    const c = cardView();
+    if (card && c) {
+      c.set(card);
+      cardDigest = digest(c);
+    }
+  }
+  m._fe_audio_clear();
+  // Re-anchor real time so the loaded state does not fast-forward to catch up.
+  baseTime = performance.now();
+  baseFrame = frame;
+  governor.reset();
+}
+
 const handlers = {
   async init({ options }) {
     m = await init({
@@ -249,6 +299,7 @@ const handlers = {
     if (loaded) throw new Error('a program is already loaded; reload the page to change it');
     const boot = pickBootFile(files.map((f) => f.name));
     if (!boot) throw new Error('no disc image or PS-X EXE among the chosen files');
+    keyFile = (/\.cue$/i.test(boot) ? pickImage(files) : null) ?? files.find((f) => f.name === boot);
     m.FS.mkdir(MOUNT);
     m.FS.mount(m.WORKERFS, { files }, MOUNT);
     const path = `${MOUNT}/${boot}`;
@@ -294,6 +345,19 @@ const handlers = {
   },
   readMem({ id, addr, len }) {
     post({ type: 'reply', id, value: peek(addr, len) });
+  },
+  getState({ id }) {
+    const bytes = readState();
+    post({ type: 'reply', id, value: bytes.buffer }, [bytes.buffer]);
+  },
+  setState({ id, bytes }) {
+    loadStateBytes(bytes);
+    post({ type: 'reply', id, value: true });
+  },
+  async discKey({ id }) {
+    if (!keyFile) throw new Error('no program loaded');
+    keyPromise ??= discKey(keyFile);
+    post({ type: 'reply', id, value: await keyPromise });
   },
   speed({ speed: v }) {
     setSpeed(v);

@@ -8,6 +8,7 @@
 //   { type: 'setCard', bytes }                   replace the slot 1 card
 //   { type: 'getCard', id } / { type: 'readMem', id, addr, len }
 //   { type: 'recycle', buffer }                  a frame buffer to reuse
+//   { type: 'speed', speed }                     1, 2 or 3 core frames per displayed frame (#118); audio is dropped above 1x
 //   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
@@ -15,18 +16,20 @@
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
+//   { type: 'speed', speed, auto: true }         the worker could not keep up and stepped down (#118)
 //   { type: 'state', sample }                    a changed overlay sample, only while the overlay is on (#79)
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
 import { gateForFiles } from './disc-gate.js';
 import { pickBootFile } from './files.js';
+import { clampSpeed, createGovernor, stepDown } from './speed.js';
 import { createStatePoller } from './overlay-state.js';
 import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { createSemantic } from './semantic/layer.js';
 
 const MOUNT = '/game';
-const MAX_CATCH_UP = 4; // frames run per tick before giving up on real time
+const MAX_CATCH_UP = 4; // frames run per tick (per speed step) before giving up on real time
 const CARD_CHECK_EVERY = 30; // frames between memory card change checks
 const RAM_SIZE = 0x200000;
 
@@ -37,6 +40,8 @@ let frame = 0;
 let fps = 60;
 let baseTime = 0;
 let baseFrame = 0;
+let speed = 1; // core frames per displayed frame (#118)
+const governor = createGovernor();
 let cardDigest = 0;
 let timer = 0;
 let poller = null; // the overlay's state sampler; exists only when the hash gate is on
@@ -119,6 +124,12 @@ function grabFrame() {
 function drainAudio() {
   const n = m._fe_audio_count();
   if (!n) return;
+  if (speed > 1) {
+    // Fast-forward is muted: the samples are dropped, so nothing queues up
+    // in the page and 1x starts from an empty buffer.
+    m._fe_audio_clear();
+    return;
+  }
   const src = new Int16Array(m.HEAPU8.buffer, m._fe_audio_ptr(), n * 2);
   const samples = new Float32Array(n * 2);
   for (let i = 0; i < samples.length; i++) samples[i] = src[i] / 32768;
@@ -151,18 +162,33 @@ function tick() {
   timer = 0;
   if (!running) return;
   const now = performance.now();
-  const due = baseFrame + Math.floor(((now - baseTime) * fps) / 1000) - frame;
-  if (due > MAX_CATCH_UP) {
+  const rate = fps * speed;
+  const cap = MAX_CATCH_UP * speed;
+  const due = baseFrame + Math.floor(((now - baseTime) * rate) / 1000) - frame;
+  const behind = due > cap;
+  if (behind) {
     // Too far behind (slow device, or the tab was throttled): run a batch
     // and re-anchor real time instead of fast-forwarding.
-    runFrames(MAX_CATCH_UP);
+    runFrames(cap);
     baseTime = now;
     baseFrame = frame;
   } else if (due > 0) {
     runFrames(due);
   }
-  const next = baseTime + ((frame + 1 - baseFrame) * 1000) / fps;
+  if (speed > 1 && governor.note(now, behind)) {
+    setSpeed(stepDown(speed));
+    post({ type: 'speed', speed, auto: true });
+  }
+  // One tick per displayed frame: `speed` core frames apart.
+  const next = baseTime + ((frame + speed - baseFrame) * 1000) / rate;
   timer = setTimeout(tick, Math.max(0, next - performance.now()));
+}
+
+function setSpeed(v) {
+  speed = clampSpeed(v);
+  baseTime = performance.now();
+  baseFrame = frame;
+  governor.reset();
 }
 
 function start() {
@@ -170,6 +196,7 @@ function start() {
   running = true;
   baseTime = performance.now();
   baseFrame = frame;
+  governor.reset();
   tick();
 }
 
@@ -267,6 +294,9 @@ const handlers = {
   },
   readMem({ id, addr, len }) {
     post({ type: 'reply', id, value: peek(addr, len) });
+  },
+  speed({ speed: v }) {
+    setSpeed(v);
   },
   overlay({ on }) {
     overlayOn = on === true;

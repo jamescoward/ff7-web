@@ -5,6 +5,7 @@
 // core runs in a Worker. It knows nothing about FF7.
 
 import { padMask } from './pad.js';
+import { clampSpeed } from './speed.js';
 
 export const DEFAULT_CORE_OPTIONS = Object.freeze({
   // The core hands slot 1's card to the frontend, which stores it.
@@ -17,6 +18,7 @@ export const DEFAULT_CORE_OPTIONS = Object.freeze({
  * @param {object} [opts]
  * @param {Record<string,string>} [opts.coreOptions]
  * @param {(msg: string) => void} [opts.onError]   unsolicited worker errors
+ * @param {(speed: number) => void} [opts.onSpeed]  the worker stepped the speed down on its own (#118)
  * @param {(samples: Float32Array) => void} [opts.onAudio]
  * @param {(bytes: Uint8Array) => void} [opts.onCard]  the card changed in the core
  * @param {(gate: {active: boolean, reason: string|null}) => void} [opts.onSemantic]  the semantic layer hash gate ran (#75)
@@ -28,6 +30,8 @@ export async function createWorkerBackend(opts = {}) {
   const pending = new Map();
   let nextId = 1;
   let lastFrame = null;
+  let speed = 1;
+  let audioPushes = 0;
   let loadedInfo = null;
   let semanticGate = null;
   let readyResolve;
@@ -61,6 +65,7 @@ export async function createWorkerBackend(opts = {}) {
         break;
       }
       case 'audio':
+        audioPushes += 1;
         opts.onAudio?.(data.samples);
         break;
       case 'card':
@@ -69,6 +74,10 @@ export async function createWorkerBackend(opts = {}) {
       case 'semantic':
         semanticGate = { active: data.active, reason: data.reason };
         opts.onSemantic?.(semanticGate);
+        break;
+      case 'speed':
+        speed = data.speed;
+        opts.onSpeed?.(data.speed, data.auto === true);
         break;
       case 'state':
         opts.onState?.(data.sample);
@@ -149,6 +158,20 @@ export async function createWorkerBackend(opts = {}) {
     /** Copy of main RAM at a PS1 address (KUSEG/KSEG0/KSEG1). */
     readMem(addr, len = 1) {
       return request({ type: 'readMem', addr, len });
+    },
+
+    /** Core frames per displayed frame: 1, 2 or 3 (#118). Above 1 the worker drops audio. */
+    get speed() {
+      return speed;
+    },
+    setSpeed(n) {
+      speed = clampSpeed(n);
+      worker.postMessage({ type: 'speed', speed });
+      return speed;
+    },
+    /** How many audio batches have arrived from the worker (tests: none while fast-forwarding). */
+    get audioPushes() {
+      return audioPushes;
     },
 
     /** Start or stop the worker sampling game state for the debug overlay (#79). */

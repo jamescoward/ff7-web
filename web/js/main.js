@@ -11,6 +11,7 @@ import { createOverlay } from './overlay.js';
 import { createInputMixer } from './pad.js';
 import * as labs from './labs.js';
 import { initSafeLayout } from './safe-layout.js';
+import { nextSpeed } from './speed.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('screen');
@@ -49,6 +50,7 @@ document.addEventListener('pointerdown', (e) => {
 const closeCardMenu = () => { cardMenu.open = false; };
 
 // Labs (#105): off-by-default feature flags.
+labs.registerFlag('speed', { label: 'Speed toggle', description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.' });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -60,9 +62,29 @@ const overlay = createOverlay({
   onToggle: (on) => backend?.setOverlay(on),
 });
 
+// Speed toggle (#118): a Labs flag. The button cycles 1x/2x/3x and the worker
+// drops back a step by itself when the device cannot keep up.
+let backend = null; // set once the worker is ready
+const speedBtn = $('speed-btn');
+function showSpeed(n) {
+  speedBtn.textContent = `${n}x`;
+  speedBtn.dataset.speed = String(n);
+  speedBtn.setAttribute('aria-label', `Game speed ${n}x`);
+}
+function applySpeedFlag() {
+  const on = labs.isOn('speed');
+  speedBtn.hidden = !on;
+  if (!on && backend && backend.speed > 1) backend.setSpeed(1);
+  showSpeed(on && backend?.speed > 0 ? backend.speed : 1);
+}
+speedBtn.addEventListener('click', () => {
+  if (backend?.setSpeed) showSpeed(backend.setSpeed(nextSpeed(backend.speed)));
+});
+labs.onChange((name) => { if (name === 'speed') applySpeedFlag(); });
+applySpeedFlag();
+
 const audio = createAudio();
 const cards = createCardStore();
-let backend = null;
 let pendingFrame = null;
 let drawn = 0;
 
@@ -102,8 +124,16 @@ const backendReady = createWorkerBackend({
   onError: (msg) => setStatus(msg, 'error'),
   onSemantic: (gate) => overlay.setGate(gate),
   onState: (sample) => overlay.update(sample),
+  onSpeed: (n, auto) => {
+    showSpeed(n);
+    if (auto) {
+      speedBtn.dataset.stepped = 'true';
+      setStatus(`This device could not keep up: back to ${n}x.`, '', { clearAfter: NOTICE_MS });
+    }
+  },
 }).then((b) => {
   backend = b;
+  applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
   });

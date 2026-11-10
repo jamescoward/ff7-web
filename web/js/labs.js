@@ -91,9 +91,20 @@ export function createLabsPanel({ button, panel }) {
     const top = Math.round(button.getBoundingClientRect().bottom + 8);
     panel.style.top = `${top}px`;
     // Stay clear of the on-screen pad (portrait: the panel sits above it).
-    const pad = document.getElementById('pad');
-    const padTop = pad ? pad.getBoundingClientRect().top : Infinity;
-    const room = (padTop > top + 120 ? padTop : window.innerHeight) - top - 8;
+    // (the drag-to-walk field takes the pad's place when it is shown).
+    const tops = ['pad', 'field'].map((id) => document.getElementById(id))
+      .filter((el) => el && !el.hidden).map((el) => el.getBoundingClientRect().top);
+    // In landscape the pad box spans the screen: also stay above any control that sits under the panel.
+    const px = panel.getBoundingClientRect();
+    for (const el of document.querySelectorAll('#pad button, #pad [data-btn], #pad > * > *, #field button')) {
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height && r.top > top && r.left < px.right && r.right > px.left) tops.push(r.top);
+    }
+    const below = tops.filter((y) => y > top + 120); // a box that starts above the panel (landscape) is not a limit
+    const padTop = below.length ? Math.min(...below) : Infinity;
+    // The body's bottom padding is the home-bar inset: stay above it.
+    const inset = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    const room = (padTop === Infinity ? window.innerHeight - inset : padTop) - top - 8;
     panel.style.maxHeight = `${Math.max(88, Math.floor(room))}px`;
   }
   function setOpen(open) {

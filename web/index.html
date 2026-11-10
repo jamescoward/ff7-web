@@ -25,6 +25,8 @@
     <button type="button" class="btn" id="speed-btn" aria-label="Game speed" hidden>1x</button>
     <button type="button" class="btn" id="debug-btn" aria-pressed="false" aria-controls="debug" hidden disabled>Debug</button>
     <button type="button" class="btn" id="labs-btn" aria-expanded="false" aria-controls="labs-panel">Labs</button>
+    <button type="button" class="btn primary" id="resume-btn" hidden>Resume</button>
+    <button type="button" class="btn" id="fresh-btn" hidden>Start fresh</button>
     <details class="menu">
       <summary class="btn">Card</summary>
       <div class="menu-body">
@@ -33,6 +35,14 @@
           <input type="file" id="card-input" accept=".mcr,.mcd,.mc,.srm" hidden>
           Import card
         </label>
+        <div class="state-tools" id="state-tools" hidden>
+          <button type="button" class="btn" id="state-export">Export state</button>
+          <label class="btn">
+            <input type="file" id="state-input" accept=".f7s" hidden>
+            Import state
+          </label>
+          <p class="hint">A state is a snapshot of the running game, kept only on this device. Import works for the same disc only.</p>
+        </div>
         <p class="hint">Your memory card is kept in this browser, which can clear it. Export a copy now and then.</p>
       </div>
     </details>

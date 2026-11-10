@@ -84,6 +84,8 @@ body {
   background: var(--panel);
   box-shadow: 0 8px 24px #0008;
 }
+.state-tools { display: grid; gap: 8px; }
+.state-tools[hidden] { display: none; }
 .labs-panel {
   position: fixed;
   z-index: 10;

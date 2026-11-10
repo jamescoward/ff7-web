@@ -41,6 +41,7 @@ EXPORTS=(
   fe_fb_data fe_fb_width fe_fb_height fe_fb_pitch fe_fb_format
   fe_audio_ptr fe_audio_count fe_audio_clear fe_audio_dropped
   fe_ram_ptr fe_ram_size fe_card_ptr fe_card_size
+  fe_state_size fe_state_save fe_state_load
   fe_fps fe_sample_rate
   malloc free
 )

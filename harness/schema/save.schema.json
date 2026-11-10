@@ -64,6 +64,24 @@
       "minimum": 0,
       "maximum": 921599
     },
+    "characters": {
+      "description": "Optional (#130): author-chosen HP, MP and limit bar for character records (savemap 0x0054 + 0x84 * record; notes/130-party-status.md). Each sets current and base/maximum HP and MP and the limit bar, and empties the record's 16 materia slots, so no materia changes the maximums the game computes on load. hp must not exceed maxHp, nor mp maxMp.",
+      "type": "array",
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "required": ["record", "hp", "maxHp", "mp", "maxMp", "limit"],
+        "additionalProperties": false,
+        "properties": {
+          "record": { "description": "Record 0-8: Cloud, Barret, Tifa, Aeris, Red XIII, Yuffie, Cait Sith, Vincent, Cid.", "type": "integer", "minimum": 0, "maximum": 8 },
+          "hp": { "description": "Current HP (record + 0x2C).", "type": "integer", "minimum": 0, "maximum": 9999 },
+          "maxHp": { "description": "Base and maximum HP (record + 0x2E, + 0x38). The game raises a maximum below 10 to 10.", "type": "integer", "minimum": 10, "maximum": 9999 },
+          "mp": { "description": "Current MP (record + 0x30).", "type": "integer", "minimum": 0, "maximum": 999 },
+          "maxMp": { "description": "Base and maximum MP (record + 0x32, + 0x3A).", "type": "integer", "minimum": 10, "maximum": 999 },
+          "limit": { "description": "Limit bar (record + 0x0F; 255 = limit break ready).", "$ref": "#/$defs/u8" }
+        }
+      }
+    },
     "vars": {
       "description": "Field script variables in the five save memory banks (bank 1-5 = savemap 0x0BA4 + 0x100 * (bank - 1)).",
       "type": "array",

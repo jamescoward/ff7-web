@@ -52,6 +52,36 @@ export const SAVEMAP = Object.freeze({
   timerSeconds: { offset: 0x0bb6, type: 'u8', source: 'wiki' },
 });
 
+/**
+ * Character records (#130): nine records of 0x84 bytes from savemap 0x0054,
+ * in record order 0 Cloud, 1 Barret, 2 Tifa, 3 Aeris, 4 Red XIII, 5 Yuffie,
+ * 6 Cait Sith (or Young Cloud), 7 Vincent (or Sephiroth), 8 Cid (wiki
+ * "Character Record"; decomp include/game.h SavePartyMember, size 0x84). The
+ * fields the generator writes, as offsets inside a record. On load the game
+ * sets g_ActiveCharacters' max HP/MP from the base values plus materia
+ * bonuses and stores the result back into hpMax/mpMax (decomp
+ * src/main/1F6B4.c SysInitPlayerStatFromEquip, src/main/17238.c
+ * SysInitPlayerStatFromMateria), so a described character gets base = max
+ * and empty materia slots.
+ */
+export const CHARACTER_BASE = 0x0054;
+export const CHARACTER_SIZE = 0x84;
+export const CHARACTER_COUNT = 9;
+export const CHARACTER = Object.freeze({
+  limit: { offset: 0x0f, type: 'u8', source: 'wiki (current limit bar, 0xFF = limit break); decomp SavePartyMember.limit_charge' },
+  hp: { offset: 0x2c, type: 'u16', source: 'wiki (current HP); decomp curHP' },
+  hpBase: { offset: 0x2e, type: 'u16', source: 'wiki (base HP, before materia); decomp hp_base' },
+  mp: { offset: 0x30, type: 'u16', source: 'wiki (current MP); decomp curMP' },
+  mpBase: { offset: 0x32, type: 'u16', source: 'wiki (base MP, before materia); decomp mp_base' },
+  hpMax: { offset: 0x38, type: 'u16', source: 'wiki (maximum HP, after materia); decomp hp_max' },
+  mpMax: { offset: 0x3a, type: 'u16', source: 'wiki (maximum MP, after materia); decomp mp_max' },
+});
+/** Weapon then armor materia slots: 16 u32 from record + 0x40 (wiki, decomp). */
+export const CHARACTER_MATERIA = 0x40;
+export const CHARACTER_MATERIA_SLOTS = 16;
+/** An empty materia slot: materia ID 0xFF (wiki "save materia list"), AP bytes 0xFF too. */
+export const MATERIA_EMPTY = 0xffffffff;
+
 /** Module values (wiki, 0x0B94). */
 export const MODULE_FIELD = 1;
 /**

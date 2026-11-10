@@ -16,7 +16,8 @@ import { blankCard, sealFrame } from '../synth/blank-card.js';
 import { validate } from '../schema.js';
 import { savemapChecksum } from './checksum.js';
 import {
-  BANK_BASE, BANK_SIZE, BLOCK_HEADER, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FF_TEXT_END, FRAME_SIZE,
+  BANK_BASE, BANK_SIZE, BLOCK_HEADER, CHARACTER, CHARACTER_BASE, CHARACTER_MATERIA, CHARACTER_MATERIA_SLOTS,
+  CHARACTER_SIZE, MATERIA_EMPTY, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FF_TEXT_END, FRAME_SIZE,
   ICON_FLAG_STATIC_1, MODULE_AUX_FIELD, MODULE_FIELD, SAVEMAP, SAVEMAP_IN_BLOCK, SAVEMAP_SIZE,
   TYPE_SIZE, fileName,
 } from './layout.js';
@@ -78,6 +79,23 @@ export function planWrites(desc) {
     put('timerHours', Math.floor(s / 3600));
     put('timerMinutes', Math.floor(s / 60) % 60);
     put('timerSeconds', s % 60);
+  }
+  for (const [i, c] of (desc.characters ?? []).entries()) {
+    const at = CHARACTER_BASE + CHARACTER_SIZE * c.record;
+    const name = `characters[${i}]`;
+    if (c.hp > c.maxHp) throw new SaveDescriptionError(`${name}: hp ${c.hp} is above maxHp ${c.maxHp}`);
+    if (c.mp > c.maxMp) throw new SaveDescriptionError(`${name}: mp ${c.mp} is above maxMp ${c.maxMp}`);
+    const field = (key, value) => w.push({ name: `${name}.${key}`, offset: at + CHARACTER[key].offset, type: CHARACTER[key].type, value });
+    field('limit', c.limit);
+    field('hp', c.hp);
+    field('hpBase', c.maxHp);
+    field('mp', c.mp);
+    field('mpBase', c.maxMp);
+    field('hpMax', c.maxHp);
+    field('mpMax', c.maxMp);
+    for (let m = 0; m < CHARACTER_MATERIA_SLOTS; m++) {
+      w.push({ name: `${name}.materia[${m}]`, offset: at + CHARACTER_MATERIA + 4 * m, type: 'u32', value: MATERIA_EMPTY });
+    }
   }
   for (const [i, v] of (desc.vars ?? []).entries()) {
     w.push({

@@ -1,0 +1,45 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin stats",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    1,
+    2
+  ],
+  "progress": 6,
+  "characters": [
+    {
+      "record": 0,
+      "hp": 271,
+      "maxHp": 314,
+      "mp": 41,
+      "maxMp": 54,
+      "limit": 100
+    },
+    {
+      "record": 1,
+      "hp": 300,
+      "maxHp": 333,
+      "mp": 20,
+      "maxMp": 27,
+      "limit": 50
+    },
+    {
+      "record": 2,
+      "hp": 222,
+      "maxHp": 250,
+      "mp": 33,
+      "maxMp": 44,
+      "limit": 200
+    }
+  ]
+}

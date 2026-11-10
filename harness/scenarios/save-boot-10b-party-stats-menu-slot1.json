@@ -1,0 +1,168 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-10b-party-stats-menu-slot1",
+  "description": "#130: party slot 1's HP, max HP, MP and max MP in g_ActiveCharacters equal the author-chosen values of harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa; record 1: HP 300/333, MP 20/27, limit 50; materia slots empty). Load as save-boot-1-load does, open the field menu with Triangle (as save-boot-4), then check each value with equals (1/0 only), and the record's limit bar in the savemap. match: a rerun from the title snapshot ends in the same state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-stats",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "hp1": {
+      "addr": "0x8009dc9c",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x010: current HP (s16; confirmed #78/#101). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "maxhp1": {
+      "addr": "0x8009dc9e",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x012: max HP (s16; decomp baseHp: base HP plus materia, copied to the record's hp_max by SysInitPlayerStatFromMateria). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "mp1": {
+      "addr": "0x8009dca0",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x014: current MP (s16). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "maxmp1": {
+      "addr": "0x8009dca2",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x016: max MP (s16; decomp baseMp). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "lim_rec1": {
+      "addr": "0x8009c7cb",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 1 (character record 1) + 0x0F: the limit bar (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.limit_charge). Read here as a check that the generated record holds the description's value in RAM after the load."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "menu_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "hp1",
+        "equals": 300
+      },
+      "metric": "hp1_ok"
+    },
+    {
+      "expect": {
+        "mem": "maxhp1",
+        "equals": 333
+      },
+      "metric": "max1_ok"
+    },
+    {
+      "expect": {
+        "mem": "mp1",
+        "equals": 20
+      },
+      "metric": "mp1_ok"
+    },
+    {
+      "expect": {
+        "mem": "maxmp1",
+        "equals": 27
+      },
+      "metric": "maxmp1_ok"
+    },
+    {
+      "expect": {
+        "mem": "lim_rec1",
+        "equals": 50
+      },
+      "metric": "lim1_ok"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "menu_wait",
+    "hp1_ok",
+    "max1_ok",
+    "mp1_ok",
+    "maxmp1_ok",
+    "lim1_ok",
+    "match"
+  ]
+}

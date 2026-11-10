@@ -1,0 +1,114 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-11b-stats-battle-atb-slots",
+  "description": "#130: the ATB gauge layout for slots 1 and 2. From \"stats-battle\", wait until battle init has run (party[0].limitBar reads 100, as in 11a), mark \"init\", then 240 frames with no input: turn[i].atbGauge (i = 1 Barret, 2 Tifa; atb1_dir, atb2_dir) and g_ActiveCharacters[i].atbTimer (act1_dir, act2_dir) must have increased since the mark. Attempt 1 compared frame 300 with frame 240 after the battle started and saw no change, probably because both gauges were already full; init sets them to 0. Signs only. match: a rerun from the same snapshot.",
+  "boot": {
+    "from": "stats-battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
+    },
+    "lim0": {
+      "addr": "0x800f5e68",
+      "type": "u16",
+      "description": "g_BattleWork (0x800F5BB8, Xeeynamo/ff7-decomp@d4db3de (reference only, no code) config/symbols.battle.txt; #130 attempt 1 ruled out 0x800f5bbc from config/sym_export_battle.us.txt) + 0x2A8 party[0] (BattlePartyWork, 0x34 bytes) + 0x08 limitBar (src/battle/battle.h; batini.c seeds it from the record's limit_charge, batres.c writes it back)"
+    },
+    "atb1": {
+      "addr": "0x800f5c00",
+      "type": "u16",
+      "description": "g_BattleWork (0x800F5BB8, Xeeynamo/ff7-decomp@d4db3de (reference only, no code) config/symbols.battle.txt; #130 attempt 1 ruled out 0x800f5bbc) + turn[1] (BattleTurnWork, 0x44 bytes) + 0x04 atbGauge (src/battle/battle.h: ATB fill gauge, saturates at 0xFFFF; batini.c sets it to 0)"
+    },
+    "act_atb1": {
+      "addr": "0x8009dca4",
+      "type": "u16",
+      "description": "g_ActiveCharacters[1] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x018: atbTimer (u16; follows turn[].atbGauge: #130 reactor-mode-4d). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    },
+    "atb2": {
+      "addr": "0x800f5c44",
+      "type": "u16",
+      "description": "g_BattleWork (0x800F5BB8, Xeeynamo/ff7-decomp@d4db3de (reference only, no code) config/symbols.battle.txt; #130 attempt 1 ruled out 0x800f5bbc) + turn[2] (BattleTurnWork, 0x44 bytes) + 0x04 atbGauge (src/battle/battle.h: ATB fill gauge, saturates at 0xFFFF; batini.c sets it to 0)"
+    },
+    "act_atb2": {
+      "addr": "0x8009e0e4",
+      "type": "u16",
+      "description": "g_ActiveCharacters[2] (0x8009D84C, stride 0x440, indexed by party slot; confirmed #78/#101) + 0x018: atbTimer (u16; follows turn[].atbGauge: #130 reactor-mode-4d). Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h ActiveCharacterData; ff7-flat-wiki Battle_Mechanics \"Active Character Data\""
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "lim0",
+          "equals": 100
+        },
+        "timeout": 1500
+      },
+      "metric": "lim_wait"
+    },
+    {
+      "mark": "init"
+    },
+    {
+      "wait": {
+        "frames": 240
+      }
+    }
+  ],
+  "assert": [
+    {
+      "change": {
+        "mem": "atb1",
+        "is": "increased",
+        "since": "init"
+      },
+      "metric": "atb1_dir"
+    },
+    {
+      "change": {
+        "mem": "atb2",
+        "is": "increased",
+        "since": "init"
+      },
+      "metric": "atb2_dir"
+    },
+    {
+      "change": {
+        "mem": "act_atb1",
+        "is": "increased",
+        "since": "init"
+      },
+      "metric": "act1_dir"
+    },
+    {
+      "change": {
+        "mem": "act_atb2",
+        "is": "increased",
+        "since": "init"
+      },
+      "metric": "act2_dir"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 2
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "lim_wait",
+    "atb1_dir",
+    "atb2_dir",
+    "act1_dir",
+    "act2_dir",
+    "match"
+  ]
+}

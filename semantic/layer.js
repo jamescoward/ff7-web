@@ -54,6 +54,16 @@ export function evaluateGate(table, exeSha1) {
  */
 export const MOVIE_WINDOW = 5;
 
+/** Raw g_GameState in battle (#76). */
+const BATTLE_GAME_STATE = 2;
+
+/**
+ * Character records 0-8 (Cloud ... Cid). Party character IDs 0-8 name the
+ * record of the same number; 9-11 (Young Cloud, Sephiroth, ...) share
+ * records in a way no scenario has checked, so they have no record here.
+ */
+const CHARACTER_RECORDS = 9;
+
 /** Raw g_GameState while a movie plays: the field module plays movies (#76). */
 const MOVIE_GAME_STATE = 1;
 
@@ -192,6 +202,47 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       if (!r.values) return fail(r);
       const ids = [r.values.partySlot0, r.values.partySlot1, r.values.partySlot2].map((id) => (id === 0xff ? null : id));
       return { value: ids, confirmed: r.confirmed };
+    },
+
+    /**
+     * #130: { value: { hp, maxHp, mp, maxMp, limit, atb } } for party slot
+     * 0-2. A field is null unless its address entry (and the game state that
+     * picks it) is confirmed, or when it can't be read. In battle (gameState
+     * 2) limit and atb come from the battle's own copies (partyLimit,
+     * partyAtb); elsewhere limit is the character record's (characterLimit,
+     * for characters 0-8) and atb is null. An empty slot (0xFF) gives value
+     * null with reason 'empty slot'. confirmed: the slot and game state reads
+     * were confirmed.
+     */
+    async partyStatus(slot) {
+      if (!(Number.isInteger(slot) && slot >= 0 && slot <= 2)) return { value: null, confirmed: false, reason: 'out of range' };
+      const p = await read([`partySlot${slot}`]);
+      if (!p.values) return fail(p);
+      const id = p.values[`partySlot${slot}`];
+      if (id === 0xff) return { value: null, confirmed: p.confirmed, reason: 'empty slot' };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      const inBattle = g.confirmed && g.values.gameState === BATTLE_GAME_STATE;
+      // Only confirmed values are reported; a hypothesis or a failed read is null.
+      const one = async (name, index = 0) => {
+        const r = await read([name], index);
+        return r.values && r.confirmed ? r.values[name] : null;
+      };
+      const value = {
+        hp: await one(`partyHp${slot}`),
+        maxHp: await one(`partyMaxHp${slot}`),
+        mp: await one(`partyMp${slot}`),
+        maxMp: await one(`partyMaxMp${slot}`),
+        limit: null,
+        atb: null,
+      };
+      if (inBattle) {
+        value.limit = await one(`partyLimit${slot}`);
+        value.atb = await one(`partyAtb${slot}`);
+      } else if (g.confirmed && id < CHARACTER_RECORDS) {
+        value.limit = await one('characterLimit', id);
+      }
+      return { value, confirmed: p.confirmed && g.confirmed };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

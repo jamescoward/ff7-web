@@ -232,6 +232,18 @@ KEEP unsigned fe_ram_size(void) { return (unsigned)retro_get_memory_size(RETRO_M
 KEEP void *fe_card_ptr(void) { return retro_get_memory_data(RETRO_MEMORY_SAVE_RAM); }
 KEEP unsigned fe_card_size(void) { return (unsigned)retro_get_memory_size(RETRO_MEMORY_SAVE_RAM); }
 
+/* Whole-emulator state, in caller-provided memory only (never a file). */
+KEEP unsigned fe_state_size(void) { return (unsigned)retro_serialize_size(); }
+/* The core ignores `size`, so check it here: a wrong size must not overrun. */
+KEEP int fe_state_save(void *buf, unsigned size) {
+  if (size != (unsigned)retro_serialize_size()) return 0;
+  return retro_serialize(buf, size) ? 1 : 0;
+}
+KEEP int fe_state_load(const void *buf, unsigned size) {
+  if (size != (unsigned)retro_serialize_size()) return 0;
+  return retro_unserialize(buf, size) ? 1 : 0;
+}
+
 static struct retro_system_av_info av_info(void)
 {
    struct retro_system_av_info av;

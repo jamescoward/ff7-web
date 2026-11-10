@@ -12,6 +12,7 @@ import { createInputMixer } from './pad.js';
 import * as labs from './labs.js';
 import { initSafeLayout } from './safe-layout.js';
 import { nextSpeed } from './speed.js';
+import { createStateStore, createSuspend } from './suspend.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('screen');
@@ -40,7 +41,12 @@ const cardMenu = document.querySelector('.menu');
 const cardPanel = cardMenu.querySelector('.menu-body');
 function placeCardPanel() {
   const below = cardMenu.querySelector('summary').getBoundingClientRect().bottom;
-  cardPanel.style.top = `${Math.round(below + 8)}px`;
+  const top = Math.round(below + 8);
+  cardPanel.style.top = `${top}px`;
+  // Stay inside the viewport above the home-bar inset: the panel scrolls if it is taller.
+  const inset = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+  cardPanel.style.maxHeight = `${Math.max(88, Math.floor(window.innerHeight - inset - top - 8))}px`;
+  cardPanel.style.overflowY = 'auto';
 }
 cardMenu.querySelector('summary').addEventListener('click', placeCardPanel);
 window.addEventListener('resize', () => { if (cardMenu.open) placeCardPanel(); });
@@ -51,6 +57,7 @@ const closeCardMenu = () => { cardMenu.open = false; };
 
 // Labs (#105): off-by-default feature flags.
 labs.registerFlag('speed', { label: 'Speed toggle', description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.' });
+labs.registerFlag('suspend', { label: 'Suspend and resume', description: 'When you leave the page, the game is stored on this device; Resume picks it up. Card menu: Export state / Import state.' });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -82,6 +89,19 @@ speedBtn.addEventListener('click', () => {
 });
 labs.onChange((name) => { if (name === 'speed') applySpeedFlag(); });
 applySpeedFlag();
+
+const suspend = createSuspend({
+  getBackend: () => backend,
+  labs,
+  store: createStateStore(),
+  ui: {
+    menu: cardPanel,
+    resume: $('resume-btn'),
+    fresh: $('fresh-btn'),
+  },
+  setStatus,
+  closeMenu: closeCardMenu,
+});
 
 const audio = createAudio();
 const cards = createCardStore();
@@ -179,6 +199,7 @@ fileInput.addEventListener('change', async () => {
     b.setPad(mixer.mask);
     $('load-label').classList.remove('primary');
     setStatus('');
+    suspend.checkOffer();
     console.info(`booted ${info.path} at ${info.fps.toFixed(2)} fps`);
   } catch (e) {
     setStatus(e.message, 'error');
@@ -232,6 +253,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     controls.releaseAll();
     keyboard.releaseAll();
+    // Ask for the state before pausing: the worker answers messages in order.
+    suspend.saveNow();
     if (backend?.loaded) backend.pause();
   } else if (backend?.loaded) {
     backend.resume();
@@ -249,5 +272,6 @@ window.ff7web = {
   mixer,
   overlay,
   labs,
+  suspend,
   drawnFrame: () => drawn,
 };

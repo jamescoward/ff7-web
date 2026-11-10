@@ -83,3 +83,4 @@ Every earlier scenario passed unchanged.
 - Party IDs 9-11 (Young Cloud, Sephiroth) map to records in a way no scenario checks, so partyStatus gives null limit for them outside battle.
 - g_BattleWork is the battle overlay's area: outside battle it holds stale values, which is why partyStatus reads it only when gameState is battle.
 - ActiveCharacterData +0x18 (atbTimer) and unk1A's high byte also track the ATB and limit in battle. They are not in the table because nothing needs a second copy.
+- Slot 0's ATB is checked by drop-after-command and refill (reactor-mode-4d), not by a rise from battle init. Slots 1 and 2 are checked by the rise from init (save-boot-11b), and all three share one layout (turn[i], stride 0x44), so slot 0's rise from init is inferred, not measured.

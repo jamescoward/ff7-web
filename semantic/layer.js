@@ -17,7 +17,7 @@
 // Unconfirmed values are still returned: callers decide whether to trust a
 // hypothesis (the debug overlay, #79, shows them).
 
-import { ADDRESS_TABLE, TYPES } from './addresses.js';
+import { ADDRESS_TABLE, TYPES, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -243,6 +243,34 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         value.limit = await one('characterLimit', id);
       }
       return { value, confirmed: p.confirmed && g.confirmed };
+    },
+
+    /**
+     * #108: message window 0. { value: { open, waiting, choice: null | { row } } }.
+     * open: a window shows (state not 0). waiting: it waits for Circle (the
+     * text has finished, not still typing). choice: a choice window waiting
+     * for a pick, with row = the pointer's line in the window (0 = the
+     * window's first line; options under a question start at 1 or more).
+     * As in partyStatus, choice is reported only from confirmed entries:
+     * until dialogPointer and dialogPointerY are confirmed (#168) it is
+     * always null, and a choice window reads as a plain waiting message.
+     * confirmed: the state read is a confirmed value (0 closed, 6 done).
+     */
+    async dialogue() {
+      const s = await read(['dialogState']);
+      if (!s.values) return fail(s);
+      const raw = s.values.dialogState;
+      const open = raw !== 0;
+      const waiting = WINDOW_WAITING_STATES.includes(raw);
+      let choice = null;
+      const pointerConfirmed = ['dialogPointer', 'dialogPointerY'].every((n) => entries.get(n)?.status === 'confirmed');
+      if (raw === WINDOW_TXT_DONE && pointerConfirmed) {
+        const p = await read(['dialogPointer', 'dialogPointerY']);
+        if (p.values && p.confirmed && p.values.dialogPointer === 1) {
+          choice = { row: Math.floor((p.values.dialogPointerY - WINDOW_POINTER_Y0) / WINDOW_LINE_HEIGHT) };
+        }
+      }
+      return { value: { open, waiting, choice }, confirmed: s.confirmed };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

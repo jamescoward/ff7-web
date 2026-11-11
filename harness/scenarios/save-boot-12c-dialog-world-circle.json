@@ -1,0 +1,136 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-12c-dialog-world-circle",
+  "description": "#108 (acceptance: dialogWaiting drops after Circle, and one Circle closes the window). As save-boot-12b up to window 0 in state 6, then one Circle press (held 4 frames) and no further input: wait until the state leaves 6 (left_wait, frames after the press), then until it reads 0 (close_wait, still with no input; a timeout fails). Checks the window is closed (closed), still in the world map, and that a rerun matches.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-wm1-kalm",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (field 1, world 3 confirmed)."
+    },
+    "win0": {
+      "addr": "0x800832a0",
+      "type": "u16",
+      "description": "g_WindowData[0] (0x80083274, config/symbols.main.us.txt; WindowData 0x30 bytes, include/game.h) .state at +0x2C (s16 as u16): 0 WSTATE_INIT (no window), 1 SHOW, 2 TXT (typing), 4 WAIT_ROW, 6 TXT_DONE (text shown, waits for Circle), 7 CLOSING, 9 INIT_NEXT, 13 PAUSE_TXT_UNTIL_OK, 14 WAIT_NEXT_WINDOW. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code) include/game.h WindowState, src/field/field_dialog.c."
+    },
+    "ptr_en": {
+      "addr": "0x8008328e",
+      "type": "u8",
+      "description": "g_WindowData[0] (0x80083274, config/symbols.main.us.txt; WindowData 0x30 bytes, include/game.h) .pointerEnabled at +0x1A: set to 1 in TXT_DONE by FieldDialogAskUpdateStates (a choice window), 0 for a plain message. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code) src/field/field_dialog.c."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 3
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "win0",
+          "equals": 0
+        },
+        "timeout": 600
+      },
+      "metric": "closed_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "win0",
+          "in": [
+            1,
+            14
+          ]
+        },
+        "timeout": 1200
+      },
+      "metric": "open_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "win0",
+          "equals": 6
+        },
+        "timeout": 1200
+      },
+      "metric": "done_wait"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "win0",
+          "differs": 6
+        },
+        "timeout": 120
+      },
+      "metric": "left_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "win0",
+          "equals": 0
+        },
+        "timeout": 300
+      },
+      "metric": "close_wait"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "win0",
+        "equals": 0
+      },
+      "metric": "closed"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 3
+      },
+      "metric": "world_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "closed_wait",
+    "open_wait",
+    "done_wait",
+    "left_wait",
+    "close_wait",
+    "closed",
+    "world_ok",
+    "match"
+  ]
+}

@@ -204,6 +204,63 @@ const STAT_ENTRIES = [
   },
 ];
 
+/**
+ * #108: message windows. g_WindowData is four WindowData records of 0x30
+ * bytes from 0x80083274; window 0 is the one field and world scripts open
+ * first (notes/108-dialogue-state.md). The field and world modules share it.
+ */
+const WINDOW_DATA = 0x80083274;
+const WINDOW_SIZE = 0x30;
+const WINDOW_SOURCE = `${DECOMP_130} config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates)`;
+
+/** g_WindowData[i].state labels (include/game.h WindowState). */
+const WINDOW_STATES = Object.freeze({
+  0: 'closed', 1: 'show', 2: 'typing', 3: 'pause', 4: 'wait row', 5: 'unk5', 6: 'done', 7: 'closing',
+  8: 'scroll row', 9: 'init next', 10: 'unkA', 11: 'pause scroll until ok', 12: 'scroll while ok',
+  13: 'pause until ok', 14: 'wait next window',
+});
+
+/**
+ * The states in which a window waits for Circle and nothing else moves it on
+ * (field_dialog.c: each of these advances only on a Circle press).
+ */
+export const WINDOW_WAITING_STATES = Object.freeze([4, 6, 11, 13, 14]);
+/** WSTATE_TXT_DONE: the text is shown; a choice window shows its pointer here. */
+export const WINDOW_TXT_DONE = 6;
+/** pointerY = line * 16 + 6 while a choice waits (FieldDialogAskUpdateStates). */
+export const WINDOW_POINTER_Y0 = 6;
+export const WINDOW_LINE_HEIGHT = 16;
+
+const WINDOW_ENTRIES = [
+  {
+    name: 'dialogState',
+    address: WINDOW_DATA + 0x2c,
+    type: 's16',
+    meaning: 'state of message window 0 (g_WindowData[0].state): 0 = closed; 1-14 open (2 typing, 6 text done and waiting for Circle, 7 closing; see WINDOW_STATES). dialogOpen = not 0; dialogWaiting = one of WINDOW_WAITING_STATES',
+    source: `${WINDOW_SOURCE}. Tier 2 (#108, notes/108-dialogue-state.md): after a generated save loads into the world map outside Kalm (disc1-wm1-kalm), window 0 reads 0 on entry, opens 475 frames later, reads open but not 6 for 110 frames while its text types, then 6 (save-boot-12b); after one Circle press (held 4 frames) it leaves 6 and, with no further input, reads 0 (save-boot-12c); reruns match. #140 saw 6 there after 600 frames (save-boot-7h-world-kalm-window). Only 0 and 6 are confirmed values; the typing and closing values were not read individually`,
+    status: 'confirmed',
+    scenario: SC('save-boot-12b-dialog-world-open'),
+    values: WINDOW_STATES,
+    confirmedValues: Object.freeze({ 0: SC('save-boot-12c-dialog-world-circle'), 6: SC('save-boot-12b-dialog-world-open') }),
+  },
+  {
+    name: 'dialogPointer',
+    address: WINDOW_DATA + 0x1a,
+    type: 'u8',
+    meaning: 'pointerEnabled of message window 0: 1 while a choice window (the field script opcode ask) waits in state 6 for a pick; 0 for a plain message. It blinks while a window closes, so read it only in state 6',
+    source: `${WINDOW_SOURCE}. Tier 2 (#108): 0 in the plain message window of save-boot-12b (state 6). No choice window has been reached yet (#168)`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'dialogPointerY',
+    address: WINDOW_DATA + 0x26,
+    type: 's16',
+    meaning: 'pointerY of message window 0: the chosen line * 16 + 6 while a choice waits (the line counts from the window\'s first line, so the first option is often line 1 under a question)',
+    source: `${WINDOW_SOURCE}. Not seen in Tier 2 yet: no choice window has been reached (#168)`,
+    status: 'hypothesis',
+  },
+];
+
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
     name: 'gameState',
@@ -325,4 +382,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     scenario: SC(['reactor-mode-4c-party-hp-damage', 'save-boot-5-party-barret-battle', 'save-boot-6-party-tifa-battle'][i]),
   })),
   ...STAT_ENTRIES,
+  ...WINDOW_ENTRIES,
 ]);

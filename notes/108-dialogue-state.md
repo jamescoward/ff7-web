@@ -59,7 +59,15 @@ Kept as acceptance checks: 12b and 12c. Removed: 12a and reactor-next-4 (this PR
 ## Outcome
 - `dialogState` confirmed (values 0 and 6); `dialogue()` gives open and waiting, confirmed for those values.
 - `dialogPointer`/`dialogPointerY` stay hypotheses; `dialogue().choice` is null until #168.
-- For the touch layer: in the world map from `disc1-wm1-kalm`, a message window opens about 475 frames after world mode starts and waits for Circle 110 frames later. Whether one Circle closes it: see the re-measurement below.
+- For the touch layer: in the world map from `disc1-wm1-kalm`, a message window opens about 475 frames after world mode starts and waits for Circle 110 frames later. One Circle closes it (re-measured below).
 
 ## Re-measurement of 12c (reviewer finding, round 1)
 The review of `3d04a93` found the "one Circle closes it" claim unsupported: 12c's close wait pressed Circle every 60 frames from its first frame. 12c now presses Circle once (4 frames) and then waits with **no input** until the state leaves 6 (left_wait) and until it reads 0 (close_wait, timeout 300: a timeout fails the scenario). The description's promised `win0_after` reading is gone (it was never a metric). This is a corrected measurement of attempt 1, not a new approach.
+
+### Result (`a3e96b6`, tier2: 50 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| save-boot-12b-dialog-world-open | closed_wait 1, open_wait 475, done_wait 110, waiting 1, world_ok 1, match 1, ptr_en 0 (the same in all three runs: `d19a888`, `3d04a93`, `a3e96b6`) |
+| save-boot-12c-dialog-world-circle | closed_wait 1, open_wait 475, done_wait 110, **left_wait 1, close_wait 3**, closed 1, world_ok 1, match 1 |
+
+**One Circle press closes the window:** with no input after the 4-frame press, the state is out of 6 on the first frame checked and reads 0 three frames later. (On `3d04a93`, with the old Circle-every-60 close wait, 12c read close_wait 1, as on `d19a888`.) The state between 6 and 0 was not read individually; field_dialog.c says CLOSING (7).

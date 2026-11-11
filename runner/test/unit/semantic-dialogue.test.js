@@ -71,8 +71,9 @@ describe('dialogue reader', () => {
   test('with the shipped table the pointer entries are hypotheses, so choice stays null (#168)', async () => {
     const byName = Object.fromEntries(ADDRESS_TABLE.entries.map((e) => [e.name, e]));
     assert.equal(byName.dialogPointer.status, 'hypothesis');
-    const { s } = setup({ state: 6, pointer: 1, pointerY: 22 });
+    const { s, reads } = setup({ state: 6, pointer: 1, pointerY: 22 });
     assert.deepEqual(await s.dialogue(), { value: { open: true, waiting: true, choice: null }, confirmed: true });
+    assert.deepEqual(reads, [[0x800832a0, 2]], 'hypothesis pointer entries are not read');
   });
 
   test('the pointer is ignored outside state 6 (it blinks while closing)', async () => {

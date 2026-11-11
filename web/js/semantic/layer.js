@@ -263,7 +263,8 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       const open = raw !== 0;
       const waiting = WINDOW_WAITING_STATES.includes(raw);
       let choice = null;
-      if (raw === WINDOW_TXT_DONE) {
+      const pointerConfirmed = ['dialogPointer', 'dialogPointerY'].every((n) => entries.get(n)?.status === 'confirmed');
+      if (raw === WINDOW_TXT_DONE && pointerConfirmed) {
         const p = await read(['dialogPointer', 'dialogPointerY']);
         if (p.values && p.confirmed && p.values.dialogPointer === 1) {
           choice = { row: Math.floor((p.values.dialogPointerY - WINDOW_POINTER_Y0) / WINDOW_LINE_HEIGHT) };

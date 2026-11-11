@@ -237,7 +237,7 @@ const WINDOW_ENTRIES = [
     address: WINDOW_DATA + 0x2c,
     type: 's16',
     meaning: 'state of message window 0 (g_WindowData[0].state): 0 = closed; 1-14 open (2 typing, 6 text done and waiting for Circle, 7 closing; see WINDOW_STATES). dialogOpen = not 0; dialogWaiting = one of WINDOW_WAITING_STATES',
-    source: `${WINDOW_SOURCE}. Tier 2 (#108, notes/108-dialogue-state.md): after a generated save loads into the world map outside Kalm (disc1-wm1-kalm), window 0 reads 0 on entry, opens 475 frames later, reads open but not 6 for 110 frames while its text types, then 6 (save-boot-12b); one Circle takes it out of 6 within a frame and it reads 0 again (save-boot-12c); reruns match. #140 saw 6 there after 600 frames (save-boot-7h-world-kalm-window). Only 0 and 6 are confirmed values; the typing and closing values were not read individually`,
+    source: `${WINDOW_SOURCE}. Tier 2 (#108, notes/108-dialogue-state.md): after a generated save loads into the world map outside Kalm (disc1-wm1-kalm), window 0 reads 0 on entry, opens 475 frames later, reads open but not 6 for 110 frames while its text types, then 6 (save-boot-12b); after one Circle press (held 4 frames) it leaves 6 and, with no further input, reads 0 (save-boot-12c); reruns match. #140 saw 6 there after 600 frames (save-boot-7h-world-kalm-window). Only 0 and 6 are confirmed values; the typing and closing values were not read individually`,
     status: 'confirmed',
     scenario: SC('save-boot-12b-dialog-world-open'),
     values: WINDOW_STATES,

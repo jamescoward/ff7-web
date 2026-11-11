@@ -49,7 +49,7 @@ What the results decide:
 
 Reading:
 - **dialogOpen 0 → 1:** window 0 is closed when world mode starts (12a, and 12b's first wait ends at once) and opens 475 frames later, with no input.
-- **dialogWaiting:** for 110 frames the window is open but not in state 6 (its text is typing), then it reads 6 and holds there. One Circle takes it out of 6 within a frame (left_wait 1), and 30 frames later it is closed (close_wait 1: no further press needed). So **one Circle closes this window**. #140's three presses were needed only because the first ones came before the window opened (#140 waited 600 frames, the window opens at 475 + 110 = 585). It is a plain message: pointerEnabled 0 in state 6.
+- **dialogWaiting:** for 110 frames the window is open but not in state 6 (its text is typing), then it reads 6 and holds there. After one Circle press (held 4 frames) it is out of 6 on the first frame checked (left_wait 1). In this run the close wait still pressed Circle on its first frame (close_wait 1), so this run does **not** show that one press closes the window (reviewer finding on `3d04a93`). It is a plain message: pointerEnabled 0 in state 6.
 - Reruns from the same start match in 12b and 12c.
 - **No field window after the first battle:** in md1stin (0x74), 1800 frames without input after the battle's end, window 0 never opened. The opening's spoken lines are elsewhere (before reactor-entrance, where the opening segment presses Circle every second).
 - **No choice window:** none was reached. The issue's choice acceptance needs one; finding one is split to #168 (CONTINUITY: finish a coherent slice, file the rest).
@@ -59,4 +59,7 @@ Kept as acceptance checks: 12b and 12c. Removed: 12a and reactor-next-4 (this PR
 ## Outcome
 - `dialogState` confirmed (values 0 and 6); `dialogue()` gives open and waiting, confirmed for those values.
 - `dialogPointer`/`dialogPointerY` stay hypotheses; `dialogue().choice` is null until #168.
-- For the touch layer: in the world map from `disc1-wm1-kalm`, a message window opens about 475 frames after world mode starts and waits for Circle 110 frames later; one Circle closes it.
+- For the touch layer: in the world map from `disc1-wm1-kalm`, a message window opens about 475 frames after world mode starts and waits for Circle 110 frames later. Whether one Circle closes it: see the re-measurement below.
+
+## Re-measurement of 12c (reviewer finding, round 1)
+The review of `3d04a93` found the "one Circle closes it" claim unsupported: 12c's close wait pressed Circle every 60 frames from its first frame. 12c now presses Circle once (4 frames) and then waits with **no input** until the state leaves 6 (left_wait) and until it reads 0 (close_wait, timeout 300: a timeout fails the scenario). The description's promised `win0_after` reading is gone (it was never a metric). This is a corrected measurement of attempt 1, not a new approach.

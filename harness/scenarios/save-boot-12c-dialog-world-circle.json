@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-12c-dialog-world-circle",
-  "description": "#108 attempt 1 (acceptance candidate: dialogWaiting drops after Circle, the window closes). As save-boot-12b up to window 0 in state 6, then one Circle (4 frames): wait until the state leaves 6 (left_wait), 30 frames, report the state (win0_after); then Circle every 60 frames until the state reads 0 (close_wait). Checks the window is closed (closed), still in the world map, and that a rerun matches. #140 needed three Circle presses to close it; this shows whether that is several pages.",
+  "description": "#108 (acceptance: dialogWaiting drops after Circle, and one Circle closes the window). As save-boot-12b up to window 0 in state 6, then one Circle press (held 4 frames) and no further input: wait until the state leaves 6 (left_wait, frames after the press), then until it reads 0 (close_wait, still with no input; a timeout fails). Checks the window is closed (closed), still in the world map, and that a rerun matches.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -94,23 +94,11 @@
     },
     {
       "wait": {
-        "frames": 30
-      }
-    },
-    {
-      "wait": {
         "until": {
           "mem": "win0",
           "equals": 0
         },
-        "timeout": 1800,
-        "press": {
-          "buttons": [
-            "circle"
-          ],
-          "every": 60,
-          "hold": 4
-        }
+        "timeout": 300
       },
       "metric": "close_wait"
     }

@@ -3,6 +3,7 @@
 
 import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
+import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -60,6 +61,7 @@ const closeCardMenu = () => { cardMenu.open = false; };
 labs.registerFlag('speed', { label: 'Speed toggle', description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.' });
 labs.registerFlag('suspend', { label: 'Suspend and resume', description: 'When you leave the page, the game is stored on this device; Resume picks it up. Card menu: Export state / Import state.' });
 labs.registerFlag(AUTO_FLAG, { label: 'Automatic controls', description: 'Drag to walk in the field, the classic pad in battles, menus, the world map, minigames and movies. The Controls button still overrides until the next change.' });
+labs.registerFlag(HUD_FLAG, { label: 'Battle status strip', description: 'In battle, large HP, MP, ATB and limit bars for each party slot below the picture (portrait).' });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -114,6 +116,7 @@ let drawn = 0;
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
 const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
 const autoControls = createAutoControls({ controls, labs });
+const battleHud = createBattleHud({ root: $('hud'), labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -148,6 +151,7 @@ const backendReady = createWorkerBackend({
   onSemantic: (gate) => {
     overlay.setGate(gate);
     autoControls.setGate(gate);
+    battleHud.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -160,6 +164,7 @@ const backendReady = createWorkerBackend({
 }).then((b) => {
   backend = b;
   autoControls.setBackend(b);
+  battleHud.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -280,6 +285,7 @@ window.ff7web = {
   overlay,
   labs,
   autoControls,
+  battleHud,
   suspend,
   drawnFrame: () => drawn,
 };

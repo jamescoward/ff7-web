@@ -261,6 +261,58 @@ const WINDOW_ENTRIES = [
   },
 ];
 
+/**
+ * #110: the battle menu (notes/110-battle-input.md). Candidates from
+ * Xeeynamo/ff7-decomp@d4db3de (reference only, no code copied):
+ * config/symbols.battle.txt and src/battle/battle3.c, battle_private.h.
+ */
+const BATTLE_MENU_SOURCE = `${DECOMP_130} config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B)`;
+/** g_BattleMenuModalWidgetId: the battle menu widget taking input. */
+export const BATTLE_WIDGETS = Object.freeze({ '-1': 'none', 0: 'target', 1: 'command' });
+export const BATTLE_WIDGET_NONE = -1;
+export const BATTLE_WIDGET_TARGET = 0;
+export const BATTLE_WIDGET_COMMAND = 1;
+const BATTLE_MENU_SLOTS = 0x800f90b4;
+const BATTLE_MENU_SLOT_SIZE = 0x240;
+
+const BATTLE_MENU_ENTRIES = [
+  {
+    name: 'battleMenuWidget',
+    address: 0x800f3896,
+    type: 's16',
+    meaning: 'battle menu widget taking input (g_BattleMenuModalWidgetId): -1 none (no command menu open), 1 the command menu, 0 target selection; other values are sub-menus (magic, item, ...) and stay unlabelled',
+    source: `${BATTLE_MENU_SOURCE}. Tier 2: not yet (#110 attempt 1 pending)`,
+    status: 'hypothesis',
+    values: BATTLE_WIDGETS,
+  },
+  {
+    name: 'battleActor',
+    address: 0x800f38a0,
+    type: 'u8',
+    meaning: 'party slot (0-2) whose battle command menu is shown (g_BattleMenuPartySlot). Meaningful only while battleMenuWidget is not -1',
+    source: `${BATTLE_MENU_SOURCE}. Tier 2: not yet (#110 attempt 1 pending)`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'battleCommandRow',
+    address: BATTLE_MENU_SLOTS + 0x0b,
+    type: 'u8',
+    stride: BATTLE_MENU_SLOT_SIZE,
+    count: 3,
+    meaning: 'command menu cursor row of each party slot (D_800F90B4[slot].table00.row; 4 rows per column, 0 = the top row, Attack). Element i is party slot i; the column is the byte before',
+    source: `${BATTLE_MENU_SOURCE}. Tier 2: not yet (#110 attempt 1 pending)`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'battleTarget',
+    address: 0x800f38a9,
+    type: 'u8',
+    meaning: 'target cursor during target selection: the unit index (battle units 0-2 the party, 4-9 the enemies) the cursor is on',
+    source: `${BATTLE_MENU_SOURCE}: D_800F38A9 (the targeting draw and the Circle check use bit D_800F38A9 of the target mask; D_800F38A7 is the other candidate). Tier 2: not yet (#110 attempt 1 pending)`,
+    status: 'hypothesis',
+  },
+];
+
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
     name: 'gameState',
@@ -383,4 +435,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   })),
   ...STAT_ENTRIES,
   ...WINDOW_ENTRIES,
+  ...BATTLE_MENU_ENTRIES,
 ]);

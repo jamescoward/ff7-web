@@ -11,6 +11,15 @@ export const FLAG = 'safe-layout';
 registerFlag(FLAG, {
   label: 'Safe-area layout',
   description: 'Keeps the pad clear of the notch and home bar, and fits it on short screens.',
+  pr: 156,
+  // Tier 3 checklist (#137), copied from the trip log #123.
+  checklist: [
+    'Landscape, from the Home Screen: no pad or field button sits under the notch side or the home bar.',
+    'Landscape in Safari: Start and Select are visible without scrolling.',
+    'Portrait in Safari with its toolbars: the whole pad is visible without scrolling, and the smaller picture is acceptable.',
+    'Portrait from the Home Screen: the layout looks the same as with the flag off.',
+    'Classic pad and drag-to-walk still respond in both orientations.',
+  ],
 });
 
 /** Apply the flag to `root` now and on every toggle; publishes the bar height as --bar-h. */

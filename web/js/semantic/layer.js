@@ -17,7 +17,7 @@
 // Unconfirmed values are still returned: callers decide whether to trust a
 // hypothesis (the debug overlay, #79, shows them).
 
-import { ADDRESS_TABLE, TYPES, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, TYPES, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -271,6 +271,39 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         }
       }
       return { value: { open, waiting, choice }, confirmed: s.confirmed };
+    },
+
+    /**
+     * #110: the battle menu. { value: { actor, row, targeting: null | { index } } }.
+     * actor: the party slot (0-2) whose command menu is open, null when none
+     * is (or not in battle). row: that slot's command cursor row. targeting:
+     * target selection is showing, with index = the unit the cursor is on.
+     * As in partyStatus, every field comes only from confirmed entries and is
+     * null otherwise. confirmed: the game state and widget reads were
+     * confirmed values.
+     */
+    async battleInput() {
+      const none = { actor: null, row: null, targeting: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === BATTLE_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in battle' };
+      const w = await read(['battleMenuWidget']);
+      if (!w.values) return fail(w);
+      if (!w.confirmed) return { value: none, confirmed: false };
+      const widget = w.values.battleMenuWidget;
+      if (widget === BATTLE_WIDGET_NONE) return { value: none, confirmed: true };
+      const one = async (name, index = 0) => {
+        const r = await read([name], index);
+        return r.values && r.confirmed ? r.values[name] : null;
+      };
+      const actor = await one('battleActor');
+      const value = { actor: actor !== null && actor <= 2 ? actor : null, row: null, targeting: null };
+      if (value.actor !== null) value.row = await one(`battleCommandRow${value.actor}`);
+      if (widget === BATTLE_WIDGET_TARGET) {
+        const index = await one('battleTarget');
+        value.targeting = index === null ? null : { index };
+      }
+      return { value, confirmed: true };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

@@ -261,6 +261,63 @@ const WINDOW_ENTRIES = [
   },
 ];
 
+/**
+ * #110: the battle menu (notes/110-battle-input.md). Candidates from
+ * Xeeynamo/ff7-decomp@d4db3de (reference only, no code copied):
+ * config/symbols.battle.txt and src/battle/battle3.c, battle_private.h.
+ */
+const BATTLE_MENU_SOURCE = `${DECOMP_130} config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B)`;
+/** g_BattleMenuModalWidgetId: the battle menu widget taking input. */
+export const BATTLE_WIDGETS = Object.freeze({ '-1': 'none', 0: 'target', 1: 'command' });
+export const BATTLE_WIDGET_NONE = -1;
+export const BATTLE_WIDGET_TARGET = 0;
+export const BATTLE_WIDGET_COMMAND = 1;
+const BATTLE_MENU_SLOTS = 0x800f90b4;
+const BATTLE_MENU_SLOT_SIZE = 0x240;
+
+const BATTLE_MENU_ENTRIES = [
+  {
+    name: 'battleMenuWidget',
+    address: 0x800f3896,
+    type: 's16',
+    meaning: 'battle menu widget taking input (g_BattleMenuModalWidgetId): -1 none (no command menu open), 1 the command menu, 0 target selection; other values are sub-menus (magic, item, ...) and stay unlabelled',
+    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110, notes/110-battle-input.md): in the first guard battle it reads 1 once Cloud's ATB gauge fills (60 frames after the "battle" snapshot), 0 one frame after Circle on Attack (reactor-mode-4f), and -1 one frame after a second Circle takes Attack, still -1 10 frames later (reactor-mode-4h); in a random battle with party Cloud, Barret, Tifa it reads 1, 0, -1 and 1 again for the next member (save-boot-11c); reruns match. Sub-menu values were not read`,
+    status: 'confirmed',
+    scenario: SC('reactor-mode-4f-battle-command-right'),
+    values: BATTLE_WIDGETS,
+    confirmedValues: Object.freeze({ '-1': SC('reactor-mode-4h-battle-command-taken'), 0: SC('reactor-mode-4f-battle-command-right'), 1: SC('reactor-mode-4f-battle-command-right') }),
+  },
+  {
+    name: 'battleActor',
+    address: 0x800f38a0,
+    type: 'u8',
+    meaning: 'party slot (0-2) whose battle command menu is shown (g_BattleMenuPartySlot). Meaningful only while battleMenuWidget is not -1',
+    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110): 0 when Cloud's menu opens in the first guard battle (Cloud alone; reactor-mode-4f); with party Cloud, Barret, Tifa in a random battle, 30 frames after the first menu opens it reads more than it does 30 frames after the next menu opens (Attack taken in between), and then it reads 1 (save-boot-11c; so the first was 2 if it stays in 0-2). A direct read of 2 is #171; reruns match`,
+    status: 'confirmed',
+    scenario: SC('reactor-mode-4f-battle-command-right'),
+  },
+  ...[0, 1, 2].map((i) => ({
+    name: `battleCommandRow${i}`,
+    address: BATTLE_MENU_SLOTS + i * BATTLE_MENU_SLOT_SIZE + 0x0b,
+    type: 'u8',
+    meaning: `command menu cursor row of party slot ${i} (D_800F90B4[${i}].table00.row; 4 rows per column, 0 = the top row, Attack; the column is the byte before)`,
+    source: i === 0
+      ? `${BATTLE_MENU_SOURCE}. Tier 2 (#110): reads 0 when Cloud's menu opens in the first guard battle, 1 one frame after Down and 0 one frame after Up (reactor-mode-4f); a rerun matches`
+      : `${BATTLE_MENU_SOURCE} (slot ${i} at + ${i} * 0x240). Tier 2: #110 attempt 2 (save-boot-11d, removed) stopped before it read this row; follow-up #171`,
+    status: i === 0 ? 'confirmed' : 'hypothesis',
+    ...(i === 0 ? { scenario: SC('reactor-mode-4f-battle-command-right') } : {}),
+  })),
+  {
+    name: 'battleTarget',
+    address: 0x800f38a9,
+    type: 'u8',
+    meaning: 'target cursor during target selection: the battle unit index the cursor is on (the decomp numbers the party 0-2 and the enemies from 4; which value is which unit is not checked)',
+    source: `${BATTLE_MENU_SOURCE}: D_800F38A9 (the targeting draw and the Circle check use bit D_800F38A9 of the target mask). Tier 2 (#110): in target selection in the first guard battle (two guards) it reads lower after Right than before (reactor-mode-4f; D_800F38A7 moved the same way); Down changed neither byte (attempt 1 diagnostic, removed). Only the direction was read, not which unit each value is`,
+    status: 'confirmed',
+    scenario: SC('reactor-mode-4f-battle-command-right'),
+  },
+];
+
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
     name: 'gameState',
@@ -383,4 +440,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   })),
   ...STAT_ENTRIES,
   ...WINDOW_ENTRIES,
+  ...BATTLE_MENU_ENTRIES,
 ]);

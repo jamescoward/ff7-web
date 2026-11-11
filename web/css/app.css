@@ -192,6 +192,48 @@ body {
   .screen[data-debug-on] .dbg-badge::before { content: "\25CF"; font-size: 10px; }
 }
 
+/* Battle status strip (#133), Labs flag `battle-hud` (off by default): one row
+   per party slot below the picture in portrait, shown by js/battle-hud.js only
+   in a confirmed battle (<html data-hud-on>). Read-only: it never takes a touch.
+   Its height is fixed, so rows coming and going never move the pad. */
+:root { --hud-h: 84px; }
+.hud {
+  flex: none;
+  box-sizing: border-box;
+  height: var(--hud-h);
+  display: grid;
+  grid-auto-rows: 24px;
+  align-content: center;
+  gap: 2px;
+  padding: 2px 8px;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.hud[hidden], .hud-row[hidden] { display: none; }
+.hud-row { display: grid; grid-template-columns: 3.2em 1.35fr 1.1fr 0.8fr 0.8fr; gap: 8px; align-items: center; }
+.hud-slot { color: var(--muted); font-size: 11px; white-space: nowrap; }
+/* An unconfirmed value keeps its column empty, so the columns stay aligned. */
+.hud-cell[hidden] { display: block; visibility: hidden; }
+.hud-top { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; white-space: nowrap; }
+.hud-name { color: var(--muted); font-size: 10px; }
+.hud-num { font-weight: 600; }
+.hud-bar { height: 5px; margin-top: 2px; border-radius: 3px; background: #ffffff26; overflow: hidden; }
+.hud-fill { height: 100%; width: 0; }
+.hud-cell[data-key="hp"] .hud-fill { background: #6fe0b5; }
+.hud-cell[data-key="mp"] .hud-fill { background: #8fb4ff; }
+.hud-cell[data-key="atb"] .hud-fill { background: #ffd479; }
+.hud-cell[data-key="limit"] .hud-fill { background: #f59ad4; }
+.hud-cell[data-full] .hud-num { color: #ffd479; }
+/* Landscape phones have no free space beside the picture (the pad's halves
+   already sit over its edges), so the strip is portrait only for now. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .hud { display: none !important; }
+}
+
 /* Virtual gamepad */
 .pad {
   flex: 1;
@@ -336,6 +378,10 @@ body {
     flex: none;
   }
   :root[data-safe-layout] .pad { min-height: var(--pad-h); }
+  /* The battle strip (#133) takes its fixed height from the picture's budget. */
+  :root[data-safe-layout][data-hud-on] .screen {
+    --screen-h: min(60dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--bar-h, 112px) - var(--pad-h) - var(--hud-h)));
+  }
   /* With the debug strip (#93) shown, the old portrait sizing applies again:
      the strip adds height below the picture, so the page may scroll. */
   :root[data-safe-layout] .screen[data-debug-on] { width: 100%; max-height: none; }

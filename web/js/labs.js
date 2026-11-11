@@ -4,12 +4,13 @@
 // when the URL says `?labs=a,b` (this visit only; nothing is written).
 //
 //   import { registerFlag, isOn } from './labs.js';
-//   registerFlag('my-feature', { label: 'My feature', description: 'What it does' });
+//   registerFlag('my-feature', { label: 'My feature', description: 'What it does',
+//     pr: 123, checklist: ['First thing to check on the iPhone', '...'] });
 //   if (isOn('my-feature')) { ... }
 
 export const STORAGE_KEY = 'ff7web.labs';
 
-const flags = new Map(); // name -> { name, label, description }
+const flags = new Map(); // name -> { name, label, description, pr, checklist }
 const stored = new Set(); // names switched on and persisted
 const visit = new Set(); // names switched on by ?labs= for this load
 const listeners = new Set();
@@ -37,9 +38,13 @@ const urlNames = new Set(parseUrlFlags(typeof location === 'undefined' ? '' : lo
 const emit = (name) => { for (const cb of listeners) cb(name, isOn(name)); };
 
 // Unknown names (in storage or the URL) are ignored: only registered flags count.
-export function registerFlag(name, { label = name, description = '' } = {}) {
+// `pr` and `checklist` (#137) are the PR that added the flag and its Tier 3
+// checklist (at most 5 lines, the same as on the trip log #123), shown under the
+// toggle so the owner can check a flag on the iPhone without going to GitHub.
+export function registerFlag(name, { label = name, description = '', pr = null, checklist = [] } = {}) {
   if (flags.has(name)) return;
-  flags.set(name, { name, label, description });
+  const lines = Array.isArray(checklist) ? checklist.filter((l) => typeof l === 'string' && l).slice(0, 5) : [];
+  flags.set(name, { name, label, description, pr: Number.isInteger(pr) ? pr : null, checklist: lines });
   if (storedNames.has(name)) stored.add(name);
   if (urlNames.has(name)) visit.add(name);
 }
@@ -54,7 +59,25 @@ export function setFlag(name, on) {
   writeStored(keep);
   emit(name);
 }
-export const listFlags = () => [...flags.values()].map((f) => ({ ...f, on: isOn(f.name), thisVisit: visit.has(f.name) }));
+export const listFlags = () => [...flags.values()].map((f) => ({ ...f, checklist: [...f.checklist], on: isOn(f.name), thisVisit: visit.has(f.name) }));
+// "Reset all flags" (#137): every flag off, the stored choice removed (unknown
+// names too), and ?labs= dropped from the address so a reload stays off.
+export function resetFlags() {
+  const wasOn = [...flags.keys()].filter(isOn);
+  stored.clear();
+  visit.clear();
+  storedNames.clear();
+  urlNames.clear();
+  try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Optional. */ }
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.has('labs')) {
+      url.searchParams.delete('labs');
+      history.replaceState(history.state, '', url);
+    }
+  } catch { /* Not in a page. */ }
+  for (const name of wasOn) emit(name);
+}
 export function onChange(cb) {
   listeners.add(cb);
   return () => listeners.delete(cb);
@@ -66,9 +89,13 @@ registerFlag('labs-demo', { label: 'Test flag', description: 'Does nothing. For 
 // The panel: a button in the top bar and a floating list, kept off the pad.
 export function createLabsPanel({ button, panel }) {
   const list = panel.querySelector('.labs-list');
+  const reset = panel.querySelector('.labs-reset');
+  reset?.addEventListener('click', () => resetFlags());
   function render() {
     list.replaceChildren();
     for (const f of listFlags()) {
+      const item = document.createElement('div');
+      item.className = 'labs-item';
       const row = document.createElement('label');
       row.className = 'btn labs-row';
       const box = document.createElement('input');
@@ -84,7 +111,23 @@ export function createLabsPanel({ button, panel }) {
       col.className = 'labs-text';
       col.append(text, hint);
       row.append(box, col);
-      list.append(row);
+      item.append(row);
+      if (f.checklist.length) {
+        const check = document.createElement('div');
+        check.className = 'labs-checklist';
+        check.dataset.flag = f.name;
+        const head = document.createElement('small');
+        head.textContent = f.pr ? `iPhone check (PR #${f.pr}):` : 'iPhone check:';
+        const ol = document.createElement('ol');
+        for (const line of f.checklist) {
+          const li = document.createElement('li');
+          li.textContent = line;
+          ol.append(li);
+        }
+        check.append(head, ol);
+        item.append(check);
+      }
+      list.append(item);
     }
   }
   function place() {

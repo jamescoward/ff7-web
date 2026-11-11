@@ -117,6 +117,118 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
+    test('each flag shows its Tier 3 checklist under its toggle; a flag with none shows nothing (#137)', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser);
+      try {
+        const flags = await page.evaluate(() => window.ff7web.labs.listFlags());
+        // Every real feature flag carries its PR and 1-5 checklist lines; the test flag has none.
+        for (const f of flags) {
+          if (f.name === 'labs-demo') {
+            assert.deepEqual(f.checklist, []);
+            continue;
+          }
+          assert.ok(Number.isInteger(f.pr) && f.pr > 0, `${f.name}: PR number`);
+          assert.ok(f.checklist.length >= 1 && f.checklist.length <= 5, `${f.name}: ${f.checklist.length} lines`);
+        }
+        await page.click('#labs-btn');
+        const shown = await page.evaluate(() => [...document.querySelectorAll('.labs-item')].map((item) => ({
+          flag: item.querySelector('input[data-flag]').dataset.flag,
+          list: item.querySelector('.labs-checklist')?.dataset.flag ?? null,
+          lines: [...item.querySelectorAll('.labs-checklist li')].map((li) => li.textContent),
+          head: item.querySelector('.labs-checklist small')?.textContent ?? null,
+          // The checklist sits below its toggle, inside the same item.
+          below: (() => {
+            const c = item.querySelector('.labs-checklist');
+            return c ? c.getBoundingClientRect().top >= item.querySelector('.labs-row').getBoundingClientRect().bottom - 1 : null;
+          })(),
+        })));
+        assert.equal(shown.length, flags.length);
+        for (const f of flags) {
+          const s = shown.find((x) => x.flag === f.name);
+          assert.ok(s, f.name);
+          if (!f.checklist.length) {
+            assert.equal(s.list, null, `${f.name}: no checklist element`);
+            continue;
+          }
+          assert.equal(s.list, f.name);
+          assert.deepEqual(s.lines, f.checklist);
+          assert.equal(s.head, `iPhone check (PR #${f.pr}):`);
+          assert.equal(s.below, true, `${f.name}: checklist below its toggle`);
+        }
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('registerFlag keeps at most 5 checklist lines and ignores junk', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page } = await openApp(browser);
+      try {
+        const r = await page.evaluate(() => {
+          const { registerFlag, listFlags } = window.ff7web.labs;
+          registerFlag('t-long', { pr: 7, checklist: ['1', '2', '3', '4', '5', '6'] });
+          registerFlag('t-junk', { pr: 'x', checklist: 'not a list' });
+          registerFlag('t-mixed', { checklist: ['a', 3, '', null, 'b'] });
+          const get = (n) => listFlags().find((f) => f.name === n);
+          return [get('t-long'), get('t-junk'), get('t-mixed')].map((f) => [f.pr, f.checklist]);
+        });
+        assert.deepEqual(r, [[7, ['1', '2', '3', '4', '5']], [null, []], [null, ['a', 'b']]]);
+      } finally { await context.close(); }
+    });
+
+    test('Reset all flags turns every flag off, clears storage and the URL, and the page behaves as with no flags (#137)', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, { query: '?labs=speed&x=1' });
+      try {
+        // One flag from storage (plus an unknown name), one from the URL.
+        await page.evaluate(() => localStorage.setItem('ff7web.labs', JSON.stringify(['ghost', 'safe-layout'])));
+        await page.reload();
+        await page.evaluate(() => window.ff7web.ready);
+        assert.deepEqual(await page.evaluate(() => window.ff7web.labs.listFlags().filter((f) => f.on).map((f) => f.name).sort()), ['safe-layout', 'speed']);
+        assert.equal(await page.locator('#speed-btn').isVisible(), true);
+        assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('data-safe-layout')), true);
+
+        await page.click('#labs-btn');
+        const reset = page.locator('.labs-reset');
+        const b = await reset.boundingBox();
+        assert.ok(b.width >= 44 && b.height >= 44, `reset button ${JSON.stringify(b)} >=44px`);
+        await reset.click();
+
+        assert.deepEqual(await page.evaluate(() => window.ff7web.labs.listFlags().filter((f) => f.on).map((f) => f.name)), []);
+        assert.equal(await stored(page), null, 'storage cleared, unknown names too');
+        assert.equal(await page.evaluate(() => location.search), '?x=1', 'labs= dropped, other parameters kept');
+        // The features follow live: no speed button, no safe-layout attribute.
+        assert.equal(await page.locator('#speed-btn').isVisible(), false);
+        assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('data-safe-layout')), false);
+        // The panel stays open and redraws with every box unchecked.
+        assert.equal(await page.locator('#labs-panel').isVisible(), true);
+        assert.deepEqual(await page.locator('.labs-row input').evaluateAll((els) => els.filter((e) => e.checked).length), 0);
+
+        // And after a reload too.
+        await page.reload();
+        await page.evaluate(() => window.ff7web.ready);
+        assert.deepEqual(await page.evaluate(() => window.ff7web.labs.listFlags().filter((f) => f.on).map((f) => f.name)), []);
+        assert.equal(await stored(page), null);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('Reset all flags works with blocked storage', async (t) => {
+      if (skip) return t.skip(skip);
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+      await context.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } });
+      });
+      const { page, errors } = await openApp(browser, { context, query: '?labs=labs-demo' });
+      try {
+        assert.equal(await page.evaluate(() => window.ff7web.labs.isOn('labs-demo')), true);
+        await page.click('#labs-btn');
+        await page.click('.labs-reset');
+        assert.equal(await page.evaluate(() => window.ff7web.labs.isOn('labs-demo')), false);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     test('the Labs panel stays clear of the pad and field, targets are >=44px, outside tap closes', async (t) => {
       if (skip) return t.skip(skip);
       for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
@@ -147,7 +259,7 @@ for (const name of BROWSERS) {
             });
             assert.ok(targets.length > 0, `${label}: found controls`);
             for (const r of targets) assert.ok(!overlaps(panel, r), `${label}: panel ${JSON.stringify(panel)} covers ${JSON.stringify(r)}`);
-            for (const sel of ['#labs-btn', '.labs-row']) {
+            for (const sel of ['#labs-btn', '.labs-row', '.labs-reset']) {
               const b = await page.locator(sel).first().boundingBox();
               assert.ok(b.width >= 44 && b.height >= 44, `${label}: ${sel} >=44px`);
             }

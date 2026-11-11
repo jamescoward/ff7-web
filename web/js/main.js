@@ -57,11 +57,56 @@ document.addEventListener('pointerdown', (e) => {
 });
 const closeCardMenu = () => { cardMenu.open = false; };
 
-// Labs (#105): off-by-default feature flags.
-labs.registerFlag('speed', { label: 'Speed toggle', description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.' });
-labs.registerFlag('suspend', { label: 'Suspend and resume', description: 'When you leave the page, the game is stored on this device; Resume picks it up. Card menu: Export state / Import state.' });
-labs.registerFlag(AUTO_FLAG, { label: 'Automatic controls', description: 'Drag to walk in the field, the classic pad in battles, menus, the world map, minigames and movies. The Controls button still overrides until the next change.' });
-labs.registerFlag(HUD_FLAG, { label: 'Battle status strip', description: 'In battle, large HP, MP, ATB and limit bars for each party slot below the picture (portrait).' });
+// Labs (#105): off-by-default feature flags. Each names its PR and its Tier 3
+// checklist (#137), copied from the trip log #123.
+labs.registerFlag('speed', {
+  label: 'Speed toggle',
+  description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.',
+  pr: 160,
+  checklist: [
+    'The button cycles 1x/2x/3x and the game visibly speeds up.',
+    'At 2x and 3x there is no sound; back at 1x the sound is fine (no crackle or backlog).',
+    'Pad and drag-to-walk respond at 2x.',
+    'At 3x in a busy scene: does it step down by itself, and does the notice show?',
+    'Flag off: no button, nothing changed.',
+  ],
+});
+labs.registerFlag('suspend', {
+  label: 'Suspend and resume',
+  description: 'When you leave the page, the game is stored on this device; Resume picks it up. Card menu: Export state / Import state.',
+  pr: 161,
+  checklist: [
+    'Load the disc and play into a field.',
+    'Leave Safari (switch app or lock), come back, reload, load the same disc: Resume is offered and lands in the same place.',
+    'Card menu, Export state, reload, Import state: back at the exported point.',
+    'Import a damaged file: an error message, the game unchanged.',
+    'An in-game save on the memory card still works after a resume.',
+  ],
+});
+labs.registerFlag(AUTO_FLAG, {
+  label: 'Automatic controls',
+  description: 'Drag to walk in the field, the classic pad in battles, menus, the world map, minigames and movies. The Controls button still overrides until the next change.',
+  pr: 163,
+  checklist: [
+    'Walk in the field: drag-to-walk is shown.',
+    'Enter a battle: the classic pad appears.',
+    'Leave it: drag-to-walk returns.',
+    'Open the menu: the pad.',
+    'Press Controls in a battle: your choice holds until the next mode change.',
+  ],
+});
+labs.registerFlag(HUD_FLAG, {
+  label: 'Battle status strip',
+  description: 'In battle, large HP, MP, ATB and limit bars for each party slot below the picture (portrait).',
+  pr: 165,
+  checklist: [
+    'In a battle, portrait: are the strip\'s numbers readable?',
+    'Do HP and MP match the game\'s own?',
+    'Do the ATB and limit bars fill like the game\'s?',
+    'With Safe-area layout also on: is the smaller picture acceptable?',
+    'Landscape: the strip is hidden (placement question in #166).',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 

@@ -1,6 +1,7 @@
 // Page wiring: file pick -> core worker; frames -> canvas; touch pad and
 // keyboard -> setPad; audio -> worklet; memory card <-> browser storage.
 
+import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
@@ -58,6 +59,7 @@ const closeCardMenu = () => { cardMenu.open = false; };
 // Labs (#105): off-by-default feature flags.
 labs.registerFlag('speed', { label: 'Speed toggle', description: 'A top-bar button runs the game at 1x, 2x or 3x. Sound is muted above 1x.' });
 labs.registerFlag('suspend', { label: 'Suspend and resume', description: 'When you leave the page, the game is stored on this device; Resume picks it up. Card menu: Export state / Import state.' });
+labs.registerFlag(AUTO_FLAG, { label: 'Automatic controls', description: 'Drag to walk in the field, the classic pad in battles, menus, the world map, minigames and movies. The Controls button still overrides until the next change.' });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -111,6 +113,7 @@ let drawn = 0;
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
 const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
+const autoControls = createAutoControls({ controls, labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -142,7 +145,10 @@ const backendReady = createWorkerBackend({
     if (!cardProblem(bytes)) persistCard(bytes);
   },
   onError: (msg) => setStatus(msg, 'error'),
-  onSemantic: (gate) => overlay.setGate(gate),
+  onSemantic: (gate) => {
+    overlay.setGate(gate);
+    autoControls.setGate(gate);
+  },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
     showSpeed(n);
@@ -153,6 +159,7 @@ const backendReady = createWorkerBackend({
   },
 }).then((b) => {
   backend = b;
+  autoControls.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -272,6 +279,7 @@ window.ff7web = {
   mixer,
   overlay,
   labs,
+  autoControls,
   suspend,
   drawnFrame: () => drawn,
 };

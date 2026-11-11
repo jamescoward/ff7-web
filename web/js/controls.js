@@ -32,5 +32,16 @@ export function createControls({ padRoot, fieldRoot, toggle, mixer }) {
   window.addEventListener('resize', releaseAll);
   window.addEventListener('blur', releaseAll);
   render();
-  return { releaseAll };
+  return {
+    releaseAll,
+    /** Automatic switch (#113): the shown layout changes, the saved preference does not. */
+    setAuto(target) {
+      if (target !== 'field' && target !== 'gamepad') return;
+      if (target === mode) return;
+      releaseAll();
+      mode = target;
+      render();
+    },
+    get mode() { return mode; },
+  };
 }

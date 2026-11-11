@@ -2,14 +2,20 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { ADDRESS_TABLE, EXE_USA_SHA1, validateTable } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, EXE_USA_SHA1, makeTable, validateTable } from '../../../semantic/addresses.js';
 import { createSemantic } from '../../../semantic/layer.js';
 
 const STATE = 0x832a0; // g_WindowData[0].state, 0x80083274 + 0x2C
 const POINTER = 0x8328e; // + 0x1A pointerEnabled
 const POINTER_Y = 0x8329a; // + 0x26 pointerY
 
-function setup({ state, pointer = 0, pointerY = 0 }) {
+/** The shipped table with the pointer entries marked confirmed, as #168 will. */
+const POINTER_CONFIRMED = makeTable(EXE_USA_SHA1, ADDRESS_TABLE.entries.map((e) => {
+  const { exe, ...rest } = e;
+  return e.name === 'dialogPointer' || e.name === 'dialogPointerY' ? { ...rest, status: 'confirmed', scenario: 'synthetic' } : rest;
+}));
+
+function setup({ state, pointer = 0, pointerY = 0, table = ADDRESS_TABLE }) {
   const bytes = new Uint8Array(0x200000);
   const view = new DataView(bytes.buffer);
   view.setInt16(STATE, state, true);
@@ -17,7 +23,7 @@ function setup({ state, pointer = 0, pointerY = 0 }) {
   view.setInt16(POINTER_Y, pointerY, true);
   const reads = [];
   const backend = { readMem: (a, l) => { reads.push([a, l]); return bytes.subarray(a & 0x1fffff, (a & 0x1fffff) + l); } };
-  return { s: createSemantic({ backend, exeSha1: EXE_USA_SHA1 }), reads };
+  return { s: createSemantic({ backend, exeSha1: EXE_USA_SHA1, table }), reads };
 }
 
 describe('dialogue reader', () => {
@@ -55,17 +61,30 @@ describe('dialogue reader', () => {
     }
   });
 
-  test('a choice waiting in state 6: row from pointerY = row * 16 + 6', async () => {
+  test('a choice waiting in state 6 (pointer entries confirmed): row from pointerY = row * 16 + 6', async () => {
     for (const [pointerY, row] of [[6, 0], [22, 1], [38, 2], [54, 3]]) {
-      const { s } = setup({ state: 6, pointer: 1, pointerY });
+      const { s } = setup({ state: 6, pointer: 1, pointerY, table: POINTER_CONFIRMED });
       assert.deepEqual((await s.dialogue()).value, { open: true, waiting: true, choice: { row } });
     }
   });
 
-  test('confirmed follows the table (hypothesis until Tier 2 confirms it)', async () => {
-    const entries = ADDRESS_TABLE.entries.filter((e) => e.name.startsWith('dialog'));
+  test('with the shipped table the pointer entries are hypotheses, so choice stays null (#168)', async () => {
+    const byName = Object.fromEntries(ADDRESS_TABLE.entries.map((e) => [e.name, e]));
+    assert.equal(byName.dialogPointer.status, 'hypothesis');
     const { s } = setup({ state: 6, pointer: 1, pointerY: 22 });
-    assert.equal((await s.dialogue()).confirmed, entries.every((e) => e.status === 'confirmed'));
+    assert.deepEqual(await s.dialogue(), { value: { open: true, waiting: true, choice: null }, confirmed: true });
+  });
+
+  test('the pointer is ignored outside state 6 (it blinks while closing)', async () => {
+    const { s, reads } = setup({ state: 7, pointer: 1, pointerY: 22, table: POINTER_CONFIRMED });
+    assert.deepEqual((await s.dialogue()).value, { open: true, waiting: false, choice: null });
+    assert.deepEqual(reads, [[0x800832a0, 2]]);
+  });
+
+  test('confirmed: closed (0) and done (6) are confirmed values (#108); typing (2) is not', async () => {
+    assert.equal((await setup({ state: 0 }).s.dialogue()).confirmed, true);
+    assert.equal((await setup({ state: 6 }).s.dialogue()).confirmed, true);
+    assert.equal((await setup({ state: 2 }).s.dialogue()).confirmed, false);
   });
 
   test('is inactive with the gate off', async () => {

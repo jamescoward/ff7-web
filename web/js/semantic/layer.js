@@ -251,7 +251,10 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
      * text has finished, not still typing). choice: a choice window waiting
      * for a pick, with row = the pointer's line in the window (0 = the
      * window's first line; options under a question start at 1 or more).
-     * confirmed only when every entry read is confirmed.
+     * As in partyStatus, choice is reported only from confirmed entries:
+     * until dialogPointer and dialogPointerY are confirmed (#168) it is
+     * always null, and a choice window reads as a plain waiting message.
+     * confirmed: the state read is a confirmed value (0 closed, 6 done).
      */
     async dialogue() {
       const s = await read(['dialogState']);
@@ -260,16 +263,13 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       const open = raw !== 0;
       const waiting = WINDOW_WAITING_STATES.includes(raw);
       let choice = null;
-      let confirmed = s.confirmed;
       if (raw === WINDOW_TXT_DONE) {
         const p = await read(['dialogPointer', 'dialogPointerY']);
-        if (!p.values) return fail(p);
-        confirmed &&= p.confirmed;
-        if (p.values.dialogPointer === 1) {
+        if (p.values && p.confirmed && p.values.dialogPointer === 1) {
           choice = { row: Math.floor((p.values.dialogPointerY - WINDOW_POINTER_Y0) / WINDOW_LINE_HEIGHT) };
         }
       }
-      return { value: { open, waiting, choice }, confirmed };
+      return { value: { open, waiting, choice }, confirmed: s.confirmed };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

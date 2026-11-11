@@ -1,6 +1,6 @@
 # #108: dialogue window state (open, waiting, choice cursor)
 
-Status (2026-11-11): attempt 1 pushed, Tier 2 pending.
+Status (2026-11-11): **open and waiting confirmed** (attempt 1); the choice cursor is split to #168 (no choice window reachable yet). Attempts used: 1 of 3.
 
 ## Sources (reference only; no code copied)
 Xeeynamo/ff7-decomp @ `d4db3de3c3aaf61269e048cf3f6a458996290de0`:
@@ -12,10 +12,11 @@ Xeeynamo/ff7-decomp @ `d4db3de3c3aaf61269e048cf3f6a458996290de0`:
   - `src/field/field_opcodes.c` `OpcodeFuncAsk`: `selectedLine` itself lives in a script variable (bank 2), so the window's `pointerY` is the place a reader can find it without knowing the script.
 
 ## The reader
-`semantic/addresses.js`: `dialogState` (window 0 state), `dialogPointer`, `dialogPointerY`; all hypotheses until Tier 2 confirms them. `semantic/layer.js` `dialogue()` → `{ open, waiting, choice: null | { row } }`:
+`semantic/addresses.js`: `dialogState` (window 0 state; **confirmed**, values 0 and 6), `dialogPointer`, `dialogPointerY` (hypotheses, #168). `semantic/layer.js` `dialogue()` → `{ open, waiting, choice: null | { row } }`:
 - open: state ≠ 0;
 - waiting: state in {4, 6, 11, 13, 14};
-- choice: state 6 and pointerEnabled 1; row = (pointerY − 6) / 16, the line in the window (a question line above the options makes the first option row 1; the reader can't know the script's first line).
+- choice: state 6 and pointerEnabled 1; row = (pointerY − 6) / 16, the line in the window (a question line above the options makes the first option row 1; the reader can't know the script's first line). Reported only from confirmed entries, as `partyStatus` does: until #168 confirms the pointer entries, `choice` is always null.
+- confirmed: the state read is a confirmed value (0 or 6). Typing, closing and the other waiting states read `confirmed: false`.
 
 Only window 0 is read. Field scripts can use windows 1-3 too; whether the touch layer needs them is open.
 
@@ -36,3 +37,26 @@ What the results decide:
 - 12a reads 6 already → the window opens before world mode; 12b's closed_wait times out and needs another start.
 - reactor-next-4 opens a window → field dialogue at the opening is reachable; a choice can be searched for from there.
 - ptr_en 1 anywhere → a choice window to check Down/Up on.
+
+## Attempt 1 results (`d19a888`, tier2: 51 pass, 1 fail; the fail is a diagnostic)
+| scenario | metrics |
+|---|---|
+| save-boot-12a-dialog-world-entry (diag) | world_ok 1, **win0 0**, ptr_en 0, win1 0 |
+| save-boot-12b-dialog-world-open | **closed_wait 1, open_wait 475, done_wait 110, waiting 1**, world_ok 1, match 1, ptr_en 0 |
+| save-boot-12c-dialog-world-circle | closed_wait 1, open_wait 475, done_wait 110, **left_wait 1, close_wait 1, closed 1**, world_ok 1, match 1 |
+| reactor-next-4-dialog-after-battle (diag) | **open_wait 0 (timeout)**, done_wait 0, waiting 0, match 0, ptr_en 0, win1 0, map_cur 116, game_state 1 |
+| every other scenario | pass, unchanged |
+
+Reading:
+- **dialogOpen 0 → 1:** window 0 is closed when world mode starts (12a, and 12b's first wait ends at once) and opens 475 frames later, with no input.
+- **dialogWaiting:** for 110 frames the window is open but not in state 6 (its text is typing), then it reads 6 and holds there. One Circle takes it out of 6 within a frame (left_wait 1), and 30 frames later it is closed (close_wait 1: no further press needed). So **one Circle closes this window**. #140's three presses were needed only because the first ones came before the window opened (#140 waited 600 frames, the window opens at 475 + 110 = 585). It is a plain message: pointerEnabled 0 in state 6.
+- Reruns from the same start match in 12b and 12c.
+- **No field window after the first battle:** in md1stin (0x74), 1800 frames without input after the battle's end, window 0 never opened. The opening's spoken lines are elsewhere (before reactor-entrance, where the opening segment presses Circle every second).
+- **No choice window:** none was reached. The issue's choice acceptance needs one; finding one is split to #168 (CONTINUITY: finish a coherent slice, file the rest).
+
+Kept as acceptance checks: 12b and 12c. Removed: 12a and reactor-next-4 (this PR's own diagnostics; results above, definitions in `d19a888`). The Tier 2 run on the final push is the second run of 12b and 12c (the issue asks for two).
+
+## Outcome
+- `dialogState` confirmed (values 0 and 6); `dialogue()` gives open and waiting, confirmed for those values.
+- `dialogPointer`/`dialogPointerY` stay hypotheses; `dialogue().choice` is null until #168.
+- For the touch layer: in the world map from `disc1-wm1-kalm`, a message window opens about 475 frames after world mode starts and waits for Circle 110 frames later; one Circle closes it.

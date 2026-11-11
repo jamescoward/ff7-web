@@ -298,7 +298,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       };
       const actor = await one('battleActor');
       const value = { actor: actor !== null && actor <= 2 ? actor : null, row: null, targeting: null };
-      if (value.actor !== null) value.row = await one('battleCommandRow', value.actor);
+      if (value.actor !== null) value.row = await one(`battleCommandRow${value.actor}`);
       if (widget === BATTLE_WIDGET_TARGET) {
         const index = await one('battleTarget');
         value.targeting = index === null ? null : { index };

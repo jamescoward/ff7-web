@@ -80,7 +80,7 @@ describe('address table', () => {
       // #108
       'dialogState',
       // #110
-      'battleMenuWidget', 'battleActor', 'battleCommandRow', 'battleTarget'];
+      'battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

@@ -37,4 +37,18 @@ Reading:
 ## Tier 2, attempt 2
 - `save-boot-11d-battle-command-rows`: `stats-battle` again. The slot must read 2 at the first menu; slot 2's row goes 0 → 1 → 0. After Attack is taken, the slot must read 1, and slot 1's row goes 0 → 1.
 
-Results: pending.
+Result on `fbbece9` (53 pass, 1 fail): **fail**. The metrics were open_wait 549, then r2_down 0, r2_up 0, closed_wait 0, next_wait 0, r1_down 0 and match 0. So the script stopped at one of three steps:
+- the slot check 1 frame after widget id 1;
+- slot 2's row reading 0;
+- Down moving that row.
+
+The metrics don't say which. In 4f the slot check passed only trivially, since Cloud was alone and the byte may simply have been 0. In 11c the slot was read 30 frames after the menu opened. The scenario is removed.
+
+## Outcome (two attempts used)
+- **Confirmed:**
+  - `battleMenuWidget`, for −1, 0 and 1;
+  - `battleActor`: 0 in 4f; in 11c it changes between menus and reads 1 at the second;
+  - `battleCommandRow0`;
+  - `battleTarget` (direction only).
+- **Hypotheses:** `battleCommandRow1` and `battleCommandRow2`. The rows were split into one entry per slot, as `partyHp0..2` are, so that slot 0 can be confirmed alone.
+- **Follow-up #171:** rows 1 and 2, and a direct read of slot 2. The suggested first step there is a metric per check, and waiting 30 frames before the slot check.

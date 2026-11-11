@@ -10,7 +10,7 @@ const WIDGET = 0xf3896; // g_BattleMenuModalWidgetId
 const ACTOR = 0xf38a0; // g_BattleMenuPartySlot
 const ROW = (slot) => 0xf90b4 + slot * 0x240 + 0x0b; // D_800F90B4[slot].table00.row
 const TARGET = 0xf38a9;
-const NAMES = ['battleMenuWidget', 'battleActor', 'battleCommandRow', 'battleTarget'];
+const NAMES = ['battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleCommandRow1', 'battleCommandRow2', 'battleTarget'];
 
 /** The shipped table with the battle menu entries confirmed and synthetic scenarios (the tests below do not depend on Tier 2 file names). */
 const CONFIRMED = makeTable(EXE_USA_SHA1, ADDRESS_TABLE.entries.map((e) => {
@@ -35,15 +35,15 @@ function setup({ state = 2, widget = 1, actor = 0, rows = [0, 0, 0], target = 4,
 }
 
 describe('battleInput reader', () => {
-  test('the shipped table validates and has the four battle menu entries at the decomp addresses', () => {
+  test('the shipped table validates and has the battle menu entries at the decomp addresses', () => {
     validateTable(ADDRESS_TABLE);
     const byName = Object.fromEntries(ADDRESS_TABLE.entries.map((e) => [e.name, e]));
     assert.equal(byName.battleMenuWidget.address, 0x800f3896);
     assert.equal(byName.battleMenuWidget.type, 's16');
     assert.equal(byName.battleActor.address, 0x800f38a0);
-    assert.equal(byName.battleCommandRow.address, 0x800f90bf);
-    assert.equal(byName.battleCommandRow.stride, 0x240);
-    assert.equal(byName.battleCommandRow.count, 3);
+    assert.equal(byName.battleCommandRow0.address, 0x800f90bf);
+    assert.equal(byName.battleCommandRow1.address, 0x800f90bf + 0x240);
+    assert.equal(byName.battleCommandRow2.address, 0x800f90bf + 0x480);
     assert.equal(byName.battleTarget.address, 0x800f38a9);
   });
 
@@ -83,13 +83,15 @@ describe('battleInput reader', () => {
     assert.deepEqual(r.value, { actor: null, row: null, targeting: null });
   });
 
-  test('with the shipped table (#110 confirmed all four entries), target selection is reported in full', async () => {
-    for (const n of NAMES) assert.equal(ADDRESS_TABLE.entries.find((e) => e.name === n).status, 'confirmed', n);
-    const { s, reads } = setup({ widget: 0, actor: 2, rows: [0, 0, 1], target: 5, table: ADDRESS_TABLE });
-    const r = await s.battleInput();
-    assert.deepEqual(r.value, { actor: 2, row: 1, targeting: { index: 5 } });
-    assert.equal(r.confirmed, true);
-    assert.deepEqual(reads.map(([a]) => a), [0x8009c560, 0x800f3896, 0x800f38a0, 0x800f90bf + 2 * 0x240, 0x800f38a9]);
+  test('with the shipped table: widget, actor, slot 0\'s row and the target are confirmed; slots 1-2 rows are not reported', async () => {
+    const status = (n) => ADDRESS_TABLE.entries.find((e) => e.name === n).status;
+    for (const n of ['battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget']) assert.equal(status(n), 'confirmed', n);
+    for (const n of ['battleCommandRow1', 'battleCommandRow2']) assert.equal(status(n), 'hypothesis', n);
+    const a = setup({ widget: 0, actor: 0, rows: [1, 0, 0], target: 5, table: ADDRESS_TABLE });
+    assert.deepEqual((await a.s.battleInput()).value, { actor: 0, row: 1, targeting: { index: 5 } });
+    assert.deepEqual(a.reads.map(([x]) => x), [0x8009c560, 0x800f3896, 0x800f38a0, 0x800f90bf, 0x800f38a9]);
+    const b = setup({ widget: 1, actor: 2, rows: [0, 0, 1], table: ADDRESS_TABLE });
+    assert.deepEqual((await b.s.battleInput()).value, { actor: 2, row: null, targeting: null });
   });
 
   test('inactive gate: value null with reason inactive', async () => {

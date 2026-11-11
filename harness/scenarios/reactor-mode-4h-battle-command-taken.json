@@ -1,0 +1,104 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-mode-4h-battle-command-taken",
+  "description": "#110 attempt 1: the menu closes when a command is taken. From \"battle\": wait until the widget id reads 1 (open_wait), then Circle every 30 frames (held 4) until it reads 0, target selection (target_wait), 20 frames with no input, then Circle every 30 frames (held 4) until it reads 0xffff, no menu (closed_wait; Attack on the default target). Checks it still reads 0xffff 10 frames later with no input (none), and battle mode. match: a rerun from the same snapshot.",
+  "boot": {
+    "from": "battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): battle 2."
+    },
+    "widget": {
+      "addr": "0x800f3896",
+      "type": "u16",
+      "description": "g_BattleMenuModalWidgetId (s16 as u16; config/symbols.battle.txt 0x800F3896; src/battle/battle3.c): the battle menu widget taking input. -1 (0xffff) none (BattleMenuInit), 1 the command menu (Cancel from a sub-menu returns to 1), 0 target selection (BattleMenuUpdate runs the targeting code when it reads 0), 3/7/0x18/0x1A/0x1B sub-menus. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "widget",
+          "equals": 1
+        },
+        "timeout": 1800
+      },
+      "metric": "open_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "widget",
+          "equals": 0
+        },
+        "timeout": 200,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "target_wait"
+    },
+    {
+      "wait": {
+        "frames": 20
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "widget",
+          "equals": 65535
+        },
+        "timeout": 200,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "closed_wait"
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "widget",
+        "equals": 65535
+      },
+      "metric": "none"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 2
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "open_wait",
+    "target_wait",
+    "closed_wait",
+    "none",
+    "match"
+  ]
+}

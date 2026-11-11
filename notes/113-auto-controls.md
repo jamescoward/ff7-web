@@ -9,7 +9,7 @@ switches. With the flag off the page behaves as before.
 - `web/js/auto-controls.js`: `controlsForMode(sample)` (UI policy over mode names) and
   `createAutoControls`, which polls `semantic.mode()` at 4 Hz (never overlapping) only
   while the flag is on, the gate is active and a backend exists. It calls
-  `controls.setAuto(target)` only when the mode name changes; the first sample after
+  `controls.setAuto(target)` only when the mode name changes (a failed read is ignored); the first sample after
   (re)starting counts as a change. Turning the flag off or closing the gate stops
   polling and leaves the controls as they are. The main-thread semantic layer is built
   lazily over `backend.readMem`.

@@ -53,6 +53,9 @@ export function createAutoControls({ controls, labs, timers = globalThis, hz = A
       try { sample = await read(); } catch { sample = null; }
       // Stopped, or the flag/gate changed, while the read was in flight.
       if (handle === null || !shouldRun()) return;
+      // A failed read says nothing about the mode: keep the controls (and any
+      // manual override) as they are rather than treat it as a change.
+      if (!sample?.value) return;
       const key = modeKey(sample);
       if (key === last) return;
       last = key;

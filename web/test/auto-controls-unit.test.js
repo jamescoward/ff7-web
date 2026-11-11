@@ -61,18 +61,39 @@ describe('createAutoControls', () => {
     h.auto.stop();
   });
 
-  test('a failure and an unconfirmed field give the pad', async () => {
+  test('a failed read changes nothing; an unconfirmed field gives the pad', async () => {
     const h = setup();
     h.auto.setSource(h.source);
     h.auto.setGate({ active: true });
     await wait(30);
     h.say({ value: null, reason: 'unreadable' });
     await wait(30);
+    assert.deepEqual(h.calls, ['field']);
+    assert.equal(h.controls.mode, 'field');
     h.say(S('field', false));
     await wait(30);
-    assert.deepEqual(h.calls, ['field', 'gamepad', 'gamepad']);
+    assert.deepEqual(h.calls, ['field', 'gamepad']);
     assert.equal(h.controls.mode, 'gamepad');
     h.auto.stop();
+  });
+
+  test('a failed read keeps a manual override; the same mode after it does not switch', async () => {
+    const h = setup();
+    h.say(S('battle'));
+    h.auto.setSource(h.source);
+    h.auto.setGate({ active: true });
+    try {
+      await wait(30);
+      h.controls.mode = 'field'; // the Controls button
+      h.say({ value: null, reason: 'unreadable' });
+      await wait(30);
+      h.say(S('battle'));
+      await wait(30);
+      assert.deepEqual(h.calls, ['gamepad']);
+      assert.equal(h.controls.mode, 'field');
+    } finally {
+      h.auto.stop();
+    }
   });
 
   test('flag off: no polling and no switching', async () => {

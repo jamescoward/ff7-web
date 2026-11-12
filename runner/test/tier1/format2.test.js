@@ -195,10 +195,10 @@ describe('compare checks and deref locations (#112)', () => {
       { compare: { mem: 'counter', with: 'counter', shift: 1, is: 'less' }, metric: 'wrong' },
       { compare: { mem: 'via', with: 'via', is: 'equal', signed: true }, metric: 'via_same' },
     ];
-    d.metrics = ['half', 'same', 'wrong', 'via_same', 'failed_assertions'];
+    d.metrics = ['half', 'same', 'wrong', 'via_same', 'failed_assertions', 'release_wait', 'counter_wait'];
     const r = await runScenario(loadScenario(d));
     assert.deepEqual(r.assertions.map((a) => a.pass), [true, true, false, true]);
-    assert.deepEqual(r.metrics, { half: 1, same: 0, wrong: 1, via_same: 0, failed_assertions: 1 });
+    assert.deepEqual(r.metrics, { half: 1, same: 0, wrong: 1, via_same: 0, failed_assertions: 1, release_wait: 1, counter_wait: 21 });
     assert.deepEqual(r.assertions[0].compare, { mem: 'counter', with: 'counter', shift: 1, is: 'greater' });
   });
 

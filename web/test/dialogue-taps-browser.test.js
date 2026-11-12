@@ -73,6 +73,40 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
+    test('flag on, window waiting: drag-to-walk and pad presses send no Circle', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, '?labs=dialogue-taps');
+      try {
+        // Classic pad: tap Cross. Only Cross and its release reach setPad.
+        const cross = await page.locator('[data-btn="cross"]').boundingBox();
+        await page.touchscreen.tap(cross.x + cross.width / 2, cross.y + cross.height / 2);
+        await until(async () => (await pads(page)).length >= 2, { timeout: 3000, what: 'cross press and release' });
+        await page.waitForTimeout(300);
+        assert.deepEqual(await pads(page), [1 << 0, 0]);
+
+        // Drag-to-walk: a drag and a short tap on the drag surface.
+        await page.locator('#controls-btn').click();
+        await until(() => page.locator('#field').isVisible(), { timeout: 3000, what: 'drag surface shown' });
+        await page.evaluate(() => { window.pads.length = 0; });
+        const f = await page.locator('#field').boundingBox();
+        const c = { x: f.x + f.width / 2, y: f.y + f.height / 2 };
+        const fire = (type, p) => page.locator('#field').dispatchEvent(type, {
+          pointerId: 1, pointerType: 'touch', isPrimary: true, clientX: p.x, clientY: p.y, bubbles: true, cancelable: true,
+        });
+        await fire('pointerdown', c);
+        await fire('pointermove', { x: c.x, y: c.y - 40 });
+        await fire('pointerup', { x: c.x, y: c.y - 40 });
+        await fire('pointerdown', c);
+        await fire('pointerup', c);
+        await page.waitForTimeout(400);
+        const seen = await pads(page);
+        assert.ok(seen.includes(1 << 4), `the drag walked up: ${JSON.stringify(seen)}`);
+        assert.ok(seen.every((m) => (m & CIRCLE) === 0), `no Circle: ${JSON.stringify(seen)}`);
+        assert.equal(seen.at(-1), 0);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     test('flag off: a tap sends nothing', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '');

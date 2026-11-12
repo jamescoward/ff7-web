@@ -9,7 +9,7 @@ const waiting = { value: { open: true, waiting: true, choice: null }, confirmed:
 const typing = { value: { open: true, waiting: false, choice: null }, confirmed: true };
 const closed = { value: { open: false, waiting: false, choice: null }, confirmed: true };
 
-function setup({ flag = true, gate = true, sample = waiting } = {}) {
+function setup({ flag = true, gate = true, sample = waiting, now = () => 0 } = {}) {
   const intervals = new Set();
   const timeouts = new Set();
   const timers = {
@@ -27,9 +27,10 @@ function setup({ flag = true, gate = true, sample = waiting } = {}) {
   };
   const masks = [];
   const mixer = createInputMixer((m) => masks.push(m));
-  const target = { addEventListener() {} };
+  const handlers = {};
+  const target = { addEventListener(type, fn) { handlers[type] = fn; } };
   const state = { sample, reads: 0 };
-  const taps = createDialogueTaps({ target, mixer, labs, timers });
+  const taps = createDialogueTaps({ target, mixer, labs, timers, now });
   taps.setSource({
     async dialogue() {
       state.reads++;
@@ -39,7 +40,7 @@ function setup({ flag = true, gate = true, sample = waiting } = {}) {
   });
   if (gate) taps.setGate({ active: true });
   const release = () => { for (const h of [...timeouts]) { timeouts.delete(h); h.fn(); } };
-  return { taps, masks, labs, state, timeouts, intervals, release };
+  return { taps, masks, mixer, handlers, labs, state, timeouts, intervals, release };
 }
 
 describe('createDialogueTaps', () => {
@@ -120,10 +121,80 @@ describe('createDialogueTaps', () => {
 
   test('the press does not disturb other sources', async () => {
     const s = setup();
-    s.masks.length = 0;
-    // pad held elsewhere keeps its bit after the release
-    const mixer = createInputMixer((m) => s.masks.push(m));
-    mixer.set('pad', PAD.up);
-    assert.deepEqual(s.masks, [PAD.up]);
+    s.mixer.set('pad', PAD.up); // another source holds Up
+    await s.taps.tap();
+    s.release();
+    assert.deepEqual(s.masks, [PAD.up, PAD.up | PAD.circle, PAD.up]);
+  });
+});
+
+// The tap filter (pointer events on the target), with a fake clock.
+describe('createDialogueTaps: tap filter', () => {
+  const settle = () => new Promise((r) => setImmediate(r));
+  function pointer() {
+    let t = 0;
+    const s = setup({ now: () => t });
+    const ev = (id, x, y) => ({ pointerId: id, clientX: x, clientY: y });
+    return {
+      s,
+      at(ms) { t = ms; },
+      down: (id, x, y) => s.handlers.pointerdown(ev(id, x, y)),
+      up: (id, x, y) => s.handlers.pointerup(ev(id, x, y)),
+      cancel: () => s.handlers.pointercancel(),
+    };
+  }
+
+  test('listens for pointerdown, pointerup and pointercancel on the target', () => {
+    const { s } = pointer();
+    assert.deepEqual(Object.keys(s.handlers).sort(), ['pointercancel', 'pointerdown', 'pointerup']);
+  });
+
+  test('a short, still tap presses Circle', async () => {
+    const p = pointer();
+    p.at(0); p.down(1, 100, 100);
+    p.at(499); p.up(1, 100 + 8, 100 + 8); // 11.3 px, under the slop
+    await settle();
+    assert.deepEqual(p.s.masks, [PAD.circle]);
+  });
+
+  test('moving too far is not a tap', async () => {
+    const p = pointer();
+    p.down(1, 100, 100);
+    p.up(1, 113, 100); // 13 px
+    await settle();
+    assert.deepEqual(p.s.masks, []);
+    assert.equal(p.s.state.reads, 1); // the poll at start only; no tap read
+  });
+
+  test('holding too long is not a tap', async () => {
+    const p = pointer();
+    p.at(0); p.down(1, 100, 100);
+    p.at(501); p.up(1, 100, 100);
+    await settle();
+    assert.deepEqual(p.s.masks, []);
+  });
+
+  test('a cancelled pointer is not a tap', async () => {
+    const p = pointer();
+    p.down(1, 100, 100);
+    p.cancel();
+    p.up(1, 100, 100);
+    await settle();
+    assert.deepEqual(p.s.masks, []);
+  });
+
+  test('an up from another pointer is not a tap', async () => {
+    const p = pointer();
+    p.down(1, 100, 100);
+    p.up(2, 100, 100);
+    await settle();
+    assert.deepEqual(p.s.masks, []);
+  });
+
+  test('an up with no down is not a tap', async () => {
+    const p = pointer();
+    p.up(1, 100, 100);
+    await settle();
+    assert.deepEqual(p.s.masks, []);
   });
 });

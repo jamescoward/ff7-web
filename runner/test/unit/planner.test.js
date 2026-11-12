@@ -254,6 +254,14 @@ describe('the Tier 2 scenarios are the planner output', () => {
     assert.deepEqual(waits, [1, 2, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7]);
   });
 
+  test('the wrap script presses the wrapped plans to rows 9, 2 and 8', () => {
+    const wrap = plannerScenarios().find((s) => s.name === 'reactor-mode-2i-planner-wrap');
+    const presses = wrap.input.filter((s) => s.buttons).map((s) => s.buttons[0]);
+    assert.deepEqual(presses, ['up', 'down', 'down', 'down', 'up', 'up', 'up', 'up']);
+    const waits = wrap.input.filter((s) => s.wait && s.wait.until).map((s) => s.wait.until.equals);
+    assert.deepEqual(waits, [9, 0, 1, 2, 1, 0, 9, 8]);
+  });
+
   test('scriptFromPlan mirrors the executor: press hold, wait settle, gap between', () => {
     const p = planCursorMove({ from: 0, to: 2, rows: 10 });
     assert.deepEqual(scriptFromPlan(p, 'row0', 'm'), [

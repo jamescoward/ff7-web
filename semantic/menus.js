@@ -16,20 +16,18 @@ export const MENUS = Object.freeze({
     meaning: 'the field main menu (Triangle in a field): the command list on the right',
     cursor: 'menuCursor',
     axis: 'vertical',
-    // The full list
-    // (Item, Magic, Materia, Equip, Status, Order, Limit, Config, PHS, Save:
-    // 10 rows) and its behaviour at the ends are what
-    // reactor-mode-2g-menu-rows-down and -2h-menu-up-from-top look at.
+    // 10 rows (Item … Save as on screen; greyed rows are ordinary cursor
+    // stops) and the cursor wraps at both ends: from row 0, Up reads 9
+    // (reactor-mode-2h-menu-up-from-top) and 11 Downs read 1
+    // (reactor-mode-2g-menu-rows-down). Planned moves to rows 3, 0 and 7
+    // without wrapping: reactor-mode-2f-planner-rows; with wrapping:
+    // reactor-mode-2i-planner-wrap (#111, notes/111-menu-planner.md).
     rows: 10,
-    rowsStatus: 'hypothesis',
-    rowsSource: 'the PS1 USA main menu as shown on screen (Item … Save, 10 entries); #111 Tier 2 diagnostics',
-    // Rows 0..rowsSeen-1 have been read in Tier 2: 0..2 by #78
-    // (reactor-mode-2d-cursor-sequence). #111 raises this when its planner
-    // scenario passes.
-    rowsSeen: 3,
-    rowsSeenScenario: SC('reactor-mode-2d-cursor-sequence'),
-    wraps: false,
-    wrapsStatus: 'hypothesis',
+    rowsStatus: 'confirmed',
+    rowsScenario: SC('reactor-mode-2h-menu-up-from-top'),
+    wraps: true,
+    wrapsStatus: 'confirmed',
+    wrapsScenario: SC('reactor-mode-2g-menu-rows-down'),
   }),
 });
 

@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "reactor-mode-2h-menu-up-from-top",
-  "description": "#111 diagnostic: does the main-menu cursor wrap? From menu-open (row 0): one Up press (4 frames held), 36 frames later the cursor row is reported (row0): 0 if it stops at the top, the last row if it wraps. menu_ok: still in the menu.",
+  "description": "#111: the main menu wraps past its first row, to its last. From menu-open (row 0): one Up press (4 frames held); 36 frames later the cursor row (row0) reads 9 (wrap_ok): the last of 10 rows. (A cursor that stopped would read 0.) Attempt 1 reported 9. menu_ok: still in the menu.",
   "boot": {
     "from": "menu-open"
   },
@@ -45,6 +45,13 @@
   "assert": [
     {
       "expect": {
+        "mem": "row0",
+        "equals": 9
+      },
+      "metric": "wrap_ok"
+    },
+    {
+      "expect": {
         "mem": "game_state",
         "equals": 5
       },
@@ -53,6 +60,7 @@
   ],
   "metrics": [
     "row0",
+    "wrap_ok",
     "menu_ok",
     "frames"
   ]

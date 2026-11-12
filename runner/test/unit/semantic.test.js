@@ -71,7 +71,7 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76, #77, #78, #99, #101, #108, #110 and #130 confirmed these; everything else is still a hypothesis.
+    // #76, #77, #78, #99, #101, #108, #110, #117 and #130 confirmed these; everything else is still a hypothesis.
     const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'playerModel', 'fieldX', 'fieldY', 'fieldLoading',
       'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0', 'partyHp1', 'partyHp2',
       // #130
@@ -80,7 +80,9 @@ describe('address table', () => {
       // #108
       'dialogState',
       // #110
-      'battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget'];
+      'battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget',
+      // #117
+      'inventorySlot', 'materiaSlot', 'characterWeapon', 'characterArmor', 'characterAccessory', 'characterWeaponMateria', 'characterArmorMateria'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

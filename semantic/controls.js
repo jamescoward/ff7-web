@@ -3,9 +3,23 @@
 // native frontend can reuse them. Button names are the keys of PAD in
 // runner/pad.js and web/js/pad.js.
 //
-// Source: Circle closes a message window that is waiting (#108,
+// Sources: Circle closes a message window that is waiting (#108,
 // notes/108-dialogue-state.md). The choice panel is not here yet (needs #168).
+// The field buttons are the ones #23 put on the touch layout (Circle talks
+// and examines, Triangle opens the menu, Cross cancels); #146 moved them here.
 // Original project code, GPL-2.0-or-later.
+
+/**
+ * Field actions (#23, #146), in screen order: what each field button is
+ * called and which pad button it holds. `kind` is 'action' for the main
+ * buttons and 'back' for the smaller cancel button. The labels carry the
+ * PlayStation symbol of the button they press.
+ */
+export const FIELD_ACTIONS = Object.freeze([
+  Object.freeze({ id: 'interact', label: 'Interact ○', button: 'circle', kind: 'action' }),
+  Object.freeze({ id: 'menu', label: 'Menu △', button: 'triangle', kind: 'action' }),
+  Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross', kind: 'back' }),
+]);
 
 /** Dialogue actions: what a tap does, and in which dialogue() state. */
 export const DIALOGUE_ACTIONS = Object.freeze({

@@ -56,6 +56,50 @@ export function evaluateGate(table, exeSha1) {
  */
 export const MOVIE_WINDOW = 5;
 
+/**
+ * The span of game frames the movie test looks back over when the backend
+ * gives a frame number (#146): samples from the last MOVIE_SPAN_FRAMES
+ * frames, the current one included. 60 frames is what MOVIE_WINDOW samples
+ * cover at the overlay's 4 Hz, so the answer stays the same there, and it
+ * no longer depends on the polling rate: polled every frame the window holds
+ * 61 samples, every 15 frames five. Polled less often than every 30 frames,
+ * the window holds one sample and never reports a movie.
+ */
+export const MOVIE_SPAN_FRAMES = 60;
+
+/** The backend's frame number, or null when it gives none (or not an integer >= 0). */
+function frameOf(backend) {
+  let f;
+  try {
+    f = backend.frame;
+  } catch {
+    return null;
+  }
+  return Number.isInteger(f) && f >= 0 ? f : null;
+}
+
+/**
+ * Add a movieFrame read to the window (oldest first) and drop what falls
+ * out of it. With a frame number the window is MOVIE_SPAN_FRAMES game
+ * frames; a second read on the same frame replaces the first, and a frame
+ * number that goes back (a reset or a loaded state), or a switch between
+ * having and not having one, starts a new window. Without a frame number
+ * the window is the last MOVIE_WINDOW calls, as before #146.
+ */
+export function pushMovieSample(samples, frame, value) {
+  const last = samples[samples.length - 1];
+  if (last && ((last.frame === null) !== (frame === null) || (frame !== null && frame < last.frame))) samples.length = 0;
+  if (frame === null) {
+    samples.push({ frame, value });
+    if (samples.length > MOVIE_WINDOW) samples.splice(0, samples.length - MOVIE_WINDOW);
+    return samples;
+  }
+  if (samples.length && samples[samples.length - 1].frame === frame) samples[samples.length - 1].value = value;
+  else samples.push({ frame, value });
+  while (samples[0].frame < frame - MOVIE_SPAN_FRAMES) samples.shift();
+  return samples;
+}
+
 /** Raw g_GameState in battle (#76). */
 const BATTLE_GAME_STATE = 2;
 
@@ -195,7 +239,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
 
   const fail = (r) => ({ value: null, confirmed: false, reason: r.reason });
   const label = (name, raw) => entries.get(name)?.values?.[raw] ?? 'unknown';
-  const movieSamples = []; // the last MOVIE_WINDOW movieFrame reads, oldest first
+  const movieSamples = []; // { frame, value } movieFrame reads in the window, oldest first (pushMovieSample)
 
   return {
     active: gate.active,
@@ -207,19 +251,21 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
      * confirmed only for confirmed raw values (#76: field 1, battle 2, menu 5;
      * #80: world 3, minigame 6 = the motorcycle game; an unlabelled value,
      * such as another minigame, is 'unknown', never confirmed). 'movie' is reported while gameState reads field and
-     * movieFrame advanced over the last MOVIE_WINDOW calls; raw stays 1. Each
-     * call is one sample, so call it at a steady rate (the overlay: 4 Hz).
+     * movieFrame advanced over the window; raw stays 1. With a frame number
+     * from the backend (`backend.frame`, #146) the window is the last
+     * MOVIE_SPAN_FRAMES game frames, whatever the polling rate (poll at least
+     * every 30 frames); without one it is the last MOVIE_WINDOW calls, so
+     * call it at a steady rate (the overlay: 4 Hz).
      */
     async mode() {
       const r = await read(['gameState', 'prevGameState']);
       if (!r.values) return fail(r);
       // A table without movieFrame (or a failed read) just never reports a movie.
       const m = await read(['movieFrame']);
-      movieSamples.push(m.values ? m.values.movieFrame : null);
-      if (movieSamples.length > MOVIE_WINDOW) movieSamples.shift();
+      pushMovieSample(movieSamples, frameOf(backend), m.values ? m.values.movieFrame : null);
       const { gameState: raw, prevGameState: prev } = r.values;
       const previous = label('prevGameState', prev);
-      if (raw === MOVIE_GAME_STATE && m.values && movieAdvancing(movieSamples)) {
+      if (raw === MOVIE_GAME_STATE && m.values && movieAdvancing(movieSamples.map((x) => x.value))) {
         return { value: { mode: 'movie', raw, previous }, confirmed: r.confirmed && m.confirmed };
       }
       return { value: { mode: label('gameState', raw), raw, previous }, confirmed: r.confirmed };

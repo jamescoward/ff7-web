@@ -82,6 +82,66 @@
         }
       }
     },
+    "equipment": {
+      "description": "Optional (#117): author-chosen equipment for character records (savemap 0x0054 + 0x84 * record; notes/117-inventory-equipment.md): the equipped weapon (+0x1C), armor (+0x1D) and accessory (+0x1E, 255 = none), and materia in chosen slots of the record's 16 (+0x40 + 4 * slot; 0-7 the weapon's, 8-15 the armor's). Slots not listed keep the baseline, unless 'characters' names the same record: then they are emptied.",
+      "type": "array",
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "required": ["record", "weapon", "armor", "accessory"],
+        "additionalProperties": false,
+        "properties": {
+          "record": { "description": "Record 0-8 (as in 'characters').", "type": "integer", "minimum": 0, "maximum": 8 },
+          "weapon": { "description": "Weapon number, 0-127 (item index - 128).", "type": "integer", "minimum": 0, "maximum": 127 },
+          "armor": { "description": "Armor number, 0-31 (item index - 256).", "type": "integer", "minimum": 0, "maximum": 31 },
+          "accessory": { "description": "Accessory number, 0-31 (item index - 288), or 255 for none.", "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 31 }, { "const": 255 }] },
+          "materia": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "required": ["slot", "id", "ap"],
+              "additionalProperties": false,
+              "properties": {
+                "slot": { "description": "Materia slot 0-15 of the record (0-7 weapon, 8-15 armor).", "type": "integer", "minimum": 0, "maximum": 15 },
+                "id": { "$ref": "#/$defs/materiaId" },
+                "ap": { "$ref": "#/$defs/ap" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "items": {
+      "description": "Optional (#117): author-chosen item inventory slots (savemap 0x04FC + 2 * slot, u16 = quantity << 9 | index). Slots not listed keep the baseline.",
+      "type": "array",
+      "maxItems": 320,
+      "items": {
+        "type": "object",
+        "required": ["slot", "index", "quantity"],
+        "additionalProperties": false,
+        "properties": {
+          "slot": { "type": "integer", "minimum": 0, "maximum": 319 },
+          "index": { "description": "Item index: 0-127 items, 128-255 weapons, 256-287 armor, 288-319 accessories.", "type": "integer", "minimum": 0, "maximum": 319 },
+          "quantity": { "description": "1-99 (the menu shows two digits).", "type": "integer", "minimum": 1, "maximum": 99 }
+        }
+      }
+    },
+    "materia": {
+      "description": "Optional (#117): author-chosen materia inventory slots (savemap 0x077C + 4 * slot, u32 = AP << 8 | ID). Slots not listed keep the baseline.",
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["slot", "id", "ap"],
+        "additionalProperties": false,
+        "properties": {
+          "slot": { "type": "integer", "minimum": 0, "maximum": 199 },
+          "id": { "$ref": "#/$defs/materiaId" },
+          "ap": { "$ref": "#/$defs/ap" }
+        }
+      }
+    },
     "vars": {
       "description": "Field script variables in the five save memory banks (bank 1-5 = savemap 0x0BA4 + 0x100 * (bank - 1)).",
       "type": "array",
@@ -119,6 +179,8 @@
     "u16": { "type": "integer", "minimum": 0, "maximum": 65535 },
     "s16": { "type": "integer", "minimum": -32768, "maximum": 32767 },
     "u32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-    "bank": { "type": "integer", "minimum": 1, "maximum": 5 }
+    "bank": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "materiaId": { "description": "Materia ID, 0-254 (255 means an empty slot).", "type": "integer", "minimum": 0, "maximum": 254 },
+    "ap": { "description": "AP, an unsigned 24-bit number.", "type": "integer", "minimum": 0, "maximum": 16777215 }
   }
 }

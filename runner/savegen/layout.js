@@ -82,6 +82,47 @@ export const CHARACTER_MATERIA_SLOTS = 16;
 /** An empty materia slot: materia ID 0xFF (wiki "save materia list"), AP bytes 0xFF too. */
 export const MATERIA_EMPTY = 0xffffffff;
 
+/**
+ * Equipment in a character record (#117): equipped weapon, armor and
+ * accessory, one byte each (wiki "Character Record" 0x1C-0x1E; decomp
+ * include/game.h SavePartyMember weapon, armor, accessory). The weapon byte
+ * indexes the weapons (inventory index - 128), armor (- 256) and the
+ * accessory (- 288) likewise, 0xFF = no accessory (hyp: the wiki gives no
+ * encoding; the Tier 2 check reads back what the description wrote).
+ */
+export const CHARACTER_EQUIPMENT = Object.freeze({
+  weapon: { offset: 0x1c, type: 'u8', source: 'wiki "Character Record" 0x1C equipped weapon; decomp SavePartyMember.weapon' },
+  armor: { offset: 0x1d, type: 'u8', source: 'wiki "Character Record" 0x1D equipped armor; decomp SavePartyMember.armor' },
+  accessory: { offset: 0x1e, type: 'u8', source: 'wiki "Character Record" 0x1E equipped accessory; decomp SavePartyMember.accessory' },
+});
+/** Of a record's 16 materia slots, 0-7 are the weapon's and 8-15 the armor's (decomp materia_weapon[8] at +0x40, materia_armor[8] at +0x60). */
+export const CHARACTER_WEAPON_MATERIA_SLOTS = 8;
+
+/**
+ * Item inventory (#117): 320 u16 from savemap 0x04FC (wiki "Party Item
+ * stock" and "Save Item List"; decomp SaveWork.inventory). Each word is
+ * QQQQQQQXXXXXXXXX: the item index in the low 9 bits (0-127 items, 128-255
+ * weapons, 256-287 armor, 288-319 accessories), the quantity in the high 7.
+ * An empty slot is 0xFFFF (hyp: index 0x1FF, quantity 0x7F; checked in Tier 2
+ * only for the slots a description writes).
+ */
+export const ITEM_BASE = 0x04fc;
+export const ITEM_SLOTS = 320;
+export const ITEM_INDEX_BITS = 9;
+export const ITEM_EMPTY = 0xffff;
+/**
+ * Materia inventory (#117): 200 u32 from savemap 0x077C (wiki "Party Materia
+ * stock" and "Save Materia List"; decomp SaveWork.materia). Byte 0 is the
+ * materia ID, bytes 1-3 the AP as an unsigned 24-bit number; ID 0xFF = empty
+ * (MATERIA_EMPTY). The same encoding fills a record's 16 materia slots.
+ */
+export const MATERIA_BASE = 0x077c;
+export const MATERIA_SLOTS = 200;
+/** Pack a materia ID and AP into the savemap's u32 (wiki "Save Materia List"). */
+export const packMateria = (id, ap) => ((ap << 8) | id) >>> 0;
+/** Pack an item index and quantity into the savemap's u16 (wiki "Save Item List"). */
+export const packItem = (index, quantity) => ((quantity << ITEM_INDEX_BITS) | index) & 0xffff;
+
 /** Module values (wiki, 0x0B94). */
 export const MODULE_FIELD = 1;
 /**

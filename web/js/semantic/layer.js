@@ -18,7 +18,8 @@
 // hypothesis (the debug overlay, #79, shows them).
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
-import { ADDRESS_TABLE, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { fieldUnits, nearbyFrom } from './nearby.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -64,6 +65,13 @@ const BATTLE_GAME_STATE = 2;
  * records in a way no scenario has checked, so they have no record here.
  */
 const CHARACTER_RECORDS = 9;
+
+/** Raw g_GameState in a field, and g_IsFieldLoading once it has settled (#77). */
+const FIELD_GAME_STATE = 1;
+const FIELD_SETTLED = 2;
+/** Main RAM in KSEG0. */
+const RAM_START = 0x80000000;
+const RAM_END = 0x80200000;
 
 /** Raw g_GameState while a movie plays: the field module plays movies (#76). */
 const MOVIE_GAME_STATE = 1;
@@ -153,6 +161,36 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
     const values = [];
     for (let i = 0; i < n; i++) values.push(DECODERS[e.type](new DataView(view.buffer, view.byteOffset + i * size, size)));
     return { values, confirmed: e.status === 'confirmed' };
+  }
+
+  /**
+   * Read elements 0 .. n-1 of several array entries in one readMem (#112:
+   * the field model arrays, interleaved in one struct array): { values:
+   * { name: [..] }, confirmed } or { reason }.
+   */
+  async function readArrays(names, n) {
+    if (!gate.active) return { reason: 'inactive' };
+    const es = names.map((name) => entries.get(name));
+    if (es.some((e) => !e || e.address === null)) return { reason: 'no address' };
+    if (es.some((e) => !(Number.isInteger(n) && n >= 1 && n <= (e.count ?? 1)))) return { reason: 'out of range' };
+    const start = Math.min(...es.map((e) => e.address));
+    const end = Math.max(...es.map((e) => e.address + (n - 1) * (e.stride ?? 0) + TYPES[e.type]));
+    let bytes;
+    try {
+      bytes = await backend.readMem(start, end - start);
+    } catch {
+      return { reason: 'read failed' };
+    }
+    if (!bytes || bytes.length !== end - start) return { reason: 'read failed' };
+    const values = {};
+    for (const e of es) {
+      values[e.name] = [];
+      for (let i = 0; i < n; i++) {
+        const at = e.address - start + i * (e.stride ?? 0);
+        values[e.name].push(DECODERS[e.type](new DataView(bytes.buffer, bytes.byteOffset + at, TYPES[e.type])));
+      }
+    }
+    return { values, confirmed: es.every((e) => e.status === 'confirmed') };
   }
 
   const fail = (r) => ({ value: null, confirmed: false, reason: r.reason });
@@ -397,6 +435,53 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         },
         confirmed: p.confirmed && eq.confirmed && wm.confirmed && am.confirmed,
       };
+    },
+
+    /**
+     * #112: what is around the player in a settled field: semantic/nearby.js
+     * nearbyFrom's list ({ kind: 'npc'|'exit'|'unknown', dx, dy, inRange, ... },
+     * nearest first; 'save' is not reported yet). Outside a settled field
+     * (gameState not field, or g_IsFieldLoading not 2) value is [] with
+     * reason 'not in field'. confirmed: every entry read is confirmed (none
+     * of #112's are yet: notes/112-field-interactables.md).
+     */
+    async nearby() {
+      const g = await read(['gameState', 'fieldLoading']);
+      if (!g.values) return fail(g);
+      if (g.values.gameState !== FIELD_GAME_STATE || g.values.fieldLoading !== FIELD_SETTLED) {
+        return { value: [], confirmed: g.confirmed, reason: 'not in field' };
+      }
+      const c = await read(['playerModel', 'fieldModelCount']);
+      if (!c.values) return fail(c);
+      const { playerModel: p, fieldModelCount: n } = c.values;
+      if (!(n >= 1 && n <= 16 && p >= 0 && p < n)) return { value: null, confirmed: false, reason: 'out of range' };
+      const m = await readArrays(['fieldX', 'fieldY', 'fieldZ', 'fieldDir', 'fieldSolidRange', 'fieldTalkOff', 'fieldTalkRange'], n);
+      if (!m.values) return fail(m);
+      const v = m.values;
+      const models = v.fieldX.map((x, i) => ({
+        x: fieldUnits(x), y: fieldUnits(v.fieldY[i]), z: fieldUnits(v.fieldZ[i]), talkOff: v.fieldTalkOff[i] !== 0, talkRange: v.fieldTalkRange[i],
+      }));
+      const player = { ...models[p], dir: v.fieldDir[p], solidRange: v.fieldSolidRange[p], model: p };
+      const t = await read(['fieldTriggers']);
+      if (!t.values) return fail(t);
+      const at = t.values.fieldTriggers + FIELD_GATEWAYS.offset;
+      const len = FIELD_GATEWAYS.count * FIELD_GATEWAYS.size;
+      if (!(at >= RAM_START && at + len <= RAM_END)) return { value: null, confirmed: false, reason: 'out of range' };
+      let bytes;
+      try {
+        bytes = await backend.readMem(at, len);
+      } catch {
+        return fail({ reason: 'read failed' });
+      }
+      if (!bytes || bytes.length !== len) return fail({ reason: 'read failed' });
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const gateways = [];
+      for (let i = 0; i < FIELD_GATEWAYS.count; i++) {
+        const o = i * FIELD_GATEWAYS.size;
+        const s16 = (k) => view.getInt16(o + 2 * k, true);
+        gateways.push({ x1: s16(0), y1: s16(1), z1: s16(2), x2: s16(3), y2: s16(4), z2: s16(5), to: view.getUint16(o + FIELD_GATEWAYS.to, true) });
+      }
+      return { value: nearbyFrom({ player, models, gateways }), confirmed: g.confirmed && c.confirmed && m.confirmed && t.confirmed };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

@@ -379,6 +379,95 @@ const INVENTORY_ENTRIES = [
   })),
 ];
 
+/**
+ * #112: what is around the player (notes/112-field-interactables.md,
+ * semantic/nearby.js). More of each FieldEntity (g_FieldEntity, 16 models of
+ * 0x84 bytes from 0x80074EA4; PosX/PosY are fieldX/fieldY above), the
+ * field's model count, and its gateways, which sit in the field file the
+ * game loaded, behind the pointer g_FieldTriggers.
+ */
+const DECOMP_112 = 'Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe';
+const FIELD_ENTITY = 0x80074ea4;
+const FIELD_ENTITY_SIZE = 0x84;
+const FIELD_STATE = 0x8009abf4;
+const ENTITY_SOURCE = `${DECOMP_112} include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn)`;
+/**
+ * FieldTriggers.gateways (include/game.h): 12 FieldGateway records of 0x18
+ * bytes at +0x38 of what g_FieldTriggers points to. Each starts with a line
+ * (x1, y1, z1, x2, y2, z2, s16, field units) and has the field it leads to
+ * at +0x12 (u16; GATEWAY_UNUSED 0x7FFF = unused slot).
+ */
+export const FIELD_GATEWAYS = Object.freeze({ offset: 0x38, size: 0x18, count: 12, to: 0x12 });
+
+const FIELD_ENTRIES = [
+  {
+    name: 'fieldModelCount',
+    address: FIELD_STATE + 0x28,
+    type: 's16',
+    meaning: 'number of field models in the current field (g_FieldState.modelCount): elements 0 .. this - 1 of the field model arrays are in use (at most 16)',
+    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldState 0x8009ABF4) and include/game.h (FieldState: modelCount at +0x28, pcModelId at +0x2A); src/field/field_entity.c loops over it for talk and collision. g_FieldModelCount (0x8009C6C4, u8) is a second candidate. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldZ',
+    address: FIELD_ENTITY + 0x14,
+    type: 's32',
+    stride: FIELD_ENTITY_SIZE,
+    count: 16,
+    meaning: 'field Z (height) position of each field model (g_FieldEntity[i].PosZ, raw units; >> 12 for field units)',
+    source: `${ENTITY_SOURCE}: PosZ at +0x14. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldDir',
+    address: FIELD_ENTITY + 0x38,
+    type: 'u8',
+    stride: FIELD_ENTITY_SIZE,
+    count: 16,
+    meaning: 'facing of each field model (g_FieldEntity[i].Dir), in 1/256 turns: 64 more than the angle from +x towards +y (semantic/nearby.js directionTo)',
+    source: `${ENTITY_SOURCE}: Dir at +0x38; FieldEntityDirByVec gives the convention. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldSolidRange',
+    address: FIELD_ENTITY + 0x6c,
+    type: 'u16',
+    stride: FIELD_ENTITY_SIZE,
+    count: 16,
+    meaning: 'collision radius of each field model (g_FieldEntity[i].SolidRange, field units); the player\'s is set from the field scale when the field loads, and gateways trigger within it',
+    source: `${ENTITY_SOURCE}: SolidRange at +0x6C; FieldEntityInitPos sets the player's to 34 * scale >> 9, FieldEntityGatewayCheck compares the squared distance to a gateway line with it. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldTalkOff',
+    address: FIELD_ENTITY + 0x5b,
+    type: 'u8',
+    stride: FIELD_ENTITY_SIZE,
+    count: 16,
+    meaning: 'non-zero when a field model can not be talked to (g_FieldEntity[i].TalkOff, set by the field script)',
+    source: `${ENTITY_SOURCE}: TalkOff at +0x5B. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldTalkRange',
+    address: FIELD_ENTITY + 0x6e,
+    type: 'u16',
+    stride: FIELD_ENTITY_SIZE,
+    count: 16,
+    meaning: 'talk radius of each field model (g_FieldEntity[i].TalkRange, field units)',
+    source: `${ENTITY_SOURCE}: TalkRange at +0x6E. Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'fieldTriggers',
+    address: 0x800716c4,
+    type: 'u32',
+    meaning: 'pointer to the current field\'s FieldTriggers (g_FieldTriggers), inside the field file loaded at 0x80115000; its gateways are FIELD_GATEWAYS. Only meaningful in a settled field',
+    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldTriggers 0x800716C4), include/game.h (FieldTriggers, FieldGateway, LinePos), src/field/field_private.h (FieldDatHeader.triggers; field file at 0x80115000) and src/field/field_entity.c (FieldEntityGatewayCheck skips gateways whose fieldMapId is 0x7FFF). Not checked in Tier 2 yet`,
+    status: 'hypothesis',
+  },
+];
+
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
     name: 'gameState',
@@ -503,4 +592,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...WINDOW_ENTRIES,
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
+  ...FIELD_ENTRIES,
 ]);

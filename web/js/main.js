@@ -4,6 +4,7 @@
 import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
+import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -107,6 +108,18 @@ labs.registerFlag(HUD_FLAG, {
     'Landscape: the strip is hidden (placement question in #166).',
   ],
 });
+labs.registerFlag(TAPS_FLAG, {
+  label: 'Tap to advance dialogue',
+  description: 'When a message window has finished its text and waits, tapping the picture presses Circle once. Choices are not covered yet.',
+  pr: 114,
+  checklist: [
+    'In a field conversation, tap the picture when the text has finished: it advances.',
+    'Tap while the text is still typing: nothing happens.',
+    'With no window open, tapping the picture does nothing.',
+    'Drag-to-walk and the classic pad still work as before.',
+    'Flag off: tapping the picture does nothing.',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -162,6 +175,7 @@ const mixer = createInputMixer((mask) => backend?.setPad(mask));
 const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), toggle: $('controls-btn'), mixer });
 const autoControls = createAutoControls({ controls, labs });
 const battleHud = createBattleHud({ root: $('hud'), labs });
+const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -197,6 +211,7 @@ const backendReady = createWorkerBackend({
     overlay.setGate(gate);
     autoControls.setGate(gate);
     battleHud.setGate(gate);
+    dialogueTaps.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -210,6 +225,7 @@ const backendReady = createWorkerBackend({
   backend = b;
   autoControls.setBackend(b);
   battleHud.setBackend(b);
+  dialogueTaps.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -331,6 +347,7 @@ window.ff7web = {
   labs,
   autoControls,
   battleHud,
+  dialogueTaps,
   suspend,
   drawnFrame: () => drawn,
 };

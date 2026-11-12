@@ -93,13 +93,19 @@ async function bootProgram(page, name, buffer) {
   await until(() => page.evaluate(() => Boolean(window.ff7web.backend?.loaded)), { what: `${name} to boot` });
 }
 
-/** Emulated frames per second of wall time over `ms`. */
-const rate = (page, ms) => page.evaluate(async (span) => {
+/**
+ * Per second of wall time over `ms`: the frames the core ran, and the frames
+ * the worker's time base asked for (fps x speed, whether or not the host
+ * kept up). Both come from the same frame message, so they line up.
+ */
+const rates = (page, ms) => page.evaluate(async (span) => {
   const b = window.ff7web.backend;
   const f0 = b.frame;
+  const g0 = b.targetFrames;
   const t0 = performance.now();
   await new Promise((r) => setTimeout(r, span));
-  return ((b.frame - f0) * 1000) / (performance.now() - t0);
+  const s = (performance.now() - t0) / 1000;
+  return { ran: (b.frame - f0) / s, target: (b.targetFrames - g0) / s };
 }, ms);
 
 for (const name of BROWSERS) {
@@ -161,19 +167,31 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
-    test('2x runs about twice the frames per second of wall time', { skip: NEEDS_CORE }, async (t) => {
+    // #173: the time base must double; how many of those frames the host
+    // manages to run depends on spare CPU, so that part is only a lower bound.
+    test('2x doubles the time base, and runs more frames than 1x', { skip: NEEDS_CORE }, async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=speed');
       try {
         await bootProgram(page, 'vblank-counter.exe', buildVblankCounter());
         await until(() => page.evaluate(() => window.ff7web.drawnFrame() > 0), { what: 'a drawn frame' });
-        const r1 = await rate(page, 2000);
+        const fps = await page.evaluate(() => window.ff7web.backend.loaded.fps);
+        const r1 = await rates(page, 2000);
         await page.click('#speed-btn');
         assert.equal(await page.evaluate(() => window.ff7web.backend.speed), 2);
-        await page.waitForTimeout(300);
-        const r2 = await rate(page, 2000);
-        const ratio = r2 / r1;
-        assert.ok(ratio > 1.5 && ratio < 2.5, `1x ${r1.toFixed(1)} fps, 2x ${r2.toFixed(1)} fps, ratio ${ratio.toFixed(2)}`);
+        // 1 s, starting 200 ms after the switch: over before the governor's
+        // 2 s window could step a slow host down (step-down has its own test).
+        await page.waitForTimeout(200);
+        const r2 = await rates(page, 1000);
+        const speedAfter = await page.evaluate(() => window.ff7web.backend.speed);
+        const msg = `fps ${fps}; 1x target ${r1.target.toFixed(1)} ran ${r1.ran.toFixed(1)}; `
+          + `2x target ${r2.target.toFixed(1)} ran ${r2.ran.toFixed(1)}; speed after ${speedAfter}`;
+        assert.equal(speedAfter, 2, `no automatic step-down during the measurement (${msg})`);
+        assert.ok(Math.abs(r1.target / fps - 1) < 0.2, `1x time base is the core's fps (${msg})`);
+        const ratio = r2.target / r1.target;
+        assert.ok(ratio > 1.7 && ratio < 2.3, `2x time base is twice 1x, ratio ${ratio.toFixed(2)} (${msg})`);
+        assert.ok(r2.ran > r1.ran, `2x runs more frames than 1x (${msg})`);
+        t.diagnostic(msg);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

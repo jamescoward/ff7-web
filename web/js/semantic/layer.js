@@ -17,7 +17,8 @@
 // Unconfirmed values are still returned: callers decide whether to trust a
 // hypothesis (the debug overlay, #79, shows them).
 
-import { ADDRESS_TABLE, TYPES, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
+import { ADDRESS_TABLE, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -126,6 +127,32 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       confirmed &&= valueConfirmed(e, values[name]);
     }
     return { values, confirmed };
+  }
+
+  /**
+   * Read `n` consecutive elements of an entry's type, starting at element
+   * `index` (address + index * stride), in one readMem: { values: [..], confirmed }
+   * or { reason }. For an array whose stride is its type's size this is a
+   * run of the array; otherwise the run is what the entry's meaning says
+   * follows each element (#117: a record's materia slots).
+   */
+  async function readRun(name, index, n) {
+    if (!gate.active) return { reason: 'inactive' };
+    const e = entries.get(name);
+    if (!e || e.address === null) return { reason: 'no address' };
+    if (!(Number.isInteger(index) && index >= 0 && index < (e.count ?? 1))) return { reason: 'out of range' };
+    const size = TYPES[e.type];
+    let bytes;
+    try {
+      bytes = await backend.readMem(e.address + index * (e.stride ?? 0), n * size);
+    } catch {
+      return { reason: 'read failed' };
+    }
+    if (!bytes || bytes.length !== n * size) return { reason: 'read failed' };
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const values = [];
+    for (let i = 0; i < n; i++) values.push(DECODERS[e.type](new DataView(view.buffer, view.byteOffset + i * size, size)));
+    return { values, confirmed: e.status === 'confirmed' };
   }
 
   const fail = (r) => ({ value: null, confirmed: false, reason: r.reason });
@@ -304,6 +331,72 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         value.targeting = index === null ? null : { index };
       }
       return { value, confirmed: true };
+    },
+
+    /**
+     * #117: the item inventory. { value: [{ slot, index, quantity, kind, number }] }
+     * for each non-empty slot, in slot order (semantic/inventory.js
+     * decodeItem). IDs only: names are game data.
+     */
+    async inventory() {
+      const e = entries.get('inventorySlot');
+      const r = await readRun('inventorySlot', 0, e?.count ?? 0);
+      if (!r.values) return fail(r);
+      const value = [];
+      r.values.forEach((word, slot) => {
+        const it = decodeItem(word);
+        if (it) value.push({ slot, ...it });
+      });
+      return { value, confirmed: r.confirmed };
+    },
+
+    /** #117: the materia inventory. { value: [{ slot, id, ap }] } for each non-empty slot, in slot order. */
+    async materia() {
+      const e = entries.get('materiaSlot');
+      const r = await readRun('materiaSlot', 0, e?.count ?? 0);
+      if (!r.values) return fail(r);
+      const value = [];
+      r.values.forEach((word, slot) => {
+        const m = decodeMateria(word);
+        if (m) value.push({ slot, ...m });
+      });
+      return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #117: the equipment of the character in party slot 0-2.
+     * { value: { record, weapon, armor, accessory, weaponMateria, armorMateria } }:
+     * weapon, armor and accessory are numbers within their kind (accessory
+     * null for none); the materia lists hold one { id, ap } or null per slot.
+     * An empty party slot gives value null with reason 'empty slot'; a
+     * character without a record of its own (IDs 9-11) reason 'no record'.
+     * confirmed: every read was a confirmed entry.
+     */
+    async equipment(slot) {
+      if (!(Number.isInteger(slot) && slot >= 0 && slot <= 2)) return { value: null, confirmed: false, reason: 'out of range' };
+      const p = await read([`partySlot${slot}`]);
+      if (!p.values) return fail(p);
+      const record = p.values[`partySlot${slot}`];
+      if (record === 0xff) return { value: null, confirmed: p.confirmed, reason: 'empty slot' };
+      if (record >= CHARACTER_RECORDS) return { value: null, confirmed: p.confirmed, reason: 'no record' };
+      const eq = await read(['characterWeapon', 'characterArmor', 'characterAccessory'], record);
+      if (!eq.values) return fail(eq);
+      const wm = await readRun('characterWeaponMateria', record, RECORD_WEAPON_MATERIA_SLOTS);
+      if (!wm.values) return fail(wm);
+      const am = await readRun('characterArmorMateria', record, RECORD_ARMOR_MATERIA_SLOTS);
+      if (!am.values) return fail(am);
+      const acc = eq.values.characterAccessory;
+      return {
+        value: {
+          record,
+          weapon: eq.values.characterWeapon,
+          armor: eq.values.characterArmor,
+          accessory: acc === ACCESSORY_NONE ? null : acc,
+          weaponMateria: wm.values.map(decodeMateria),
+          armorMateria: am.values.map(decodeMateria),
+        },
+        confirmed: p.confirmed && eq.confirmed && wm.confirmed && am.confirmed,
+      };
     },
 
     /** { value: [hp, hp, hp] } for party slots 0 to 2 (meaningless for an empty slot: see party()) */

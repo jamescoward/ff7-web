@@ -318,6 +318,67 @@ const BATTLE_MENU_ENTRIES = [
   },
 ];
 
+/**
+ * #117: the item and materia inventories and each record's equipment, all
+ * in the savemap (notes/117-inventory-equipment.md). A generated save with
+ * author-chosen values (harness/saves/disc1-md1stin-inventory.json) loads,
+ * and each value reads back in RAM in the field menu (save-boot-13a/b).
+ * Encodings: semantic/inventory.js.
+ */
+const INVENTORY_SOURCE = `${DECOMP_130} include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); ${SAVEMAP_NOTE}: "Party Item stock", "Party Materia stock", "Character Record", "Save Item List", "Save Materia List"`;
+const INV_13A = 'save-boot-13a-inventory-menu';
+const INV_13B = 'save-boot-13b-equipment-menu';
+/** Consecutive u32 materia slots per record from each of these entries. */
+export const RECORD_WEAPON_MATERIA_SLOTS = 8;
+export const RECORD_ARMOR_MATERIA_SLOTS = 8;
+
+const INVENTORY_ENTRIES = [
+  {
+    name: 'inventorySlot',
+    address: SAVEMAP + 0x4fc,
+    type: 'u16',
+    stride: 2,
+    count: 320,
+    meaning: 'item inventory slot (Savemap inventory[i]): quantity << 9 | item index (0-127 items, 128-255 weapons, 256-287 armor, 288-319 accessories); 0xFFFF = empty. semantic/inventory.js decodeItem',
+    source: `${INVENTORY_SOURCE}. Tier 2 (#117): slots 0, 1, 2 and 319 hold the author-chosen words of harness/saves/disc1-md1stin-inventory.json in the field menu after the load (${INV_13A}); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(INV_13A),
+  },
+  {
+    name: 'materiaSlot',
+    address: SAVEMAP + 0x77c,
+    type: 'u32',
+    stride: 4,
+    count: 200,
+    meaning: 'materia inventory slot (Savemap materia[i]): AP << 8 | materia ID; ID 0xFF = empty. semantic/inventory.js decodeMateria',
+    source: `${INVENTORY_SOURCE}. Tier 2 (#117): slots 0, 1 and 199 hold the author-chosen words in the field menu after the load (${INV_13A}); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(INV_13A),
+  },
+  ...[['characterWeapon', 0x1c, 'equipped weapon (0-127: weapon item index - 128)'], ['characterArmor', 0x1d, 'equipped armor (0-31: armor item index - 256)'], ['characterAccessory', 0x1e, 'equipped accessory (0-31: accessory item index - 288; 0xFF = none)']].map(([name, off, what]) => ({
+    name,
+    address: CHARACTER_RECORDS + off,
+    type: 'u8',
+    stride: CHARACTER_RECORD_SIZE,
+    count: CHARACTER_RECORD_COUNT,
+    meaning: `${what} in each character record, indexed by record (0 Cloud ... 8 Cid)`,
+    source: `${INVENTORY_SOURCE}. Tier 2 (#117): records 0 and 1 hold the author-chosen values in the field menu after the load (${INV_13B}${name === 'characterAccessory' ? '; record 1 holds 0xFF, none' : ''}); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(INV_13B),
+  })),
+  ...[['characterWeaponMateria', 0x40, 'weapon', RECORD_WEAPON_MATERIA_SLOTS], ['characterArmorMateria', 0x60, 'armor', RECORD_ARMOR_MATERIA_SLOTS]].map(([name, off, what, n]) => ({
+    name,
+    address: CHARACTER_RECORDS + off,
+    type: 'u32',
+    stride: CHARACTER_RECORD_SIZE,
+    count: CHARACTER_RECORD_COUNT,
+    meaning: `first of the ${n} ${what} materia slots of each character record (u32 each, consecutive; AP << 8 | ID, ID 0xFF = empty), indexed by record`,
+    source: `${INVENTORY_SOURCE}. Tier 2 (#117): record 0's ${what} slots 0 and 1 hold the author-chosen words in the field menu after the load (${INV_13B}); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(INV_13B),
+  })),
+];
+
 export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   {
     name: 'gameState',
@@ -441,4 +502,5 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...STAT_ENTRIES,
   ...WINDOW_ENTRIES,
   ...BATTLE_MENU_ENTRIES,
+  ...INVENTORY_ENTRIES,
 ]);

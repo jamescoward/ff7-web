@@ -1,0 +1,188 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-13a-inventory-menu",
+  "description": "#117: the item and materia inventories in RAM equal the author-chosen values of harness/saves/disc1-md1stin-inventory.json (party Cloud, Barret). Load as save-boot-1-load does, open the field menu with Triangle (as save-boot-10a), then check each slot's word with equals (1/0 only; metrics for the first and last slot of each list). match: a rerun from the title snapshot ends in the same state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-inventory",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "inv0": {
+      "addr": "0x8009cbe0",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4) + 0x04FC + 2 * 0: item inventory slot 0, quantity << 9 | index (ff7-flat-wiki Savemap \"Party Item stock\", \"Save Item List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.inventory). The description writes index 1, quantity 7."
+    },
+    "inv1": {
+      "addr": "0x8009cbe2",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4) + 0x04FC + 2 * 1: item inventory slot 1, quantity << 9 | index (ff7-flat-wiki Savemap \"Party Item stock\", \"Save Item List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.inventory). The description writes index 130, quantity 2."
+    },
+    "inv2": {
+      "addr": "0x8009cbe4",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4) + 0x04FC + 2 * 2: item inventory slot 2, quantity << 9 | index (ff7-flat-wiki Savemap \"Party Item stock\", \"Save Item List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.inventory). The description writes index 260, quantity 3."
+    },
+    "inv319": {
+      "addr": "0x8009ce5e",
+      "type": "u16",
+      "description": "Savemap (0x8009C6E4) + 0x04FC + 2 * 319: item inventory slot 319, quantity << 9 | index (ff7-flat-wiki Savemap \"Party Item stock\", \"Save Item List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.inventory). The description writes index 300, quantity 1."
+    },
+    "mat0": {
+      "addr": "0x8009ce60",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x077C + 4 * 0: materia inventory slot 0, AP << 8 | ID (ff7-flat-wiki Savemap \"Party Materia stock\", \"Save Materia List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.materia). The description writes ID 0x31, AP 1234."
+    },
+    "mat1": {
+      "addr": "0x8009ce64",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x077C + 4 * 1: materia inventory slot 1, AP << 8 | ID (ff7-flat-wiki Savemap \"Party Materia stock\", \"Save Materia List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.materia). The description writes ID 0x0E, AP 43981."
+    },
+    "mat199": {
+      "addr": "0x8009d17c",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x077C + 4 * 199: materia inventory slot 199, AP << 8 | ID (ff7-flat-wiki Savemap \"Party Materia stock\", \"Save Materia List\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SaveWork.materia). The description writes ID 0x2A, AP 16777215."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "menu_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "inv0",
+        "equals": 3585
+      },
+      "metric": "inv0_ok"
+    },
+    {
+      "expect": {
+        "mem": "inv1",
+        "equals": 1154
+      }
+    },
+    {
+      "expect": {
+        "mem": "inv2",
+        "equals": 1796
+      }
+    },
+    {
+      "expect": {
+        "mem": "inv319",
+        "equals": 812
+      },
+      "metric": "inv319_ok"
+    },
+    {
+      "expect": {
+        "mem": "mat0",
+        "equals": 315953
+      },
+      "metric": "mat0_ok"
+    },
+    {
+      "expect": {
+        "mem": "mat1",
+        "equals": 11259150
+      }
+    },
+    {
+      "expect": {
+        "mem": "mat199",
+        "equals": 4294967082
+      },
+      "metric": "mat199_ok"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "menu_wait",
+    "inv0_ok",
+    "inv319_ok",
+    "mat0_ok",
+    "mat199_ok",
+    "match"
+  ]
+}

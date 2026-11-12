@@ -1,0 +1,94 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin items",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    1,
+    255
+  ],
+  "progress": 6,
+  "equipment": [
+    {
+      "record": 0,
+      "weapon": 3,
+      "armor": 5,
+      "accessory": 7,
+      "materia": [
+        {
+          "slot": 0,
+          "id": 17,
+          "ap": 74565
+        },
+        {
+          "slot": 1,
+          "id": 1,
+          "ap": 500
+        },
+        {
+          "slot": 8,
+          "id": 14,
+          "ap": 0
+        },
+        {
+          "slot": 9,
+          "id": 42,
+          "ap": 77
+        }
+      ]
+    },
+    {
+      "record": 1,
+      "weapon": 40,
+      "armor": 0,
+      "accessory": 255
+    }
+  ],
+  "items": [
+    {
+      "slot": 0,
+      "index": 1,
+      "quantity": 7
+    },
+    {
+      "slot": 1,
+      "index": 130,
+      "quantity": 2
+    },
+    {
+      "slot": 2,
+      "index": 260,
+      "quantity": 3
+    },
+    {
+      "slot": 319,
+      "index": 300,
+      "quantity": 1
+    }
+  ],
+  "materia": [
+    {
+      "slot": 0,
+      "id": 49,
+      "ap": 1234
+    },
+    {
+      "slot": 1,
+      "id": 14,
+      "ap": 43981
+    },
+    {
+      "slot": 199,
+      "id": 42,
+      "ap": 16777215
+    }
+  ]
+}

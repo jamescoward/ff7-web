@@ -16,8 +16,8 @@ import { blankCard, sealFrame } from '../synth/blank-card.js';
 import { validate } from '../schema.js';
 import { savemapChecksum } from './checksum.js';
 import {
-  BANK_BASE, BANK_SIZE, BLOCK_HEADER, CHARACTER, CHARACTER_BASE, CHARACTER_MATERIA, CHARACTER_MATERIA_SLOTS,
-  CHARACTER_SIZE, MATERIA_EMPTY, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FF_TEXT_END, FRAME_SIZE,
+  BANK_BASE, BANK_SIZE, BLOCK_HEADER, CHARACTER, CHARACTER_BASE, CHARACTER_EQUIPMENT, CHARACTER_MATERIA, CHARACTER_MATERIA_SLOTS,
+  CHARACTER_SIZE, ITEM_BASE, MATERIA_BASE, MATERIA_EMPTY, packItem, packMateria, BLOCK_SIZE, CARD_SIZE, DIR, DIR_IN_USE_FIRST, FF_TEXT_END, FRAME_SIZE,
   ICON_FLAG_STATIC_1, MODULE_AUX_FIELD, MODULE_FIELD, SAVEMAP, SAVEMAP_IN_BLOCK, SAVEMAP_SIZE,
   TYPE_SIZE, fileName,
 } from './layout.js';
@@ -93,9 +93,29 @@ export function planWrites(desc) {
     field('mpBase', c.maxMp);
     field('hpMax', c.maxHp);
     field('mpMax', c.maxMp);
+    // Empty every materia slot that `equipment` doesn't fill for this record (#117).
+    const filled = new Set((desc.equipment ?? []).filter((e) => e.record === c.record).flatMap((e) => (e.materia ?? []).map((m) => m.slot)));
     for (let m = 0; m < CHARACTER_MATERIA_SLOTS; m++) {
+      if (filled.has(m)) continue;
       w.push({ name: `${name}.materia[${m}]`, offset: at + CHARACTER_MATERIA + 4 * m, type: 'u32', value: MATERIA_EMPTY });
     }
+  }
+  // #117: equipment and equipped materia per record, then the item and materia inventories.
+  for (const [i, e] of (desc.equipment ?? []).entries()) {
+    const at = CHARACTER_BASE + CHARACTER_SIZE * e.record;
+    const name = `equipment[${i}]`;
+    for (const key of ['weapon', 'armor', 'accessory']) {
+      w.push({ name: `${name}.${key}`, offset: at + CHARACTER_EQUIPMENT[key].offset, type: 'u8', value: e[key] });
+    }
+    for (const [j, m] of (e.materia ?? []).entries()) {
+      w.push({ name: `${name}.materia[${j}]`, offset: at + CHARACTER_MATERIA + 4 * m.slot, type: 'u32', value: packMateria(m.id, m.ap) });
+    }
+  }
+  for (const [i, it] of (desc.items ?? []).entries()) {
+    w.push({ name: `items[${i}]`, offset: ITEM_BASE + 2 * it.slot, type: 'u16', value: packItem(it.index, it.quantity) });
+  }
+  for (const [i, m] of (desc.materia ?? []).entries()) {
+    w.push({ name: `materia[${i}]`, offset: MATERIA_BASE + 4 * m.slot, type: 'u32', value: packMateria(m.id, m.ap) });
   }
   for (const [i, v] of (desc.vars ?? []).entries()) {
     w.push({

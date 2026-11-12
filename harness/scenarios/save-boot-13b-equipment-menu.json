@@ -1,0 +1,221 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-13b-equipment-menu",
+  "description": "#117: the equipped weapon, armor and accessory of records 0 and 1 (Cloud, Barret; Barret has none, 0xFF) and four of record 0's materia slots (weapon 0 and 1, armor 0 and 1) in RAM equal the author-chosen values of harness/saves/disc1-md1stin-inventory.json. Load, open the field menu with Triangle (as save-boot-10a), then check each value with equals (1/0 only; metrics for record 0's equipment and its first weapon and armor materia). match: a rerun from the title snapshot ends in the same state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-inventory",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, battle 2, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "weapon0": {
+      "addr": "0x8009c754",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 0 (character record 0) + 0x1C: equipped weapon (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.weapon). The description writes 3."
+    },
+    "armor0": {
+      "addr": "0x8009c755",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 0 (character record 0) + 0x1D: equipped armor (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.armor). The description writes 5."
+    },
+    "acc0": {
+      "addr": "0x8009c756",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 0 (character record 0) + 0x1E: equipped accessory (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.accessory). The description writes 7."
+    },
+    "weapon1": {
+      "addr": "0x8009c7d8",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 1 (character record 1) + 0x1C: equipped weapon (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.weapon). The description writes 40."
+    },
+    "armor1": {
+      "addr": "0x8009c7d9",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 1 (character record 1) + 0x1D: equipped armor (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.armor). The description writes 0."
+    },
+    "acc1": {
+      "addr": "0x8009c7da",
+      "type": "u8",
+      "description": "Savemap (0x8009C6E4) + 0x0054 + 0x84 * 1 (character record 1) + 0x1E: equipped accessory (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.accessory). The description writes 255."
+    },
+    "wmat0": {
+      "addr": "0x8009c778",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x0054 (character record 0) + 0x40: materia slot 0 of the record (weapon slot 0), AP << 8 | ID (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.materia_weapon). The description writes ID 0x11, AP 74565."
+    },
+    "wmat1": {
+      "addr": "0x8009c77c",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x0054 (character record 0) + 0x44: materia slot 1 of the record (weapon slot 1), AP << 8 | ID (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.materia_weapon). The description writes ID 0x01, AP 500."
+    },
+    "amat0": {
+      "addr": "0x8009c798",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x0054 (character record 0) + 0x60: materia slot 8 of the record (armor slot 0), AP << 8 | ID (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.materia_armor). The description writes ID 0x0E, AP 0."
+    },
+    "amat1": {
+      "addr": "0x8009c79c",
+      "type": "u32",
+      "description": "Savemap (0x8009C6E4) + 0x0054 (character record 0) + 0x64: materia slot 9 of the record (armor slot 1), AP << 8 | ID (ff7-flat-wiki Savemap \"Character Record\"; Xeeynamo/ff7-decomp@d4db3de (reference only, no code) include/game.h SavePartyMember.materia_armor). The description writes ID 0x2A, AP 77."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "menu_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "weapon0",
+        "equals": 3
+      },
+      "metric": "weapon0_ok"
+    },
+    {
+      "expect": {
+        "mem": "armor0",
+        "equals": 5
+      },
+      "metric": "armor0_ok"
+    },
+    {
+      "expect": {
+        "mem": "acc0",
+        "equals": 7
+      },
+      "metric": "acc0_ok"
+    },
+    {
+      "expect": {
+        "mem": "weapon1",
+        "equals": 40
+      }
+    },
+    {
+      "expect": {
+        "mem": "armor1",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "acc1",
+        "equals": 255
+      }
+    },
+    {
+      "expect": {
+        "mem": "wmat0",
+        "equals": 19088657
+      },
+      "metric": "wmat0_ok"
+    },
+    {
+      "expect": {
+        "mem": "wmat1",
+        "equals": 128001
+      }
+    },
+    {
+      "expect": {
+        "mem": "amat0",
+        "equals": 14
+      }
+    },
+    {
+      "expect": {
+        "mem": "amat1",
+        "equals": 19754
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "menu_wait",
+    "weapon0_ok",
+    "armor0_ok",
+    "acc0_ok",
+    "wmat0_ok",
+    "match"
+  ]
+}

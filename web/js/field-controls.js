@@ -1,17 +1,24 @@
 // Floating drag surface and independent action fingers. Input injection only.
 import { createFieldDrag } from './field-drag.js';
 import { PAD } from './pad.js';
+import { FIELD_ACTIONS } from './semantic/controls.js';
 
 export function createFieldControls(root, { onChange }) {
   root.classList.add('field-controls');
   root.innerHTML = `
     <span class="field-cue" aria-hidden="true"></span>
-    <div class="field-actions" role="group" aria-label="Field actions">
-      <button type="button" class="btn field-action" data-action="circle">Interact ○</button>
-      <button type="button" class="btn field-action" data-action="triangle">Menu △</button>
-      <button type="button" class="btn field-back" data-action="cross">Back ✕</button>
-    </div>`;
+    <div class="field-actions" role="group" aria-label="Field actions"></div>`;
   const doc = root.ownerDocument;
+  // The buttons, labels and pad bits come from semantic/controls.js (#146).
+  const actions = root.querySelector('.field-actions');
+  for (const a of FIELD_ACTIONS) {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.className = `btn field-${a.kind}`;
+    b.dataset.action = a.button;
+    b.textContent = a.label;
+    actions.append(b);
+  }
   const cue = root.querySelector('.field-cue');
   const drag = createFieldDrag();
   const pointers = new Map();

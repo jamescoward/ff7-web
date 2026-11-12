@@ -217,6 +217,11 @@
       "additionalProperties": false,
       "properties": {
         "addr": { "$ref": "#/$defs/address" },
+        "deref": {
+          "description": "Format 2 only (#112): addr holds a u32 pointer, and the location is that pointer plus this offset, read again each time the location is read. Only for u8/u16/u32. When the pointer plus offset is not in main RAM the value is missing: a condition or check on it fails, a change or compare metric is 0, and a metric of the location itself is 0.",
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{1,4}$"
+        },
         "type": { "enum": ["u8", "u16", "u32", "bytes"] },
         "len": {
           "description": "Length for type bytes.",
@@ -579,6 +584,28 @@
                   "description": "Compare with the value at this mark step instead of the start of the script. If the script did not reach the mark, the check fails and its metric is 0.",
                   "$ref": "#/$defs/markName"
                 }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
+          "description": "Two named u8/u16/u32 memory locations compared at the end of the script (#112): the sign of mem - (with >> shift), with \"is\" one of \"less\", \"greater\", \"equal\" or \"unequal\". signed: read both as two's complement (s8/s16/s32) before the shift, which is arithmetic. Compared inside the run; neither value leaves. metric: that sign (-1, 0 or 1), whether or not the check passes; 0 if the run stopped, a wait timed out or a deref location did not resolve.",
+          "type": "object",
+          "required": ["compare"],
+          "additionalProperties": false,
+          "properties": {
+            "compare": {
+              "type": "object",
+              "required": ["mem", "with", "is"],
+              "additionalProperties": false,
+              "properties": {
+                "mem": { "type": "string" },
+                "with": { "type": "string" },
+                "shift": { "type": "integer", "minimum": 0, "maximum": 31 },
+                "is": { "enum": ["less", "greater", "equal", "unequal"] },
+                "signed": { "type": "boolean" }
               }
             },
             "metric": { "$ref": "#/$defs/metricName" },

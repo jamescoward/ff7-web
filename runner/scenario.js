@@ -135,12 +135,18 @@ export function loadScenario(doc, { allowTier2 = false, bootPoints, segmentsDir 
     if (loc.type !== 'bytes' && loc.len !== undefined) fail(`${where}: len is only for type bytes`);
     const addr = Number(loc.addr);
     const len = loc.len ?? SIZES[loc.type];
+    // deref (#112): addr holds a u32 pointer; the location is pointer + offset.
+    const deref = loc.deref === undefined ? undefined : Number(loc.deref);
+    if (deref !== undefined) {
+      if (doc.format !== 2) fail(`${where}: deref is for format 2 scenarios only`);
+      if (loc.type === 'bytes') fail(`${where}: deref is for u8, u16 or u32 locations only`);
+    }
     try {
-      ramOffset(addr, len);
+      ramOffset(addr, deref === undefined ? len : 4);
     } catch (e) {
       fail(`${where}: ${e.message}`);
     }
-    memory[name] = { ...loc, addr, len };
+    memory[name] = { ...loc, addr, len, ...(deref !== undefined ? { deref } : {}) };
   }
   if (doc.format === 2) {
     const input = expandSegments(doc.input, { dir: segmentsDir, schema });

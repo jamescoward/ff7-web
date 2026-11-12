@@ -8,7 +8,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { BOOT_POINTS, scriptFrames } from '../../bootpoints.js';
-import { BUILTIN_METRICS_2, asSigned, changeOutcome, conditionHolds, loadBootPoint } from '../../format2.js';
+import { BUILTIN_METRICS_2, asSigned, changeOutcome, compareOutcome, conditionHolds, loadBootPoint, readLoc } from '../../format2.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, ScenarioError, loadScenario } from '../../scenario.js';
 import { findTier2Scenarios, MAX_METRICS, parseSnapshot } from '../../tier2.js';
@@ -197,6 +197,96 @@ describe('change checks (#77)', () => {
     // Crossing zero: -1 -> 1 is an increase only when read as signed.
     assert.deepEqual(changeOutcome(chk('increased', true), u32, 0xffffffff, 1), { sign: 1, holds: true });
     assert.deepEqual(changeOutcome(chk('increased'), u32, 0xffffffff, 1), { sign: -1, holds: false });
+  });
+});
+
+describe('deref locations and compare checks (#112)', () => {
+  /** A backend over a 2 MB RAM image (KSEG0, KUSEG and KSEG1 views). */
+  const ramBackend = () => {
+    const ram = new Uint8Array(0x200000);
+    const off = (a) => (a >>> 0) % 0x20000000 & 0x1fffff;
+    return {
+      ram,
+      readMem: (a, n) => ram.slice(off(a), off(a) + n),
+      put32: (a, v) => new DataView(ram.buffer).setUint32(off(a), v >>> 0, true),
+      put16: (a, v) => new DataView(ram.buffer).setUint16(off(a), v & 0xffff, true),
+    };
+  };
+
+  test('readLoc follows the pointer at addr, plus deref, each time', () => {
+    const b = ramBackend();
+    const loc = { addr: 0x80001000, type: 'u16', len: 2, deref: 0x38 };
+    b.put32(0x80001000, 0x80115000);
+    b.put16(0x80115038, 0x75);
+    assert.equal(readLoc(b, loc), 0x75);
+    // The pointer is read again: move it and the value follows.
+    b.put32(0x80001000, 0x80120000);
+    b.put16(0x80120038, 0x1234);
+    assert.equal(readLoc(b, loc), 0x1234);
+    // Without deref it is a plain read.
+    assert.equal(readLoc(b, { addr: 0x80120038, type: 'u16', len: 2 }), 0x1234);
+  });
+
+  test('readLoc is null when pointer + deref is not in main RAM', () => {
+    const b = ramBackend();
+    const loc = { addr: 0x80001000, type: 'u32', len: 4, deref: 0x10 };
+    for (const p of [0x1f800000, 0x80200000, 0x801ffff0, 0x00200000]) {
+      b.put32(0x80001000, p);
+      assert.equal(readLoc(b, loc), null, p.toString(16));
+    }
+    b.put32(0x80001000, 0); // a null pointer reads KUSEG 0 + deref: in RAM
+    assert.equal(readLoc(b, loc), 0);
+  });
+
+  test('a missing value satisfies no condition and changes nothing', () => {
+    assert.equal(conditionHolds({ op: 'equals', value: 0 }, null), false);
+    assert.equal(conditionHolds({ op: 'differs', value: 5 }, null), false);
+    assert.equal(conditionHolds({ op: 'in', lo: 0, hi: 9 }, null), false);
+    assert.deepEqual(changeOutcome({ is: 'unchanged' }, { len: 2 }, null, 3), { sign: 0, holds: false });
+    assert.deepEqual(changeOutcome({ is: 'unchanged' }, { len: 2 }, 3, null), { sign: 0, holds: false });
+  });
+
+  test('compare: the sign of a - (b >> shift)', () => {
+    const s16 = { len: 2 };
+    const s32 = { len: 4 };
+    const chk = (is, shift = 0, signed = true) => ({ is, shift, signed });
+    // A gateway end at x = -100 against a player at PosX = 50 << 12.
+    assert.deepEqual(compareOutcome(chk('less', 12), s16, s32, 0x10000 - 100, 50 * 4096), { sign: -1, holds: true });
+    assert.deepEqual(compareOutcome(chk('greater', 12), s16, s32, 0x10000 - 100, 50 * 4096), { sign: -1, holds: false });
+    // Negative PosX: the shift is arithmetic (rounds toward -infinity), as the game's >> 12.
+    assert.deepEqual(compareOutcome(chk('equal', 12), s16, s32, 0x10000 - 1, 0x100000000 - 1), { sign: 0, holds: true });
+    assert.deepEqual(compareOutcome(chk('greater', 12), s16, s32, 0, 0x100000000 - 4096 * 3), { sign: 1, holds: true });
+    assert.deepEqual(compareOutcome(chk('unequal'), s16, s16, 7, 7), { sign: 0, holds: false });
+    // Unsigned: 0xffff is large.
+    assert.deepEqual(compareOutcome(chk('greater', 0, false), s16, s16, 0xffff, 1), { sign: 1, holds: true });
+    // A missing side.
+    assert.deepEqual(compareOutcome(chk('equal'), s16, s16, null, 1), { sign: 0, holds: false });
+  });
+
+  test('loading: deref and compare are checked', () => {
+    const doc = base();
+    doc.memory.ptr_val = { addr: '0x800f0000', deref: '0x10', type: 'u16' };
+    doc.assert.push({ compare: { mem: 'ptr_val', with: 'counter', shift: 2, is: 'less', signed: true }, metric: 'cmp' });
+    doc.metrics.push('cmp');
+    const sc = loadScenario(doc);
+    assert.equal(sc.memory.ptr_val.deref, 0x10);
+    assert.deepEqual(sc.asserts.at(-1), { kind: 'compare', mem: 'ptr_val', with: 'counter', shift: 2, is: 'less', signed: true, metric: 'cmp' });
+
+    const noMem = clone(doc);
+    noMem.assert.at(-1).compare.with = 'nope';
+    assert.throws(() => loadScenario(noMem), /no memory location named "nope"/);
+    const bytes = clone(doc);
+    bytes.assert.at(-1).compare.with = 'marker';
+    assert.throws(() => loadScenario(bytes), /needs u8, u16 or u32/);
+    const badIs = clone(doc);
+    badIs.assert.at(-1).compare.is = 'below';
+    assert.throws(() => loadScenario(badIs), /schema/);
+    const derefBytes = clone(doc);
+    derefBytes.memory.marker.deref = '0x4';
+    assert.throws(() => loadScenario(derefBytes), /deref is for u8, u16 or u32/);
+    const ptrOut = clone(doc);
+    ptrOut.memory.ptr_val.addr = '0x801ffffe';
+    assert.throws(() => loadScenario(ptrOut), /runs past the end of RAM/);
   });
 });
 

@@ -27,7 +27,7 @@ import { performance } from 'node:perf_hooks';
 import { createBackend } from './backend.js';
 import { BOOT_POINTS, POWER_ON, SAVE_BOOT_POINT, scriptFrames } from './bootpoints.js';
 import { DiscError, openDisc } from './disc.js';
-import { RAM_SIZE } from './memmap.js';
+import { RAM_SIZE, ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { BaselineError, baselineFromDisc } from './savegen/baseline.js';
 import { descriptionProblems, generateCard } from './savegen/index.js';
@@ -80,8 +80,25 @@ function loadCondition(c, memory, where) {
   return { mem: c.mem, op: 'in', lo, hi };
 }
 
-/** Whether value satisfies a loaded condition. */
+/**
+ * The value of a u8/u16/u32 location now. A deref location (#112) reads the
+ * u32 pointer at addr and then the value at pointer + deref; it is null
+ * when that is not in main RAM (no pointer set yet, or a stale one).
+ */
+export function readLoc(backend, loc) {
+  if (loc.deref === undefined) return decode(loc, backend.readMem(loc.addr, loc.len));
+  const target = decode({ type: 'u32' }, backend.readMem(loc.addr, 4)) + loc.deref;
+  try {
+    ramOffset(target, loc.len);
+  } catch {
+    return null;
+  }
+  return decode(loc, backend.readMem(target, loc.len));
+}
+
+/** Whether value satisfies a loaded condition. A missing value (null) satisfies none. */
 export function conditionHolds(cond, value) {
+  if (value === null) return false;
   if (cond.op === 'equals') return value === cond.value;
   if (cond.op === 'differs') return value !== cond.value;
   return value >= cond.lo && value <= cond.hi;
@@ -98,10 +115,26 @@ export const asSigned = (loc, v) => {
  * satisfies `is`. start and end are decoded (unsigned) values.
  */
 export function changeOutcome(chk, loc, start, end) {
+  if (start === null || end === null) return { sign: 0, holds: false };
   const s = chk.signed ? asSigned(loc, start) : start;
   const e = chk.signed ? asSigned(loc, end) : end;
   const sign = Math.sign(e - s);
   const holds = { increased: sign > 0, decreased: sign < 0, unchanged: sign === 0, changed: sign !== 0 }[chk.is];
+  return { sign, holds };
+}
+
+/**
+ * A compare check (#112): the sign of a - (b >> shift) (-1, 0 or 1) and
+ * whether it satisfies `is`. a and b are decoded (unsigned) values of
+ * locations locA and locB; with signed, both are read as two's complement
+ * first, so the shift is arithmetic. A missing value gives sign 0, not held.
+ */
+export function compareOutcome(chk, locA, locB, a, b) {
+  if (a === null || b === null) return { sign: 0, holds: false };
+  const x = chk.signed ? asSigned(locA, a) : a;
+  const y = Math.floor((chk.signed ? asSigned(locB, b) : b) / 2 ** chk.shift);
+  const sign = Math.sign(x - y);
+  const holds = { less: sign < 0, greater: sign > 0, equal: sign === 0, unequal: sign !== 0 }[chk.is];
   return { sign, holds };
 }
 
@@ -275,6 +308,15 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
       if (since !== undefined && !marks.has(since)) fail(`${where}.change: no mark step named "${since}" in the script`);
       return { kind: 'change', mem: a.change.mem, is: a.change.is, signed: a.change.signed === true, ...(since !== undefined ? { since } : {}), metric: a.metric };
     }
+    if ('compare' in a) {
+      const c = a.compare;
+      for (const k of [c.mem, c.with]) {
+        const loc = memory[k];
+        if (!loc) fail(`${where}.compare: no memory location named "${k}"`);
+        if (!NUMERIC.has(loc.type)) fail(`${where}.compare: a compare check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
+      }
+      return { kind: 'compare', mem: c.mem, with: c.with, shift: c.shift ?? 0, is: c.is, signed: c.signed === true, metric: a.metric };
+    }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
 
@@ -329,7 +371,7 @@ const pressAt = (press, i) => (press && (i - 1) % press.every < press.hold ? pre
 /** The value of every u8/u16/u32 location now: Map(name -> value). */
 function readAll(backend, memory) {
   const out = new Map();
-  for (const [k, loc] of Object.entries(memory)) if (NUMERIC.has(loc.type)) out.set(k, decode(loc, backend.readMem(loc.addr, loc.len)));
+  for (const [k, loc] of Object.entries(memory)) if (NUMERIC.has(loc.type)) out.set(k, readLoc(backend, loc));
   return out;
 }
 
@@ -365,7 +407,7 @@ export function playScript(backend, steps, memory) {
       let waited = 0;
       for (let i = 1; i <= s.timeout; i++) {
         framePress(s.press, i);
-        if (conditionHolds(s.cond, decode(loc, backend.readMem(loc.addr, loc.len)))) {
+        if (conditionHolds(s.cond, readLoc(backend, loc))) {
           waited = i;
           break;
         }
@@ -591,7 +633,7 @@ export async function runScenario2(sc, opts = {}) {
   let card = null; // a generated card for a save boot (#38), in memory only
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
-  const actual = new Map(); // expect or change check -> value at the end of the script
+  const actual = new Map(); // expect or change check -> value at the end of the script; compare -> [a, b]
   const startValues = new Map(); // change check -> value at the start of the script
   const live = new Set();
   const track = (b) => {
@@ -721,7 +763,7 @@ export async function runScenario2(sc, opts = {}) {
       for (const a of sc.asserts) {
         if (a.kind !== 'change' || a.since !== undefined) continue;
         const loc = sc.memory[a.mem];
-        startValues.set(a, decode(loc, main.backend.readMem(loc.addr, loc.len)));
+        startValues.set(a, readLoc(main.backend, loc));
       }
       const p = play(main.backend);
       ({ run, digest } = p);
@@ -736,12 +778,16 @@ export async function runScenario2(sc, opts = {}) {
       }
       for (const k of sc.metrics) {
         const loc = sc.memory[k];
-        if (loc) finalMem.set(k, decode(loc, main.backend.readMem(loc.addr, loc.len)));
+        if (loc) finalMem.set(k, readLoc(main.backend, loc));
       }
       for (const a of sc.asserts) {
+        if (a.kind === 'compare') {
+          actual.set(a, [readLoc(main.backend, sc.memory[a.mem]), readLoc(main.backend, sc.memory[a.with])]);
+          continue;
+        }
         if (a.kind !== 'expect' && a.kind !== 'change') continue;
         const loc = sc.memory[a.kind === 'expect' ? a.cond.mem : a.mem];
-        actual.set(a, decode(loc, main.backend.readMem(loc.addr, loc.len)));
+        actual.set(a, readLoc(main.backend, loc));
       }
       release(main.backend);
 
@@ -800,6 +846,15 @@ export async function runScenario2(sc, opts = {}) {
         sign: ok(have) ? out.sign : 0,
       };
     }
+    if (a.kind === 'compare') {
+      const have = actual.has(a);
+      const out = have ? compareOutcome(a, sc.memory[a.mem], sc.memory[a.with], ...actual.get(a)) : { sign: 0, holds: false };
+      return {
+        compare: { mem: a.mem, with: a.with, ...(a.shift ? { shift: a.shift } : {}), is: a.is, ...(a.signed ? { signed: true } : {}) },
+        pass: ok(out.holds),
+        sign: ok(have) ? out.sign : 0,
+      };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -814,7 +869,7 @@ export async function runScenario2(sc, opts = {}) {
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
   sc.asserts.forEach((a, i) => {
     if (a.metric === undefined) return;
-    namedMetrics.set(a.metric, a.kind === 'change' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
+    namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
   });
   const framesRun = run?.frames ?? 0;
   const builtin = {

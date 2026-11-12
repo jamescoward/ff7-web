@@ -111,7 +111,7 @@ labs.registerFlag(HUD_FLAG, {
 labs.registerFlag(TAPS_FLAG, {
   label: 'Tap to advance dialogue',
   description: 'When a message window has finished its text and waits, tapping the picture presses Circle once. Choices are not covered yet.',
-  pr: 114,
+  pr: 178,
   checklist: [
     'In a field conversation, tap the picture when the text has finished: it advances.',
     'Tap while the text is still typing: nothing happens.',

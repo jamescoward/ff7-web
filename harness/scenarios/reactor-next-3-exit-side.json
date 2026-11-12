@@ -1,0 +1,161 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "reactor-next-3-exit-side",
+  "description": "#112 attempt 1: from after-battle (md1stin, 0x74), 10 frames with no input. g_FieldTriggers points into the field file area (ptr_ok); its gateway 0 leads to md1_1 (0x75, gw0_md1_1); and both ends of gateway 0's line lie on the side the player leaves md1stin by (#77: holding up-left, reactor-next-1): x less than the player's PosX >> 12 (x1s, x2s) and y greater than PosY >> 12 (y1s, y2s). Only signs leave; no coordinate does. gw1_md1_1: gateway 1 leads to md1_1 (diagnostic, in case gateway 0 does not). match: a rerun from the same snapshot.",
+  "boot": {
+    "from": "after-battle"
+  },
+  "memory": {
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "trig_ptr": {
+      "addr": "0x800716c4",
+      "type": "u32",
+      "description": "g_FieldTriggers: pointer to the field's FieldTriggers. Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt"
+    },
+    "gw0_to": {
+      "addr": "0x800716c4",
+      "deref": "0x4a",
+      "type": "u16",
+      "description": "g_FieldTriggers -> FieldTriggers.gateways[0] (+0x38) fieldMapId: the field it leads to (0x7FFF = unused) (s16 as u16, field units). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_to": {
+      "addr": "0x800716c4",
+      "deref": "0x62",
+      "type": "u16",
+      "description": "g_FieldTriggers -> gateways[1] (+0x38 + 0x18) fieldMapId. Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldGateway"
+    },
+    "gw0_x1": {
+      "addr": "0x800716c4",
+      "deref": "0x38",
+      "type": "u16",
+      "description": "g_FieldTriggers -> FieldTriggers.gateways[0] (+0x38) x1 (s16 as u16, field units). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw0_y1": {
+      "addr": "0x800716c4",
+      "deref": "0x3a",
+      "type": "u16",
+      "description": "g_FieldTriggers -> FieldTriggers.gateways[0] (+0x38) y1 (s16 as u16, field units). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw0_x2": {
+      "addr": "0x800716c4",
+      "deref": "0x3e",
+      "type": "u16",
+      "description": "g_FieldTriggers -> FieldTriggers.gateways[0] (+0x38) x2 (s16 as u16, field units). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw0_y2": {
+      "addr": "0x800716c4",
+      "deref": "0x40",
+      "type": "u16",
+      "description": "g_FieldTriggers -> FieldTriggers.gateways[0] (+0x38) y2 (s16 as u16, field units). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "pos_x": {
+      "addr": "0x80074eb0",
+      "type": "u32",
+      "description": "g_FieldEntity[0].PosX (s32 as u32; confirmed #77): the player (g_PlayerModelId 0 at md1stin, #99); field units << 12."
+    },
+    "pos_y": {
+      "addr": "0x80074eb4",
+      "type": "u32",
+      "description": "g_FieldEntity[0].PosY (s32 as u32; confirmed #77): the player; field units << 12."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 10
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 116
+      }
+    },
+    {
+      "expect": {
+        "mem": "trig_ptr",
+        "in": [
+          "0x80115000",
+          "0x80127fff"
+        ]
+      },
+      "metric": "ptr_ok"
+    },
+    {
+      "expect": {
+        "mem": "gw0_to",
+        "equals": "0x0075"
+      },
+      "metric": "gw0_md1_1"
+    },
+    {
+      "expect": {
+        "mem": "gw1_to",
+        "differs": "0x0075"
+      },
+      "metric": "gw1_not_md1_1"
+    },
+    {
+      "compare": {
+        "mem": "gw0_x1",
+        "with": "pos_x",
+        "shift": 12,
+        "signed": true,
+        "is": "less"
+      },
+      "metric": "x1s"
+    },
+    {
+      "compare": {
+        "mem": "gw0_x2",
+        "with": "pos_x",
+        "shift": 12,
+        "signed": true,
+        "is": "less"
+      },
+      "metric": "x2s"
+    },
+    {
+      "compare": {
+        "mem": "gw0_y1",
+        "with": "pos_y",
+        "shift": 12,
+        "signed": true,
+        "is": "greater"
+      },
+      "metric": "y1s"
+    },
+    {
+      "compare": {
+        "mem": "gw0_y2",
+        "with": "pos_y",
+        "shift": 12,
+        "signed": true,
+        "is": "greater"
+      },
+      "metric": "y2s"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "ptr_ok",
+    "gw0_md1_1",
+    "x1s",
+    "x2s",
+    "y1s",
+    "y2s",
+    "match",
+    "gw1_not_md1_1"
+  ]
+}

@@ -184,6 +184,35 @@ describe('change checks (#77)', () => {
   });
 });
 
+describe('compare checks and deref locations (#112)', () => {
+  test('compare reports the sign of a - (b >> shift); a deref location is read through its pointer', async () => {
+    const d = example();
+    // The counter is small, so as a pointer it names low KUSEG RAM: it resolves.
+    d.memory = { ...d.memory, via: { addr: d.memory.counter.addr, deref: '0x0', type: 'u32' } };
+    d.assert = [
+      { compare: { mem: 'counter', with: 'counter', shift: 1, is: 'greater' }, metric: 'half' },
+      { compare: { mem: 'counter', with: 'counter', is: 'equal' }, metric: 'same' },
+      { compare: { mem: 'counter', with: 'counter', shift: 1, is: 'less' }, metric: 'wrong' },
+      { compare: { mem: 'via', with: 'via', is: 'equal', signed: true }, metric: 'via_same' },
+    ];
+    d.metrics = ['half', 'same', 'wrong', 'via_same', 'failed_assertions'];
+    const r = await runScenario(loadScenario(d));
+    assert.deepEqual(r.assertions.map((a) => a.pass), [true, true, false, true]);
+    assert.deepEqual(r.metrics, { half: 1, same: 0, wrong: 1, via_same: 0, failed_assertions: 1 });
+    assert.deepEqual(r.assertions[0].compare, { mem: 'counter', with: 'counter', shift: 1, is: 'greater' });
+  });
+
+  test('a timed-out wait fails compare checks and reports sign 0', async () => {
+    const d = example();
+    d.input = [{ wait: { frames: 4 } }, { wait: { until: { mem: 'buttons', equals: '0x0000' }, timeout: 5 } }];
+    d.assert = [{ compare: { mem: 'counter', with: 'counter', shift: 1, is: 'greater' }, metric: 'half' }];
+    d.metrics = ['half', 'failed_assertions'];
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail');
+    assert.deepEqual(r.metrics, { half: 0, failed_assertions: 2 });
+  });
+});
+
 describe('state comparison', () => {
   test('the state digest separates different frames and matches equal runs', async () => {
     const fx = synthExe();

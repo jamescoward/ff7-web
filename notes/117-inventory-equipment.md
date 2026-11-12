@@ -18,4 +18,5 @@ No names (item, materia, weapon) are in the repo: names are game data. Readers r
 - Only slots the description writes are checked; empty-slot encodings (0xFFFF items, 0xFF materia) come from the documentation and #130.
 
 ## Results
-_Filled in after the Tier 2 run._
+- **Attempt 1, Tier 2 on `cb9dc5d` (2026-11-12): pass, 55 pass / 0 fail.** `save-boot-13a-inventory-menu` and `save-boot-13b-equipment-menu` pass: every described word reads back at its address in the field menu (inventory slots 0, 1, 2, 319; materia slots 0, 1, 199 including AP 0xFFFFFF; records 0 and 1 weapon/armor/accessory, Barret's 0xFF; record 0's weapon and armor materia slots 0 and 1), and a rerun from the title snapshot matches. The load kept every value unchanged; nothing was sanitised or re-sorted.
+- Second run for determinism: the next push's Tier 2 run.

@@ -131,7 +131,7 @@ describe('nearby.js rules', () => {
 });
 
 describe('nearby reader', () => {
-  test('the shipped table validates; #112 entries are hypotheses at the decomp addresses', () => {
+  test('the shipped table validates; #112 entries are at the decomp addresses', () => {
     validateTable(ADDRESS_TABLE);
     const byName = Object.fromEntries(ADDRESS_TABLE.entries.map((e) => [e.name, e]));
     assert.equal(byName.fieldModelCount.address, 0x8009ac1c);
@@ -141,7 +141,9 @@ describe('nearby reader', () => {
     assert.equal(byName.fieldSolidRange.address, 0x80074f10);
     assert.equal(byName.fieldTalkRange.address, 0x80074f12);
     assert.equal(byName.fieldTriggers.address, 0x800716c4);
-    for (const n of NAMES) assert.equal(byName[n].status, 'hypothesis', n);
+    // Confirmed by #112 attempt 1; the talk entries stay hypotheses (notes/112-field-interactables.md).
+    for (const n of ['fieldModelCount', 'fieldDir', 'fieldSolidRange', 'fieldTriggers']) assert.equal(byName[n].status, 'confirmed', n);
+    for (const n of ['fieldZ', 'fieldTalkOff', 'fieldTalkRange']) assert.equal(byName[n].status, 'hypothesis', n);
   });
 
   test('an NPC in range and faced, an NPC out of range, and an exit', async () => {

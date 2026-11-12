@@ -405,8 +405,9 @@ const FIELD_ENTRIES = [
     address: FIELD_STATE + 0x28,
     type: 's16',
     meaning: 'number of field models in the current field (g_FieldState.modelCount): elements 0 .. this - 1 of the field model arrays are in use (at most 16)',
-    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldState 0x8009ABF4) and include/game.h (FieldState: modelCount at +0x28, pcModelId at +0x2A); src/field/field_entity.c loops over it for talk and collision. g_FieldModelCount (0x8009C6C4, u8) is a second candidate. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldState 0x8009ABF4) and include/game.h (FieldState: modelCount at +0x28, pcModelId at +0x2A); src/field/field_entity.c loops over it for talk and collision. g_FieldModelCount (0x8009C6C4, u8) is a second candidate. ${'Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle'} it reads 1..16, equals g_FieldModelCount, and g_PlayerModelId is below it (reactor-next-4-models); two runs agree`,
+    status: 'confirmed',
+    scenario: SC('reactor-next-4-models'),
   },
   {
     name: 'fieldZ',
@@ -425,8 +426,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'facing of each field model (g_FieldEntity[i].Dir), in 1/256 turns: 64 more than the angle from +x towards +y (semantic/nearby.js directionTo)',
-    source: `${ENTITY_SOURCE}: Dir at +0x38; FieldEntityDirByVec gives the convention. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: Dir at +0x38; FieldEntityDirByVec gives the convention. ${'Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle'}, element 0 (the player) reads 32..96 after holding right for 30 frames, when PosX rises (#77): +x is 64, as the convention says. Only that direction was checked; two runs agree`,
+    status: 'confirmed',
+    scenario: SC('reactor-next-4-models'),
   },
   {
     name: 'fieldSolidRange',
@@ -435,8 +437,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'collision radius of each field model (g_FieldEntity[i].SolidRange, field units); the player\'s is set from the field scale when the field loads, and gateways trigger within it',
-    source: `${ENTITY_SOURCE}: SolidRange at +0x6C; FieldEntityInitPos sets the player's to 34 * scale >> 9, FieldEntityGatewayCheck compares the squared distance to a gateway line with it. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: SolidRange at +0x6C; FieldEntityInitPos sets the player's to 34 * scale >> 9, FieldEntityGatewayCheck compares the squared distance to a gateway line with it. ${'Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle'}, element 0 (the player) reads 1..255 (reactor-next-4-models); the value itself was not read; two runs agree`,
+    status: 'confirmed',
+    scenario: SC('reactor-next-4-models'),
   },
   {
     name: 'fieldTalkOff',
@@ -463,8 +466,9 @@ const FIELD_ENTRIES = [
     address: 0x800716c4,
     type: 'u32',
     meaning: 'pointer to the current field\'s FieldTriggers (g_FieldTriggers), inside the field file loaded at 0x80115000; its gateways are FIELD_GATEWAYS. Only meaningful in a settled field',
-    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldTriggers 0x800716C4), include/game.h (FieldTriggers, FieldGateway, LinePos), src/field/field_private.h (FieldDatHeader.triggers; field file at 0x80115000) and src/field/field_entity.c (FieldEntityGatewayCheck skips gateways whose fieldMapId is 0x7FFF). Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${DECOMP_112} config/symbols.main.us.txt (g_FieldTriggers 0x800716C4), include/game.h (FieldTriggers, FieldGateway, LinePos), src/field/field_private.h (FieldDatHeader.triggers; field file at 0x80115000) and src/field/field_entity.c (FieldEntityGatewayCheck skips gateways whose fieldMapId is 0x7FFF). ${'Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle'} it points into 0x80115000..0x80127FFF; gateway 0's fieldMapId (+0x38 + 0x12) is md1_1 (0x75), the field #77's up-left walk leads to, and gateway 1's is not; both ends of gateway 0's line (x1, y1, x2, y2 at +0x38 + 0, 2, 6, 8) are left of the player's PosX >> 12 and above its PosY >> 12, the side that walk leaves by (reactor-next-3-exit-side, signs only); two runs agree. The z values were not checked`,
+    status: 'confirmed',
+    scenario: SC('reactor-next-3-exit-side'),
   },
 ];
 

@@ -129,6 +129,10 @@ export async function createWorkerBackend(opts = {}) {
     get frame() {
       return lastFrame?.frame ?? 0;
     },
+    /** Frames the worker's time base has asked for (fps x speed per second), run or not (#173 test hook). */
+    get targetFrames() {
+      return lastFrame?.targetFrames ?? 0;
+    },
 
     /** Boot from the chosen files (read in place, never uploaded). */
     loadFiles(files, card = null) {

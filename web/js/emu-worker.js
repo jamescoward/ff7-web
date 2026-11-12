@@ -14,7 +14,7 @@
 //   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
-//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred
+//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred; targetFrames: frames the time base asked for (#173)
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
@@ -43,6 +43,9 @@ let frame = 0;
 let fps = 60;
 let baseTime = 0;
 let baseFrame = 0;
+// Frames the time base has asked for since boot (fps * speed per second of
+// wall time), whether or not the host could run them all (#173 test hook).
+let targetFrames = 0;
 let speed = 1; // core frames per displayed frame (#118)
 const governor = createGovernor();
 let cardDigest = 0;
@@ -160,7 +163,7 @@ function runFrames(n) {
   }
   drainAudio();
   const f = grabFrame();
-  if (f) post({ type: 'frame', frame, ...f }, [f.buffer]);
+  if (f) post({ type: 'frame', frame, targetFrames, ...f }, [f.buffer]);
 }
 
 function tick() {
@@ -171,6 +174,7 @@ function tick() {
   const cap = MAX_CATCH_UP * speed;
   const due = baseFrame + Math.floor(((now - baseTime) * rate) / 1000) - frame;
   const behind = due > cap;
+  if (due > 0) targetFrames += due;
   if (behind) {
     // Too far behind (slow device, or the tab was throttled): run a batch
     // and re-anchor real time instead of fast-forwarding.

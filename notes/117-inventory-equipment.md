@@ -19,4 +19,4 @@ No names (item, materia, weapon) are in the repo: names are game data. Readers r
 
 ## Results
 - **Attempt 1, Tier 2 on `cb9dc5d` (2026-11-12): pass, 55 pass / 0 fail.** `save-boot-13a-inventory-menu` and `save-boot-13b-equipment-menu` pass: every described word reads back at its address in the field menu (inventory slots 0, 1, 2, 319; materia slots 0, 1, 199 including AP 0xFFFFFF; records 0 and 1 weapon/armor/accessory, Barret's 0xFF; record 0's weapon and armor materia slots 0 and 1), and a rerun from the title snapshot matches. The load kept every value unchanged; nothing was sanitised or re-sorted.
-- Second run for determinism: the next push's Tier 2 run.
+- **Second run for determinism, Tier 2 on `28c49f8` (2026-11-12, check 130901413767): pass, 55 pass / 0 fail**, with the same results in 13a and 13b.

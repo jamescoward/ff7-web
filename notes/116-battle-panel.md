@@ -70,6 +70,10 @@ asks for it. If the owner wants Triangle anyway, it is one value in
   that need the built Wasm core or real audio fail locally; they fail the
   same way on clean main, and CI builds the core.
 - `node tools/asset-guard/check.js`
+- CI on `ce21bdf`: the `web` job failed test 3 of the browser test, which read
+  the pad log while Cross was still held. The simulated game shows the command
+  view as soon as it sees the press. The test now waits for the release
+  (`8eb7cc8`).
 
 ## Not verified
 - Real-game behaviour (Tier 3, deferred to #123): that the planner reaches

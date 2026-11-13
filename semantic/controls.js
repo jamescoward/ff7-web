@@ -49,3 +49,26 @@ export const MENU_PANEL_ACTIONS = Object.freeze({
   back: Object.freeze({ id: 'back', label: 'Back', button: 'triangle' }),
   close: Object.freeze({ id: 'close', label: 'Close', button: 'triangle' }),
 });
+
+/**
+ * Battle command panel actions (#116). A command-row tap moves the command
+ * cursor there with the menu planner, then presses `select`. In target
+ * selection, Prev and Next move the target cursor (Left, Right), Confirm
+ * takes it (Circle) and Back cancels it (Cross).
+ *
+ * Back is Cross, not Triangle as the #116 contract says: in the reference
+ * decomp (Xeeynamo/ff7-decomp@2c9239a, src/battle/battle3.c) the targeting
+ * code cancels on PAD_CROSS ("pressed Cancel/Back"), and PAD_TRIANGLE in
+ * battle closes the command menu altogether (it sets the widget to -1, the
+ * switch to the next ready character). A source claim, not checked in Tier 2.
+ */
+export const BATTLE_PANEL_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  prev: Object.freeze({ id: 'prev', label: '◀ Prev', button: 'left', when: 'targeting' }),
+  next: Object.freeze({ id: 'next', label: 'Next ▶', button: 'right', when: 'targeting' }),
+  confirm: Object.freeze({ id: 'confirm', label: 'Confirm ○', button: 'circle', when: 'targeting' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross', when: 'targeting' }),
+});
+
+/** The targeting buttons, in screen order. */
+export const BATTLE_TARGET_ACTIONS = Object.freeze(['prev', 'next', 'confirm', 'back']);

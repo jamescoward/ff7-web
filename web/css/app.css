@@ -436,3 +436,32 @@ body {
   :root[data-safe-layout][data-menu-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
   :root[data-safe-layout][data-menu-panel-on] .screen { width: 100%; max-height: none; }
 }
+
+/* Battle command panel (#116), Labs flag `battle-panel` (off by default): four
+   command rows, or in target selection Prev, Next, Confirm and Back, in two
+   columns below the picture (and below the battle status strip, #133). Shown
+   by js/battle-panel.js only while a confirmed battle command menu or target
+   selection is open (<html data-battle-panel-on>). Both views are two rows of
+   44 px buttons, so switching between them does not move the pad. Like the
+   menu panel (#115) it is portrait only, and the page may scroll while it
+   shows. Rows with no confirmed cursor are disabled (greyed). */
+.battle-panel {
+  flex: none;
+  box-sizing: border-box;
+  padding: 6px var(--gap);
+  background: var(--panel);
+  color: var(--fg);
+}
+.battle-panel[hidden] { display: none; }
+.bp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.bp-btn { min-height: 44px; min-width: 44px; font-size: 16px; }
+.bp-btn:disabled { opacity: 0.4; }
+.battle-panel[data-view="command"] .bp-targets,
+.battle-panel[data-view="targeting"] .bp-commands { display: none; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .battle-panel { display: none !important; }
+}
+@media not all and (orientation: landscape) and (max-height: 600px) {
+  :root[data-safe-layout][data-battle-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
+  :root[data-safe-layout][data-battle-panel-on] .screen { width: 100%; max-height: none; }
+}

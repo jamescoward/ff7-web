@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-13): attempts 1 and 2 done; attempt 2 reached no choice window. Attempts used: 2 of 3; the last one is not started.
+Status (2026-11-13): attempts 1 and 2 done; attempt 2 reached no choice window. Attempt 3 (the last in the budget) is pushed and waiting for Tier 2.
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -52,3 +52,14 @@ Reading:
 3. **Stop:** record that no choice window is reachable with the current boot points, and ask (as a `needs-owner` question) for a documented progress value for a story choice (Aerith's flower in md8_1, Tifa's drink in the Seventh Heaven fields).
 
 If attempt 3 also fails, the contract says stop and report the blockers on #168.
+
+## Attempt 3 plan (chosen: option 1, reworked; one push, the same three slots)
+Checked against the reference first (Xeeynamo/ff7-decomp@2c9239a, reference only, no code copied): `include/game.h` WindowData puts pointerEnabled at +0x1A and state at +0x2C, so the addresses are right. `src/field/field_dialog.c` FieldDialogAskUpdateStates is the only writer of pointerY (`selectedLine * 16 + 6`, only while an ask waits in TXT_DONE) and sets pointerEnabled 1 there; it also blinks pointerEnabled while an ask window closes. A plain message (FieldDialogMessageUpdateStates) never sets it, so attempt 2's timeouts mean no ask was shown, not a bad address.
+
+What changes from attempt 2:
+- **Talk while walking.** Attempt 2 walked for 120 frames and only then pressed Circle, so a walk that slid past an NPC, or stopped out of talk range, never talked. Now phase 1 holds the direction plus Circle for 7 of every 8 frames (a Circle edge every 8 frames while the player walks and faces the way it goes), until window 0 leaves state 0: `win_wait`, timeout 600. It ends on the first frame any message or ask opens, so the player stops there.
+- **Every phase reports its own metric.** Earlier wait metrics survive a later timeout (attempt 2's `load_done` did), so the first zero says how far it got: `win_wait` 0 = no talk in that direction; `win_wait` > 0 and `ptr_wait` 0 = a plain message, no ask.
+- **The acceptance is in the same run.** After `ptr_wait`: mark `ask`, Down (4 frames, one edge) + 12, mark `down`, Up (4) + 12, `still6` (window 0 still in state 6), Circle (4) picks and closes (`close_wait`: window 0 back to 0, timeout 300), `match` (rerun). pointerY is written only while an ask waits, so its end value is the one after Up: `up_dir` = −1 (lower than after Down: Up moved it, so Down had raised it; Up can only lower or keep it) and `back_dir` = 0 (where the pointer appeared). One edge moves one line, and pointerY is line × 16 + 6, so a one-line move is +16 (from the reference; the run reports signs only).
+- Directions as attempt 2 (14a Right, 14b Down, 14c Right+Down), since attempt 2's walk results were lost to the timeouts.
+
+Pass for #168: in one direction, all of win_wait, ptr_wait, still6, close_wait > 0, up_dir −1, back_dir 0, match 1. Then `dialogPointer`/`dialogPointerY` become confirmed, the passing scenario stays and the other two are removed. If none passes, the budget is spent: remove the three scenarios (keep a passing one only), record the metrics here and the blockers on #168, and leave it `status:blocked`.

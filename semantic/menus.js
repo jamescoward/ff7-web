@@ -28,6 +28,12 @@ export const MENUS = Object.freeze({
     wraps: true,
     wrapsStatus: 'confirmed',
     wrapsScenario: SC('reactor-mode-2g-menu-rows-down'),
+    // Plain English labels, row 0 first (#115). The count is confirmed (rows
+    // above). The label-to-row order is a SOURCE CLAIM: the order the commands
+    // are drawn on screen in the original game; no Tier 2 scenario has checked
+    // it row by row. There is no Quit row. Labels are the project's own words.
+    labels: Object.freeze(['Item', 'Magic', 'Materia', 'Equip', 'Status', 'Order', 'Limit', 'Config', 'PHS', 'Save']),
+    labelsStatus: 'hypothesis',
   }),
 });
 

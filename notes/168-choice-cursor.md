@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-13): attempts 1 and 2 done; attempt 2 reached no choice window. Attempt 3 (the last in the budget) is pushed and waiting for Tier 2.
+Status (2026-11-13): **blocked.** All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -63,3 +63,22 @@ What changes from attempt 2:
 - Directions as attempt 2 (14a Right, 14b Down, 14c Right+Down), since attempt 2's walk results were lost to the timeouts.
 
 Pass for #168: in one direction, all of win_wait, ptr_wait, still6, close_wait > 0, up_dir −1, back_dir 0, match 1. Then `dialogPointer`/`dialogPointerY` become confirmed, the passing scenario stays and the other two are removed. If none passes, the budget is spent: remove the three scenarios (keep a passing one only), record the metrics here and the blockers on #168, and leave it `status:blocked`.
+
+### Attempt 3 (`f780865`, tier2: 61 pass, 3 fail)
+| scenario | load_done | win_wait | ptr_wait | up_dir | back_dir | still6 | close_wait | match |
+|---|---|---|---|---|---|---|---|---|
+| save-boot-14a-choice-mktinn-right | 295 | **0 (timeout)** | 0 | 0 | 0 | 0 | 0 | 0 |
+| save-boot-14b-choice-mktinn-down | 295 | **0 (timeout)** | 0 | 0 | 0 | 0 | 0 | 0 |
+| save-boot-14c-choice-mktinn-right-down | 295 | **0 (timeout)** | 0 | 0 | 0 | 0 | 0 | 0 |
+
+Every other scenario passed unchanged.
+
+Reading: in none of the three directions did window 0 leave state 0 within 600 frames of walking with a Circle edge every 8 frames. So no talk happened at all: not a plain message, not an ask. Attempt 2's timeouts are explained by the same thing. Possible causes, none tested:
+- the walk never comes within talk range of models 1-3 in these directions (camera mapping unknown here; the walk may stop against furniture or a counter);
+- models 1-3 are not talkable at this progress value (their talk scripts may be disabled, or they may be props and not NPCs);
+- the player cannot move from triangle 0's centroid in mktinn (never checked here; #99 checked movement in five other fields only).
+
+## Blockers (for whoever takes #168 next)
+1. **No known route to an ask.** One field with three directions and two talk methods found no window. A blind search costs one push per three tries, against a 64-scenario cap that main nearly fills (61).
+2. **What would unblock it:** a documented location of a talkable NPC with an ask: a field, a progress value and a position. For example, a source giving the innkeeper's coordinates in an inn whose script asks at any progress, or a documented progress value for a story choice (Aerith's flower in md8_1, Tifa's drink in Seventh Heaven). Another way is a diagnostic budget of more than 3 slots, from freeing slots or raising the cap: the cap is in `harness/private-eval/` (protected), so that needs the owner.
+3. A cheaper next diagnostic, if someone retries: report `x_dir`/`y_dir` from a walk with **no** wait (so a timeout can't zero them) and `fieldSolidRange`/talk-range signs to models 1-3 (as #112's `nearby()` does). That tells whether the walk reaches any model before any more talk attempts.

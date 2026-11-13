@@ -5,6 +5,7 @@ import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
+import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -120,6 +121,18 @@ labs.registerFlag(TAPS_FLAG, {
     'Flag off: tapping the picture does nothing.',
   ],
 });
+labs.registerFlag(PANEL_FLAG, {
+  label: 'Tap-to-select main menu',
+  description: 'In the field main menu, a panel below the picture lists the ten commands. Tap one: the cursor moves there and Circle is pressed. Back and Close press Triangle. Portrait only.',
+  pr: 115,
+  checklist: [
+    'Open the main menu (Triangle): the panel appears below the picture; close it: it goes.',
+    'Tap Status, then Back: does the cursor land on Status, and does Back return to the list?',
+    'Does each label match the game\'s own row (Item to Save, top to bottom)?',
+    'Tap PHS or Save when they are greyed out: the game ignores it, nothing breaks.',
+    'The classic pad and the picture still work while the panel is up.',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -176,6 +189,7 @@ const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), togg
 const autoControls = createAutoControls({ controls, labs });
 const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
+const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -212,6 +226,7 @@ const backendReady = createWorkerBackend({
     autoControls.setGate(gate);
     battleHud.setGate(gate);
     dialogueTaps.setGate(gate);
+    menuPanel.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -226,6 +241,7 @@ const backendReady = createWorkerBackend({
   autoControls.setBackend(b);
   battleHud.setBackend(b);
   dialogueTaps.setBackend(b);
+  menuPanel.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -348,6 +364,7 @@ window.ff7web = {
   autoControls,
   battleHud,
   dialogueTaps,
+  menuPanel,
   suspend,
   drawnFrame: () => drawn,
 };

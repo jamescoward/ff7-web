@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-11d-battle-command-rows",
-  "description": "#171 attempt 2, first menu. From \"stats-battle\" (party Cloud, Barret, Tifa; a random battle in md1_1): wait until the widget id reads 1 (open_wait), 30 frames; the slot reads 2 (slot2, within 1 frame) and slot 2's row reads 0 (r2_zero, within 1 frame); mark, Down held 4 frames, 30 frames. A wait metric is the frames waited, 0 on a timeout (which stops the script). row0/row1/row2 and col* are read at the end of the script (the values of the command menu's cursor bytes, 0-255); r*_dir is the sign of the active slot's row at the end minus at the mark. Attempt 1 (#171) saw the slot read 2 and slot 2's row read 0, but Down every 20 frames did not make that row read 1 within 200 frames: this attempt reports where one Down press leaves the cursor instead of waiting for a value.",
+  "description": "#171 attempt 3, first menu. From \"stats-battle\" (party Cloud, Barret, Tifa; a random battle in md1_1): wait until the widget id reads 1 (open_wait), 30 frames; the slot reads 2 (slot2, within 1 frame) and slot 2's row reads 0 (r2_zero, within 1 frame); Down every 20 frames (held 4) until slot 2's row reads 3 (r2_down), Up every 20 frames until it reads 0 (r2_up), 10 frames. End: slot 2's row 0, the other slots' rows 0, still battle; match: a rerun from the same snapshot. A wait metric is the frames waited, 0 on a timeout (which stops the script). row* at the end are the other slots' rows (0-255), which must not move. With no materia (the stats-battle save) the command menu has no Magic or Summon row, and Down goes from Attack (row 0) to Item (row 3): #171 attempt 2 read row 3 after one Down press in both menus, with every other row still 0.",
   "boot": {
     "from": "stats-battle"
   },
@@ -37,16 +37,6 @@
       "addr": "0x800f953f",
       "type": "u8",
       "description": "D_800F90B4[2].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor row of party slot 2. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
-    },
-    "col1": {
-      "addr": "0x800f92fe",
-      "type": "u8",
-      "description": "D_800F90B4[1].table00.column (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor column of party slot 1. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
-    },
-    "col2": {
-      "addr": "0x800f953e",
-      "type": "u8",
-      "description": "D_800F90B4[2].table00.column (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor column of party slot 2. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
     }
   },
   "input": [
@@ -86,28 +76,63 @@
       "metric": "r2_zero"
     },
     {
-      "mark": "before"
-    },
-    {
-      "buttons": [
-        "down"
-      ],
-      "frames": 4
+      "wait": {
+        "until": {
+          "mem": "row2",
+          "equals": 3
+        },
+        "timeout": 200,
+        "press": {
+          "buttons": [
+            "down"
+          ],
+          "every": 20,
+          "hold": 4
+        }
+      },
+      "metric": "r2_down"
     },
     {
       "wait": {
-        "frames": 30
+        "until": {
+          "mem": "row2",
+          "equals": 0
+        },
+        "timeout": 200,
+        "press": {
+          "buttons": [
+            "up"
+          ],
+          "every": 20,
+          "hold": 4
+        }
+      },
+      "metric": "r2_up"
+    },
+    {
+      "wait": {
+        "frames": 10
       }
     }
   ],
   "assert": [
     {
-      "change": {
+      "expect": {
         "mem": "row2",
-        "is": "increased",
-        "since": "before"
-      },
-      "metric": "r2_dir"
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "row0",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "row1",
+        "equals": 0
+      }
     },
     {
       "expect": {
@@ -116,17 +141,18 @@
       }
     },
     {
-      "sameState": "rerun"
+      "sameState": "rerun",
+      "metric": "match"
     }
   ],
   "metrics": [
     "open_wait",
     "slot2",
     "r2_zero",
-    "r2_dir",
-    "row2",
-    "col2",
+    "r2_down",
+    "r2_up",
     "row0",
-    "row1"
+    "row1",
+    "match"
   ]
 }

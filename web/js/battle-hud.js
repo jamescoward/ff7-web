@@ -105,7 +105,12 @@ export function createBattleHud({ root, labs, timers = globalThis, hz = HUD_HZ, 
   const reader = () => {
     if (source) return source;
     if (!gateActive || !backend) return null;
-    semantic ??= semanticFor({ backend: { readMem: (a, l) => backend.readMem(a, l) }, exeSha1: ADDRESS_TABLE.exe });
+    // Read-only view: readMem plus the last frame the worker posted, so mode()'s
+    // movie window counts game frames, whatever the polling rate (#146, #181).
+    semantic ??= semanticFor({
+      backend: { readMem: (a, l) => backend.readMem(a, l), get frame() { return backend.frame; } },
+      exeSha1: ADDRESS_TABLE.exe,
+    });
     return semantic;
   };
   const shouldRun = () => flagOn() && gateActive && (source !== null || backend !== null);

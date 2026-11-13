@@ -41,8 +41,8 @@ async function setup({ flag = true, gate = true, mode = menu, cursor = 0, wraps 
   const mixer = createInputMixer((m) => masks.push(m));
   const root = fakeRoot();
   const sim = {
-    frame: 100, mode, cursor, mask: 0, reads: 0, cursorSample: null, held: 0,
-    async mode() { return this.mode; },
+    frame: 100, modeSample: mode, cursor, mask: 0, reads: 0, cursorSample: null, held: 0,
+    async mode() { return this.modeSample; },
     async menuCursor() {
       this.reads++;
       return this.cursorSample ?? { value: this.cursor, confirmed: true };
@@ -78,15 +78,15 @@ describe('createMenuPanel', () => {
     assert.equal(s.root.hidden, false);
     assert.ok(s.root.ownerDocument.documentElement.attrs.has('data-menu-panel-on'));
     for (const m of [field, { ...menu, confirmed: false }]) {
-      s.sim.mode = m;
+      s.sim.modeSample = m;
       await s.panel.tick();
       assert.equal(s.root.hidden, true, JSON.stringify(m));
     }
-    s.sim.mode = menu;
+    s.sim.modeSample = menu;
     await s.panel.tick();
     assert.equal(s.root.hidden, false);
     // A failed read leaves it as it is.
-    s.sim.mode = { value: null, confirmed: false };
+    s.sim.modeSample = { value: null, confirmed: false };
     await s.panel.tick();
     assert.equal(s.root.hidden, false);
   });
@@ -171,7 +171,7 @@ describe('createMenuPanel', () => {
   });
 
   test('an unread or unconfirmed cursor at tap time sends nothing', async () => {
-    for (const sample of [{ value: null, confirmed: false }, { value: 2, confirmed: false }, null]) {
+    for (const sample of [{ value: null, confirmed: false }, { value: 2, confirmed: false }, { value: undefined, confirmed: true }]) {
       const s = await setup();
       await s.panel.tick();
       s.sim.cursorSample = sample;
@@ -212,7 +212,7 @@ describe('createMenuPanel', () => {
     await s.panel.tick();
     await s.panel.tapRow(5);
     s.sim.advance(); await s.panel.turn();
-    s.sim.mode = field;
+    s.sim.modeSample = field;
     await s.panel.tick();
     assert.equal(s.panel.planning, false);
     assert.equal(s.mixer.mask, 0);

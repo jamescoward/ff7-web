@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-11d-battle-command-rows",
-  "description": "#171 (follow-up to #110 attempt 2): one metric per check, and the slot read 30 frames after the menu opens. From \"stats-battle\" (party Cloud, Barret, Tifa; a random battle in md1_1): wait until the widget id reads 1 (open_wait), 30 frames; the slot reads 2 (slot2, within 1 frame), slot 2's row reads 0 (r2_zero, within 1 frame), Down every 20 frames (held 4) until it reads 1 (r2_down), Up every 20 frames until it reads 0 (r2_up). Take Attack on the default target as save-boot-11c does (Circle until widget 0, 20 frames, Circle until 0xffff), wait until the widget reads 1 again (next_wait), 30 frames; the slot reads 1 (slot1), slot 1's row reads 0 (no metric), Down every 20 frames until it reads 1 (r1_down), 10 frames. A wait metric is the frames waited, 0 on a timeout, which stops the script: the first 0 names the failing step. End: still battle, slot 1's row still 1, and a rerun from the same snapshot matches (no metric; determinism is also checked by two Tier 2 runs).",
+  "description": "#171 attempt 2, first menu. From \"stats-battle\" (party Cloud, Barret, Tifa; a random battle in md1_1): wait until the widget id reads 1 (open_wait), 30 frames; the slot reads 2 (slot2, within 1 frame) and slot 2's row reads 0 (r2_zero, within 1 frame); mark, Down held 4 frames, 30 frames. A wait metric is the frames waited, 0 on a timeout (which stops the script). row0/row1/row2 and col* are read at the end of the script (the values of the command menu's cursor bytes, 0-255); r*_dir is the sign of the active slot's row at the end minus at the mark. Attempt 1 (#171) saw the slot read 2 and slot 2's row read 0, but Down every 20 frames did not make that row read 1 within 200 frames: this attempt reports where one Down press leaves the cursor instead of waiting for a value.",
   "boot": {
     "from": "stats-battle"
   },
@@ -23,15 +23,30 @@
       "type": "u8",
       "description": "g_BattleMenuPartySlot (u8; config/symbols.battle.txt 0x800F38A0): the party slot whose command menu is shown (BattleMenuWidgetCommandReset reads g_ActiveCharacters[g_BattleMenuPartySlot] and D_800F90B4[g_BattleMenuPartySlot]). Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
     },
+    "row0": {
+      "addr": "0x800f90bf",
+      "type": "u8",
+      "description": "D_800F90B4[0].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor row of party slot 0. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+    },
     "row1": {
       "addr": "0x800f92ff",
       "type": "u8",
-      "description": "D_800F90B4[1].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, row at +0x0B): the command cursor row of party slot 1. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+      "description": "D_800F90B4[1].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor row of party slot 1. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
     },
     "row2": {
       "addr": "0x800f953f",
       "type": "u8",
-      "description": "D_800F90B4[2].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, row at +0x0B): the command cursor row of party slot 2. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+      "description": "D_800F90B4[2].table00.row (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor row of party slot 2. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+    },
+    "col1": {
+      "addr": "0x800f92fe",
+      "type": "u8",
+      "description": "D_800F90B4[1].table00.column (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor column of party slot 1. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
+    },
+    "col2": {
+      "addr": "0x800f953e",
+      "type": "u8",
+      "description": "D_800F90B4[2].table00.column (u8; src/battle/battle_private.h BattleMenuSlot, 0x240 bytes per slot; include/game.h MenuTable, column at +0x0A, row at +0x0B): the command cursor column of party slot 2. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code)"
     }
   },
   "input": [
@@ -71,139 +86,28 @@
       "metric": "r2_zero"
     },
     {
-      "wait": {
-        "until": {
-          "mem": "row2",
-          "equals": 1
-        },
-        "timeout": 200,
-        "press": {
-          "buttons": [
-            "down"
-          ],
-          "every": 20,
-          "hold": 4
-        }
-      },
-      "metric": "r2_down"
+      "mark": "before"
     },
     {
-      "wait": {
-        "until": {
-          "mem": "row2",
-          "equals": 0
-        },
-        "timeout": 200,
-        "press": {
-          "buttons": [
-            "up"
-          ],
-          "every": 20,
-          "hold": 4
-        }
-      },
-      "metric": "r2_up"
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "widget",
-          "equals": 0
-        },
-        "timeout": 200,
-        "press": {
-          "buttons": [
-            "circle"
-          ],
-          "every": 30,
-          "hold": 4
-        }
-      }
-    },
-    {
-      "wait": {
-        "frames": 20
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "widget",
-          "equals": 65535
-        },
-        "timeout": 200,
-        "press": {
-          "buttons": [
-            "circle"
-          ],
-          "every": 30,
-          "hold": 4
-        }
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "widget",
-          "equals": 1
-        },
-        "timeout": 1800
-      },
-      "metric": "next_wait"
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
     },
     {
       "wait": {
         "frames": 30
       }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "actor",
-          "equals": 1
-        },
-        "timeout": 1
-      },
-      "metric": "slot1"
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "row1",
-          "equals": 0
-        },
-        "timeout": 1
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "row1",
-          "equals": 1
-        },
-        "timeout": 200,
-        "press": {
-          "buttons": [
-            "down"
-          ],
-          "every": 20,
-          "hold": 4
-        }
-      },
-      "metric": "r1_down"
-    },
-    {
-      "wait": {
-        "frames": 10
-      }
     }
   ],
   "assert": [
     {
-      "expect": {
-        "mem": "row1",
-        "equals": 1
-      }
+      "change": {
+        "mem": "row2",
+        "is": "increased",
+        "since": "before"
+      },
+      "metric": "r2_dir"
     },
     {
       "expect": {
@@ -219,10 +123,10 @@
     "open_wait",
     "slot2",
     "r2_zero",
-    "r2_down",
-    "r2_up",
-    "next_wait",
-    "slot1",
-    "r1_down"
+    "r2_dir",
+    "row2",
+    "col2",
+    "row0",
+    "row1"
   ]
 }

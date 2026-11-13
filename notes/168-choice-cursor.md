@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-13): attempt 1 done (mktinn loads; NPC directions known); attempt 2 (walk and talk, three directions) pushed. Attempts used: 2 of 3.
+Status (2026-11-13): attempts 1 and 2 done; attempt 2 reached no choice window. Attempts used: 2 of 3; the last one is not started.
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -32,3 +32,23 @@ Reading: the generated save loads into mktinn (field ID 199 checked, field mode)
 How the pad maps to PosX/PosY depends on the field's camera (at md1stin Right raised PosX, Down lowered both, #77), so three directions are tried at once: `save-boot-14a` Right, `14b` Down, `14c` Right+Down. Each holds its direction for 120 frames from the load point (the walk ends against whatever is in the way, facing it), then presses Circle every 30 frames until window 0's pointerEnabled reads 1 (`ptr_wait`; timeout 1800 frames fails the scenario). Circle every 30 frames advances any plain message before a question, and is rare enough not to pick the option in the frame the pointer appears. Then Down (4 frames) and 12 still frames: `ptr_y` (pointerY), `down_dir` (its sign of change), `win6` (still state 6). `x_dir`/`y_dir` say which way the walk went, so a failed direction still tells the camera mapping.
 
 What decides attempt 3 (the acceptance): a scenario where ptr_wait > 0, win6 = 1 and down_dir = 1 shows the pointer; attempt 3 adds Up (back to the first row: pointerY returns) and Circle (window closes), in that direction only, and confirms both entries.
+
+### Attempt 2 (`f2f9903`, tier2: 61 pass, 3 fail)
+| scenario | load_done | ptr_wait | x_dir y_dir | ptr_y | down_dir | win6 | match |
+|---|---|---|---|---|---|---|---|
+| save-boot-14a-choice-mktinn-right | 295 | **0 (timeout)** | 0 0 | 0 | 0 | 0 | 0 |
+| save-boot-14b-choice-mktinn-down | 295 | **0 (timeout)** | 0 0 | 0 | 0 | 0 | 0 |
+| save-boot-14c-choice-mktinn-right-down | 295 | **0 (timeout)** | 0 0 | 0 | 0 | 0 | 0 |
+
+Every other scenario passed unchanged.
+
+Reading:
+- In none of the three directions did pointerEnabled read 1 within 1800 frames of Circle every 30 frames after the walk. **No choice window was reached.**
+- A timeout stops the script and zeroes every check (README, Conditions), so `x_dir`/`y_dir` say nothing about where the walk went, and nothing tells whether *any* window opened (a plain message from an NPC, or none at all). That is the design flaw to fix: a raw memory metric (a location named in `metrics`) still reports its value after a timeout (as `map_cur` did in #108's timed-out diagnostic), while `change`/`compare` checks don't.
+
+## Options for attempt 3 (the last in the budget)
+1. **Same field, robust diagnostics plus a wider search.** Per scenario, walk several legs (e.g. Right, then Up, then Left) with Circle presses between legs, then the pointer wait. Report raw `win0` and `ptr_en` (they survive a timeout), and replace `change` checks by `mark`-free raw evidence where possible. This tells whether any NPC was talked to.
+2. **Another candidate.** The inn's vending machine (`{mktinn/cloud/s4}` in ff7-flat-wiki Savemap: a 200/100/50 gil choice) is a script of Cloud's own entity, which suggests a trigger the player walks into rather than an NPC talk; where it is in the room is unknown.
+3. **Stop:** record that no choice window is reachable with the current boot points, and ask (as a `needs-owner` question) for a documented progress value for a story choice (Aerith's flower in md8_1, Tifa's drink in the Seventh Heaven fields).
+
+If attempt 3 also fails, the contract says stop and report the blockers on #168.

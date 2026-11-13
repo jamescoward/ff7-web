@@ -35,3 +35,17 @@ export function dialogueTapButton(sample) {
   if (sample?.value?.waiting === true && sample.confirmed === true) return DIALOGUE_ACTIONS.advance.button;
   return null;
 }
+
+/**
+ * Main-menu panel actions (#115): what a tap on the touch panel presses.
+ * A row tap moves the cursor there with the menu planner, then presses
+ * `select`; Back and Close both press Triangle (the game's cancel button in
+ * the menu: it backs out of a sub-screen, and closes the main menu).
+ * Rows the game greys out (PHS, Save) are not special-cased: the input is
+ * still sent and the game ignores it, as it would a pad press.
+ */
+export const MENU_PANEL_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back', button: 'triangle' }),
+  close: Object.freeze({ id: 'close', label: 'Close', button: 'triangle' }),
+});

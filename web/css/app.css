@@ -410,3 +410,29 @@ body {
   }
   :root[data-safe-layout] .vp-center { align-self: end; }
 }
+
+/* Main menu panel (#115), Labs flag `menu-panel` (off by default): ten command
+   rows plus Back and Close in two columns below the picture, shown by
+   js/menu-panel.js only in a confirmed menu mode (<html data-menu-panel-on>).
+   Rows are 44 px tall. It adds height below the picture, so, like the debug
+   strip (#93), the page may scroll while it is shown, including with the
+   safe-layout flag. Landscape phones have no free space beside the picture,
+   so the panel is portrait only (as the battle strip, #166). */
+.menu-panel {
+  flex: none;
+  box-sizing: border-box;
+  padding: 6px var(--gap);
+  background: var(--panel);
+  color: var(--fg);
+}
+.menu-panel[hidden] { display: none; }
+.mp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.mp-row { min-height: 44px; min-width: 44px; font-size: 16px; }
+.mp-nav { background: var(--panel); border: 1px solid #ffffff33; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .menu-panel { display: none !important; }
+}
+@media not all and (orientation: landscape) and (max-height: 600px) {
+  :root[data-safe-layout][data-menu-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
+  :root[data-safe-layout][data-menu-panel-on] .screen { width: 100%; max-height: none; }
+}

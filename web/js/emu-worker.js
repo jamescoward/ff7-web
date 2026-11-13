@@ -323,8 +323,10 @@ const handlers = {
       .catch((e) => ({ active: false, reason: e.message }))
       .then(({ active, reason }) => {
         if (active) {
-          // Read-only: the layer gets a readMem over the core's RAM and nothing else.
-          const semantic = createSemantic({ backend: { readMem: peek }, exeSha1: ADDRESS_TABLE.exe });
+          // Read-only: the layer gets a readMem over the core's RAM and the core
+          // frame counter, nothing else. The frame lets mode()'s movie window
+          // count game frames rather than calls (#146, #181).
+          const semantic = createSemantic({ backend: { readMem: peek, get frame() { return frame; } }, exeSha1: ADDRESS_TABLE.exe });
           poller = createStatePoller({ semantic, post: (sample) => post({ type: 'state', sample }) });
           if (overlayOn) poller.start();
         }

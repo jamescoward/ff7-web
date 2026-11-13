@@ -4,6 +4,7 @@
 import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
+import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createWorkerBackend } from './backend.js';
@@ -133,6 +134,18 @@ labs.registerFlag(PANEL_FLAG, {
     'The classic pad and the picture still work while the panel is up.',
   ],
 });
+labs.registerFlag(BATTLE_PANEL_FLAG, {
+  label: 'Battle command panel',
+  description: 'In battle, while a command menu is open, large buttons below the picture: tap Command 1 to 4 to move the cursor there and press Circle. In target selection: Prev, Next, Confirm, Back. Portrait only.',
+  pr: 116,
+  checklist: [
+    'In a battle with Cloud, portrait: the panel appears when his menu opens; tap Command 1, then Confirm: he attacks.',
+    'Tap Command 2 (or a lower row): does the cursor land on that row before Circle?',
+    'In target selection: do Prev and Next move the target, and does Back return to the commands?',
+    'With Barret or Tifa acting, the command rows are greyed out (their rows are not confirmed yet); the targeting buttons still work.',
+    'The classic pad and the battle status strip still work while the panel is up.',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -190,6 +203,7 @@ const autoControls = createAutoControls({ controls, labs });
 const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
+const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -227,6 +241,7 @@ const backendReady = createWorkerBackend({
     battleHud.setGate(gate);
     dialogueTaps.setGate(gate);
     menuPanel.setGate(gate);
+    battlePanel.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -242,6 +257,7 @@ const backendReady = createWorkerBackend({
   battleHud.setBackend(b);
   dialogueTaps.setBackend(b);
   menuPanel.setBackend(b);
+  battlePanel.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -365,6 +381,7 @@ window.ff7web = {
   battleHud,
   dialogueTaps,
   menuPanel,
+  battlePanel,
   suspend,
   drawnFrame: () => drawn,
 };

@@ -35,6 +35,32 @@ export const MENUS = Object.freeze({
     labels: Object.freeze(['Item', 'Magic', 'Materia', 'Equip', 'Status', 'Order', 'Limit', 'Config', 'PHS', 'Save']),
     labelsStatus: 'hypothesis',
   }),
+  // The battle command menu (#116): the acting party slot's command list.
+  // The cursor is battleCommandRow<slot> for the slot battleInput() reports
+  // (only slot 0's row is confirmed, #110; slots 1 and 2 are #171), and only
+  // its row is read: a menu with more than one column (numColumns) is planned
+  // within the column the cursor is in. 4 rows and wrapping are SOURCE CLAIMS
+  // (Xeeynamo/ff7-decomp@2c9239a, src/battle/battle3.c
+  // BattleMenuWidgetCommandReset: numTotalRows = 4, numRowsPerPage = 4,
+  // wrapModeY = 1); Tier 2 has seen only rows 0 and 1 (Down, Up; #110,
+  // reactor-mode-4f). So plans never cross an end (wraps stays unconfirmed),
+  // and a row the game skips or lacks stops the plan executor ('moved' or
+  // 'stuck') before anything is selected.
+  battleCommand: Object.freeze({
+    name: 'battleCommand',
+    meaning: 'the battle command menu of the acting party slot (Attack at row 0)',
+    cursor: 'battleCommandRow0',
+    cursorPerSlot: true,
+    axis: 'vertical',
+    rows: 4,
+    rowsStatus: 'hypothesis',
+    wraps: true,
+    wrapsStatus: 'hypothesis',
+    // Generic labels: command names depend on the character's materia and are
+    // game data; they are never committed (#116 contract).
+    labels: Object.freeze(['Command 1', 'Command 2', 'Command 3', 'Command 4']),
+    labelsStatus: 'generic',
+  }),
 });
 
 /**

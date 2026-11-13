@@ -133,7 +133,8 @@ for (const name of BROWSERS) {
         await page.waitForTimeout(150);
         await page.locator('.bp-btn[data-action="back"]').tap();
         await until(async () => (await view(page)) === 'command', { timeout: 3000, what: 'back to commands' });
-        assert.deepEqual((await pads(page)).slice(4, 6), [CROSS, 0]);
+        await until(async () => (await pads(page)).length >= 6, { timeout: 3000, what: 'Cross press and release' });
+        assert.deepEqual(await pads(page), [RIGHT, 0, LEFT, 0, CROSS, 0]);
         // Row 2 to row 0 without wrapping: two Ups.
         await page.evaluate(() => { window.pads.length = 0; });
         await page.locator('.bp-btn[data-row="0"]').tap();

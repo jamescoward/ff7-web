@@ -34,5 +34,20 @@ Reading:
 ### Attempt 2 (diagnostic)
 `t1_target` and `t1_done` are the frames of turn 1's target and taken waits. Turn 2's menu wait is 3600 frames, in case the guards' actions hold Cloud's next turn. **Likely cause, fixed in the same push:** attempt 1 pressed select one frame after the menu opened, but `reactor-mode-4f`, which confirmed these values, left the menu for 30 frames first. A press during the menu's opening may be ignored, so each turn now waits `MENU_SETTLE` = 30 frames before the row check (a real tap can't land in the panel's first frame anyway). `next_ok` and `hp_ok` stay as checks without metrics (the limit is 8).
 
+### Attempt 2 results (`370ccb5`, tier2: 64 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | battle_wait 839, turn1 496, **t1_target 1, t1_done 1, turn2 752**, end_wait 482, next_wait 495, match 1 |
+
+Reading:
+- **Stretch 1 passes with touch actions only.** The end checks held: md1_1 (0x75), field mode, Cloud's HP in 1..9999, and the rerun from `reactor-entrance` matched.
+- **The cause of attempt 1 was the immediate tap.** With 30 frames between the menu opening and the tap, select reaches target selection one frame after the press (t1_target 1), and Confirm takes the command one frame after its press (t1_done 1), as #110 saw.
+- Cloud's second command menu opened 752 frames after the first command was taken. After turn 2, 482 frames of Command 1 / Confirm and result-screen taps ended the battle. How many of those were extra Attack turns is not measured; two planned turns plus the fallback win the battle.
+- The walk off took 495 frames, the same as `reactor-next-1-walk-off` (#77). The after-battle field state matches #77's.
+- Every other scenario passed unchanged.
+
+### Run 2
+The next push repeats the same script, to check determinism (the acceptance asks for two runs).
+
 ## Next stretches (route still unknown)
 md1_1 → md1_2 → the reactor interior → the first save point. Field IDs and exits come from `nearby()` gateways (#112) and the field ID reader. There is only one slot, so exploration diagnostics have to share the scenario's 8 metrics. If that is too slow, record it on #120 as the owner question on the slot cap.

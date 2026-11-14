@@ -339,7 +339,13 @@ export async function runSandbox({ work, disc, out, command, limits: rawLimits =
     throw e;
   } finally {
     sh('docker', ['rm', '--force', '--volumes', name], { allowFail: true });
-    if (parent) asRoot(parent.stop[0], parent.stop[1], { allowFail: true });
+    if (parent) {
+      try {
+        asRoot(parent.stop[0], parent.stop[1], { allowFail: true });
+      } catch {
+        /* best effort: a cleanup failure must not replace the report */
+      }
+    }
   }
 }
 

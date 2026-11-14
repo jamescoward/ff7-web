@@ -250,8 +250,10 @@ test('createArgs: --cgroup-parent only when given', () => {
 });
 
 dockerTest('memory, repeated (#149): 20 memory hogs in a row all report "memory", and no parent cgroup is left', { timeout: 300000 }, async () => {
-  const leftovers = () => readdirSync('/sys/fs/cgroup').filter((d) => d.startsWith('ff7sandbox_'));
-  const before = existsSync('/sys/fs/cgroup') ? leftovers() : [];
+  // Only this process's parents: other test files run in parallel and may
+  // have their own sandbox run in flight.
+  const mine = `ff7sandbox_${process.pid}_`;
+  const leftovers = () => readdirSync('/sys/fs/cgroup').filter((d) => d.startsWith(mine));
   for (let i = 0; i < 20; i++) {
     const { report, out } = await inSandbox(['node', 'memhog.mjs'], { memoryMiB: 128, timeoutS: 60 });
     releaseOutput(out);
@@ -259,7 +261,7 @@ dockerTest('memory, repeated (#149): 20 memory hogs in a row all report "memory"
     assert.equal(report.exit_code, 137, `run ${i}`);
     assert.ok(report.limit_counters.includes('memory'), `run ${i}: ${JSON.stringify(report)}`);
   }
-  if (existsSync('/sys/fs/cgroup')) assert.deepEqual(leftovers(), before, 'a parent cgroup was left behind');
+  if (existsSync('/sys/fs/cgroup')) assert.deepEqual(leftovers(), [], 'a parent cgroup was left behind');
 });
 
 dockerTest('processes: a fork bomb is held at the pids limit and the report says "pids"', { timeout: 120000 }, async () => {

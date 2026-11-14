@@ -20,7 +20,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { createArgs, imageRef, LIMITS, PINS, releaseOutput, runSandbox, SandboxError } from '../sandbox.js';
+import {
+  cgroupParentFor, createArgs, imageRef, LIMITS, PINS, releaseOutput, runSandbox, SandboxError,
+} from '../sandbox.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../../..');
@@ -224,6 +226,40 @@ dockerTest('memory: a memory hog is killed and the report says "memory"', { time
   const { report } = await inSandbox(['node', 'memhog.mjs'], { memoryMiB: 128, timeoutS: 60 });
   assert.deepEqual(report.limits_hit, ['memory']);
   assert.equal(report.exit_code, 137);
+});
+
+test('cgroup parent (#149): a per-run parent on cgroup v2 only, named safely', () => {
+  assert.deepEqual(cgroupParentFor('12_34', { driver: 'systemd', version: '2' }), {
+    name: 'ff7sandbox_12_34.slice', dir: '/sys/fs/cgroup/ff7sandbox_12_34.slice', stop: ['systemctl', ['stop', 'ff7sandbox_12_34.slice']],
+  });
+  assert.deepEqual(cgroupParentFor('12_34', { driver: 'cgroupfs', version: '2' }), {
+    name: '/ff7sandbox_12_34', dir: '/sys/fs/cgroup/ff7sandbox_12_34', stop: ['rmdir', ['/sys/fs/cgroup/ff7sandbox_12_34']],
+  });
+  assert.equal(cgroupParentFor('12_34', { driver: 'cgroupfs', version: '1' }), null);
+  assert.equal(cgroupParentFor('12_34', { driver: undefined, version: undefined }), null);
+  for (const bad of ['1-2', '../x', 'a/b', '', 'A b']) assert.equal(cgroupParentFor(bad, { driver: 'systemd', version: '2' }), null);
+});
+
+test('createArgs: --cgroup-parent only when given', () => {
+  const base = { name: 'n', image: 'img', work: '/w', disc: '/d', out: '/o', command: ['node', 'x.js'],
+    limits: Object.fromEntries(Object.entries(LIMITS).map(([k, v]) => [k, v.def])) };
+  assert.ok(!createArgs(base).includes('--cgroup-parent'));
+  const a = createArgs({ ...base, cgroupParent: 'p.slice' });
+  assert.equal(a[a.indexOf('--cgroup-parent') + 1], 'p.slice');
+  assert.equal(a.indexOf('--cgroup-parent'), a.lastIndexOf('--cgroup-parent'));
+});
+
+dockerTest('memory, repeated (#149): 20 memory hogs in a row all report "memory", and no parent cgroup is left', { timeout: 300000 }, async () => {
+  const leftovers = () => readdirSync('/sys/fs/cgroup').filter((d) => d.startsWith('ff7sandbox_'));
+  const before = existsSync('/sys/fs/cgroup') ? leftovers() : [];
+  for (let i = 0; i < 20; i++) {
+    const { report, out } = await inSandbox(['node', 'memhog.mjs'], { memoryMiB: 128, timeoutS: 60 });
+    releaseOutput(out);
+    assert.deepEqual(report.limits_hit, ['memory'], `run ${i}: ${JSON.stringify(report)}`);
+    assert.equal(report.exit_code, 137, `run ${i}`);
+    assert.ok(report.limit_counters.includes('memory'), `run ${i}: ${JSON.stringify(report)}`);
+  }
+  if (existsSync('/sys/fs/cgroup')) assert.deepEqual(leftovers(), before, 'a parent cgroup was left behind');
 });
 
 dockerTest('processes: a fork bomb is held at the pids limit and the report says "pids"', { timeout: 120000 }, async () => {

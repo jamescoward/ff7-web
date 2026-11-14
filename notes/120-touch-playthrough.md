@@ -49,5 +49,23 @@ Reading:
 ### Run 2
 The next push repeats the same script, to check determinism (the acceptance asks for two runs).
 
+## Stretch 2: md1_1 → md1_2 (`touch-2-md1-1-walk`, PR #197)
+Only one Tier 2 slot, so stretch 1's waits stay in the scenario (a timeout still fails it) but its metric names are dropped: the 8 metrics go to the current stretch.
+
+### Attempt 1 (`4237845`, probe; tier2: 64 pass, 0 fail)
+In md1_1 just after it loads: wait 30 frames, mark, drag up 20 frames.
+| scenario | metrics |
+|---|---|
+| touch-playthrough | gw0_to 116, gw1_to 118, g0x −1, g0y −1, g1x −1, g1y 1, up_dx 1, up_dy 1 |
+
+Reading:
+- md1_1 gateway 0 leads back to md1stin (116); **gateway 1 leads to md1_2 (118 = 0x76)**.
+- Gateway 1's first end lies at −x, +y from the player (signs of x1/y1 only; the line could still straddle the player in x).
+- A drag up moves the player +x, +y, as in md1stin (`reactor-field-5-walk-up`), so the camera is turned the same way, and the md1_2 exit is **up-left**, the drag that left md1stin.
+- Stretch 1's waits all held (the scenario passed), so stretch 1 repeated for a third run.
+
+### Attempt 2 (diagnostic walk)
+A fixed 2400-frame drag up-left with Interact taps (15 of every 20 frames), no `wait.until`, so the end checks report where it got to: `map_cur` and `game_state` at the end, the signs of both ends of gateway 1 against the player (in whatever field it ends in), and the signs of the player's move. The goal check is md1_2 (0x76) in field mode. #101 held Up+Left in md1_1 for 5236 frames (from a generated save, progress 6) and met a random battle without leaving, so up-left alone may hit a wall; if so, attempt 3 uses these signs to route round it.
+
 ## Next stretches (route still unknown)
 md1_1 → md1_2 → the reactor interior → the first save point. Field IDs and exits come from `nearby()` gateways (#112) and the field ID reader. There is only one slot, so exploration diagnostics have to share the scenario's 8 metrics. If that is too slow, record it on #120 as the owner question on the slot cap.

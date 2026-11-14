@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle, touch-2-md1-1-probe (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: still in md1_1 (0x75) in field mode with Cloud's HP above 0, and a rerun matches (checks without metrics). Metrics (probe for stretch 2): gw0_to/gw1_to are the fields gateways 0 and 1 lead to; g0x/g0y/g1x/g1y the signs of each gateway's first end minus the player's position; up_dx/up_dy the signs of the player's PosX/PosY change over the 20-frame drag up. Only field IDs, signs and 1/0 leave.",
+  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle, touch-2-md1-1-walk (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_2 (0x76) in field mode with Cloud's HP above 0, and a rerun matches (checks without metrics). Metrics (stretch 2 attempt 2): map_cur and game_state at the end; g1x/g1y/g1x2/g1y2 the signs of gateway 1's two ends minus the player's position in the field it ends in; mv_dx/mv_dy the signs of the player's PosX/PosY change over the walk. Only field IDs, signs and 1/0 leave.",
   "boot": {
     "from": "reactor-entrance"
   },
@@ -48,41 +48,29 @@
       "type": "u32",
       "description": "fieldY[0]: g_FieldEntity[0].PosY (s32 as u32; confirmed #77): the player; field units << 12. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
     },
-    "gw0_to": {
-      "addr": "0x800716c4",
-      "deref": "0x4a",
-      "type": "u16",
-      "description": "fieldTriggers -> gateways[0] to (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
-    },
-    "gw1_to": {
-      "addr": "0x800716c4",
-      "deref": "0x62",
-      "type": "u16",
-      "description": "fieldTriggers -> gateways[1] to (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
-    },
-    "gw0_x1": {
-      "addr": "0x800716c4",
-      "deref": "0x38",
-      "type": "u16",
-      "description": "fieldTriggers -> gateways[0] x1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
-    },
-    "gw0_y1": {
-      "addr": "0x800716c4",
-      "deref": "0x3a",
-      "type": "u16",
-      "description": "fieldTriggers -> gateways[0] y1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
-    },
     "gw1_x1": {
       "addr": "0x800716c4",
       "deref": "0x50",
       "type": "u16",
-      "description": "fieldTriggers -> gateways[1] x1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+      "description": "fieldTriggers -> gateways[1] x1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
     },
     "gw1_y1": {
       "addr": "0x800716c4",
       "deref": "0x52",
       "type": "u16",
-      "description": "fieldTriggers -> gateways[1] y1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+      "description": "fieldTriggers -> gateways[1] y1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_x2": {
+      "addr": "0x800716c4",
+      "deref": "0x56",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] x2 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_y2": {
+      "addr": "0x800716c4",
+      "deref": "0x58",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] y2 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8, fieldMapId at +0x12, 0x7FFF unused). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
     }
   },
   "input": [
@@ -90,14 +78,14 @@
       "segment": "touch-1-first-battle"
     },
     {
-      "segment": "touch-2-md1-1-probe"
+      "segment": "touch-2-md1-1-walk"
     }
   ],
   "assert": [
     {
       "expect": {
         "mem": "map_cur",
-        "equals": 117
+        "equals": 118
       }
     },
     {
@@ -114,26 +102,6 @@
           9999
         ]
       }
-    },
-    {
-      "compare": {
-        "mem": "gw0_x1",
-        "with": "pos_x",
-        "shift": 12,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "g0x"
-    },
-    {
-      "compare": {
-        "mem": "gw0_y1",
-        "with": "pos_y",
-        "shift": 12,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "g0y"
     },
     {
       "compare": {
@@ -156,36 +124,56 @@
       "metric": "g1y"
     },
     {
+      "compare": {
+        "mem": "gw1_x2",
+        "with": "pos_x",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "g1x2"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y2",
+        "with": "pos_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "g1y2"
+    },
+    {
       "change": {
         "mem": "pos_x",
         "is": "changed",
         "signed": true,
-        "since": "probe"
+        "since": "walk"
       },
-      "metric": "up_dx"
+      "metric": "mv_dx"
     },
     {
       "change": {
         "mem": "pos_y",
         "is": "changed",
         "signed": true,
-        "since": "probe"
+        "since": "walk"
       },
-      "metric": "up_dy"
+      "metric": "mv_dy"
     },
     {
       "sameState": "rerun"
     }
   ],
-  "snapshot": "touch-md1-1",
+  "snapshot": "touch-md1-2",
   "metrics": [
-    "gw0_to",
-    "gw1_to",
-    "g0x",
-    "g0y",
+    "map_cur",
+    "game_state",
     "g1x",
     "g1y",
-    "up_dx",
-    "up_dy"
+    "g1x2",
+    "g1y2",
+    "mv_dx",
+    "mv_dy"
   ]
 }

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { MEMORY, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { MEMORY, STRETCHES, battleTurn, dragButtons, playthroughFiles, serialise } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -32,7 +32,7 @@ describe('#120 touch playthrough', () => {
       ...Object.values(BATTLE_PANEL_ACTIONS).map((a) => a.button),
     ]);
     const held = [];
-    for (const step of stretch1().steps) {
+    for (const step of STRETCHES.flatMap((f) => f().steps)) {
       if (step.buttons) held.push(...step.buttons);
       if (step.wait?.press) held.push(...step.wait.press.buttons);
     }
@@ -52,7 +52,7 @@ describe('#120 touch playthrough', () => {
   });
 
   test('memory addresses match the semantic address table', () => {
-    const names = { game_state: 'gameState', map_cur: 'fieldId', loading: 'fieldLoading', widget: 'battleMenuWidget', row0: 'battleCommandRow0', hp0: 'partyHp0' };
+    const names = { game_state: 'gameState', map_cur: 'fieldId', loading: 'fieldLoading', widget: 'battleMenuWidget', row0: 'battleCommandRow0', hp0: 'partyHp0', pos_x: 'fieldX', pos_y: 'fieldY' };
     for (const [mem, entry] of Object.entries(names)) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === entry);
       assert.ok(e, entry);

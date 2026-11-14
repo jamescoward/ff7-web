@@ -1,7 +1,7 @@
 // Page wiring: file pick -> core worker; frames -> canvas; touch pad and
 // keyboard -> setPad; audio -> worklet; memory card <-> browser storage.
 
-import { createAutoControls, AUTO_FLAG } from './auto-controls.js';
+import { createAutoControls, AUTO_FLAG, WORLD_DRAG_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
@@ -96,6 +96,18 @@ labs.registerFlag(AUTO_FLAG, {
     'Leave it: drag-to-walk returns.',
     'Open the menu: the pad.',
     'Press Controls in a battle: your choice holds until the next mode change.',
+  ],
+});
+labs.registerFlag(WORLD_DRAG_FLAG, {
+  label: 'Drag to walk on the world map',
+  description: 'With Automatic controls also on: drag-to-walk on the world map too, not only in the field. Use the Controls button for the world-map buttons the field controls lack.',
+  pr: 134,
+  checklist: [
+    'Turn on Automatic controls and this flag, then walk out onto the world map: drag-to-walk is shown.',
+    'Drag in each direction: does the player move the way you drag, relative to the camera?',
+    'Press Controls: the classic pad, with every world-map button.',
+    'Enter a town: drag-to-walk stays; start a battle: the pad.',
+    'This flag off: the world map shows the classic pad, as before.',
   ],
 });
 labs.registerFlag(HUD_FLAG, {

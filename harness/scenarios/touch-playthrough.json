@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle, touch-2-md1-1-walk (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_2 (0x76) in field mode with Cloud's HP above 0, and a rerun matches (checks without metrics). Metrics (stretch 2 attempt 2): map_cur and game_state at the end; g1x/g1y/g1x2/g1y2 the signs of gateway 1's two ends minus the player's position in the field it ends in; mv_dx/mv_dy the signs of the player's PosX/PosY change over the walk. Only field IDs, signs and 1/0 leave.",
+  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle, touch-2-md1-1-walk (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_2 (0x76) in field mode with Cloud's HP above 0, and a rerun matches (checks without metrics). Metrics (stretch 2): map_cur and game_state at the end; g1x/g1y/g1x2/g1y2 the signs of gateway 1's two ends minus the player's position in the field it ends in; mv_dx/mv_dy the signs of the player's PosX/PosY change over the last walk leg. Only field IDs, signs and 1/0 leave.",
   "boot": {
     "from": "reactor-entrance"
   },

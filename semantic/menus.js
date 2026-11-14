@@ -66,7 +66,7 @@ export const MENUS = Object.freeze({
     // executor ('moved') when the cursor lands past it, and nothing is selected.
     skips: true,
     skipsStatus: 'confirmed',
-    skipsScenario: SC('save-boot-11d-battle-command-rows'),
+    skipsScenario: SC('save-boot-11d-battle-command-rows'), // and save-boot-11e-battle-command-row-slot1
     // Generic labels: command names depend on the character's materia and are
     // game data; they are never committed (#116 contract).
     labels: Object.freeze(['Command 1', 'Command 2', 'Command 3', 'Command 4']),

@@ -101,7 +101,7 @@ labs.registerFlag(AUTO_FLAG, {
 labs.registerFlag(WORLD_DRAG_FLAG, {
   label: 'Drag to walk on the world map',
   description: 'With Automatic controls also on: drag-to-walk on the world map too, not only in the field. Use the Controls button for the world-map buttons the field controls lack.',
-  pr: 134,
+  pr: 193,
   checklist: [
     'Turn on Automatic controls and this flag, then walk out onto the world map: drag-to-walk is shown.',
     'Drag in each direction: does the player move the way you drag, relative to the camera?',

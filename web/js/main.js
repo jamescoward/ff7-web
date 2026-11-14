@@ -370,9 +370,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     controls.releaseAll();
     keyboard.releaseAll();
-    // Ask for the state before pausing: the worker answers messages in order.
-    suspend.saveNow();
+    // Pause, then ask for the state (#195): the worker answers messages in
+    // order, so the state it returns is the paused core's, with no frame run
+    // in between. Both messages are posted synchronously here, before iOS can
+    // freeze the page.
     if (backend?.loaded) backend.pause();
+    suspend.saveNow();
   } else if (backend?.loaded) {
     backend.resume();
   }

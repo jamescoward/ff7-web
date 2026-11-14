@@ -55,13 +55,6 @@ jobs:
           harness/private-eval/validate/test/validate.test.js
           harness/private-eval/eval/test/eval.test.js
           harness/private-eval/eval/test/workflows.test.js
-      # Diagnostic for #149 only (this PR is never merged as is): loop the
-      # memory hog and print what the sandbox saw each time.
-      - name: '#149 memory-flake diagnostic'
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 15
-        run: node harness/private-eval/sandbox/diag/memflake.mjs 60
 
   build:
     if: >-

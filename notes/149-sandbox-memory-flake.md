@@ -33,3 +33,10 @@ On cgroup v2 hosts, run the container under a per-run parent cgroup:
 - `/ff7sandbox_<pid>_<ms>` with cgroupfs.
 
 After exit, read the parent's `memory.events` (it counts the whole subtree), then remove the parent. The existing test is unchanged. A new Docker test runs 20 hogs in a row and requires `memory` every time, with no parent left behind.
+
+**Measured with the fix** (tier2-build run 43558901181, PR #191 at `7ff60ab`, kernel 7.0.0-1014-aws):
+- The same 60-run Part A reported `memory` in **60/60** runs, with exit 137 in 60/60.
+- `system.slice`'s `oom_kill` no longer rose, because the containers now sit under their own parent.
+- The new 20-run test passed.
+
+The diagnostic was then removed from the PR (`50743ea`). It stays in that branch's history at `b68c974`.

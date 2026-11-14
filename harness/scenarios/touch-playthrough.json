@@ -1,0 +1,85 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "touch-playthrough",
+  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_1 (0x75), field mode, Cloud's HP is above 0, and a rerun matches (match). Only frame counts and 1/0 leave.",
+  "boot": {
+    "from": "reactor-entrance"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "gameState: g_GameState (s16 as u16; confirmed #76): field 1, battle 2. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "fieldId: g_FieldCurrentMap (s16 as u16; confirmed #77): md1stin 0x74, md1_1 0x75. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h"
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "fieldLoading: g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt"
+    },
+    "widget": {
+      "addr": "0x800f3896",
+      "type": "u16",
+      "description": "battleMenuWidget: g_BattleMenuModalWidgetId (s16 as u16; confirmed #110): 0xffff none, 1 the command menu, 0 target selection. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code) config/symbols.battle.txt, src/battle/battle3.c"
+    },
+    "row0": {
+      "addr": "0x800f90bf",
+      "type": "u8",
+      "description": "battleCommandRow0: D_800F90B4[0].table00.row (confirmed #110): party slot 0's command cursor row, 0 = Attack. Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 (reference only, no code) src/battle/battle_private.h, include/game.h MenuTable"
+    },
+    "hp0": {
+      "addr": "0x8009d85c",
+      "type": "u16",
+      "description": "partyHp0: g_ActiveCharacters[0].hp (s16 as u16; confirmed #78): Cloud's current HP. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h ActiveCharacterData"
+    }
+  },
+  "input": [
+    {
+      "segment": "touch-1-first-battle"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 117
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      }
+    },
+    {
+      "expect": {
+        "mem": "hp0",
+        "in": [
+          1,
+          9999
+        ]
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "snapshot": "touch-md1-1",
+  "metrics": [
+    "battle_wait",
+    "turn1",
+    "t1_target",
+    "t1_done",
+    "turn2",
+    "end_wait",
+    "next_wait",
+    "match"
+  ]
+}

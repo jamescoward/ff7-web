@@ -83,15 +83,19 @@ describe('battleInput reader', () => {
     assert.deepEqual(r.value, { actor: null, row: null, targeting: null });
   });
 
-  test('with the shipped table: widget, actor, slot 0\'s row and the target are confirmed; slots 1-2 rows are not reported', async () => {
-    const status = (n) => ADDRESS_TABLE.entries.find((e) => e.name === n).status;
-    for (const n of ['battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget']) assert.equal(status(n), 'confirmed', n);
-    for (const n of ['battleCommandRow1', 'battleCommandRow2']) assert.equal(status(n), 'hypothesis', n);
+  test('with the shipped table: widget, actor, every slot\'s row and the target are confirmed (#171)', async () => {
+    const entry = (n) => ADDRESS_TABLE.entries.find((e) => e.name === n);
+    for (const n of NAMES) assert.equal(entry(n).status, 'confirmed', n);
+    assert.equal(entry('battleCommandRow1').scenario, 'harness/scenarios/save-boot-11e-battle-command-row-slot1.json');
+    assert.equal(entry('battleCommandRow2').scenario, 'harness/scenarios/save-boot-11d-battle-command-rows.json');
     const a = setup({ widget: 0, actor: 0, rows: [1, 0, 0], target: 5, table: ADDRESS_TABLE });
     assert.deepEqual((await a.s.battleInput()).value, { actor: 0, row: 1, targeting: { index: 5 } });
     assert.deepEqual(a.reads.map(([x]) => x), [0x8009c560, 0x800f3896, 0x800f38a0, 0x800f90bf, 0x800f38a9]);
-    const b = setup({ widget: 1, actor: 2, rows: [0, 0, 1], table: ADDRESS_TABLE });
-    assert.deepEqual((await b.s.battleInput()).value, { actor: 2, row: null, targeting: null });
+    const b = setup({ widget: 1, actor: 2, rows: [0, 0, 3], table: ADDRESS_TABLE });
+    assert.deepEqual((await b.s.battleInput()).value, { actor: 2, row: 3, targeting: null });
+    assert.equal(b.reads.find(([x]) => x === 0x800f90bf + 0x480)?.[1], 1, 'slot 2 row read as one byte');
+    const c = setup({ widget: 1, actor: 1, rows: [0, 3, 0], table: ADDRESS_TABLE });
+    assert.deepEqual((await c.s.battleInput()).value, { actor: 1, row: 3, targeting: null });
   });
 
   test('inactive gate: value null with reason inactive', async () => {

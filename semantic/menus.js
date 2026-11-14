@@ -37,15 +37,16 @@ export const MENUS = Object.freeze({
   }),
   // The battle command menu (#116): the acting party slot's command list.
   // The cursor is battleCommandRow<slot> for the slot battleInput() reports
-  // (only slot 0's row is confirmed, #110; slots 1 and 2 are #171), and only
-  // its row is read: a menu with more than one column (numColumns) is planned
-  // within the column the cursor is in. 4 rows and wrapping are SOURCE CLAIMS
-  // (Xeeynamo/ff7-decomp@2c9239a, src/battle/battle3.c
+  // (every slot's row is confirmed: slot 0 in #110, slots 1 and 2 in #171),
+  // and only its row is read: a menu with more than one column (numColumns) is
+  // planned within the column the cursor is in. 4 rows and wrapping are SOURCE
+  // CLAIMS (Xeeynamo/ff7-decomp@2c9239a, src/battle/battle3.c
   // BattleMenuWidgetCommandReset: numTotalRows = 4, numRowsPerPage = 4,
-  // wrapModeY = 1); Tier 2 has seen only rows 0 and 1 (Down, Up; #110,
-  // reactor-mode-4f). So plans never cross an end (wraps stays unconfirmed),
-  // and a row the game skips or lacks stops the plan executor ('moved' or
-  // 'stuck') before anything is selected.
+  // wrapModeY = 1); Tier 2 has seen rows 0 and 1 (Down, Up; #110,
+  // reactor-mode-4f) and, with no materia, Down going straight from row 0 to
+  // row 3 (the cursor skips rows with no command; #171). So plans never cross
+  // an end (wraps stays unconfirmed), and a row the game skips or lacks stops
+  // the plan executor ('moved' or 'stuck') before anything is selected.
   battleCommand: Object.freeze({
     name: 'battleCommand',
     meaning: 'the battle command menu of the acting party slot (Attack at row 0)',

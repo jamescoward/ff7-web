@@ -292,7 +292,7 @@ const BATTLE_MENU_ENTRIES = [
     address: 0x800f38a0,
     type: 'u8',
     meaning: 'party slot (0-2) whose battle command menu is shown (g_BattleMenuPartySlot). Meaningful only while battleMenuWidget is not -1',
-    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110): 0 when Cloud's menu opens in the first guard battle (Cloud alone; reactor-mode-4f); with party Cloud, Barret, Tifa in a random battle, 30 frames after the first menu opens it reads more than it does 30 frames after the next menu opens (Attack taken in between), and then it reads 1 (save-boot-11c; so the first was 2 if it stays in 0-2). A direct read of 2 is #171; reruns match`,
+    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110): 0 when Cloud's menu opens in the first guard battle (Cloud alone; reactor-mode-4f); with party Cloud, Barret, Tifa in a random battle, 30 frames after the first menu opens it reads more than it does 30 frames after the next menu opens (Attack taken in between), and then it reads 1 (save-boot-11c). #171 reads it directly: 2 30 frames after the first menu opens (save-boot-11d) and 1 30 frames after the next one (save-boot-11e); reruns match`,
     status: 'confirmed',
     scenario: SC('reactor-mode-4f-battle-command-right'),
   },
@@ -300,12 +300,12 @@ const BATTLE_MENU_ENTRIES = [
     name: `battleCommandRow${i}`,
     address: BATTLE_MENU_SLOTS + i * BATTLE_MENU_SLOT_SIZE + 0x0b,
     type: 'u8',
-    meaning: `command menu cursor row of party slot ${i} (D_800F90B4[${i}].table00.row; 4 rows per column, 0 = the top row, Attack; the column is the byte before)`,
+    meaning: `command menu cursor row of party slot ${i} (D_800F90B4[${i}].table00.row; 4 rows per column, 0 = the top row, Attack; a row with no command is skipped, so without materia Down goes from 0 to 3; the column is the byte before)`,
     source: i === 0
       ? `${BATTLE_MENU_SOURCE}. Tier 2 (#110): reads 0 when Cloud's menu opens in the first guard battle, 1 one frame after Down and 0 one frame after Up (reactor-mode-4f); a rerun matches`
-      : `${BATTLE_MENU_SOURCE} (slot ${i} at + ${i} * 0x240). Tier 2: #110 attempt 2 (save-boot-11d, removed) stopped before it read this row; follow-up #171`,
-    status: i === 0 ? 'confirmed' : 'hypothesis',
-    ...(i === 0 ? { scenario: SC('reactor-mode-4f-battle-command-right') } : {}),
+      : `${BATTLE_MENU_SOURCE} (slot ${i} at + ${i} * 0x240). Tier 2 (#171, notes/171-battle-rows.md): with party Cloud, Barret, Tifa and no materia (stats-battle), 30 frames after slot ${i}'s command menu opens (${i === 2 ? 'the first menu' : 'the next menu, after Tifa takes Attack'}) it reads 0, one Down press makes it 3 (Attack to Item: without materia there is no Magic or Summon row, and the cursor skips them) and Up makes it 0 again, while the other slots' rows stay 0; a rerun matches`,
+    status: 'confirmed',
+    scenario: i === 0 ? SC('reactor-mode-4f-battle-command-right') : SC(i === 2 ? 'save-boot-11d-battle-command-rows' : 'save-boot-11e-battle-command-row-slot1'),
   })),
   {
     name: 'battleTarget',

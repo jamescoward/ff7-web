@@ -42,6 +42,11 @@
     },
     {
       "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "wait": {
         "until": {
           "mem": "row0",
           "equals": 0
@@ -90,6 +95,11 @@
         "timeout": 3600
       },
       "metric": "turn2"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
     },
     {
       "wait": {

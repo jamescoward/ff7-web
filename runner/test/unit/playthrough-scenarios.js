@@ -99,6 +99,8 @@ const WIDGET_TARGET = 0;
 const WIDGET_COMMAND = 1;
 const HOLD = 4;
 const SETTLE = 30;
+/** Frames between the command menu opening and the first tap (as reactor-mode-4f). */
+export const MENU_SETTLE = 30;
 
 /**
  * Walk with a drag in `dir` while tapping Interact, until `until` holds.
@@ -126,6 +128,9 @@ export function battleTurn(to, metric, { target, done, menuTimeout = 1800 } = {}
   const plan = battlePanelPlan(from, to);
   return [
     { wait: { until: { mem: 'widget', equals: WIDGET_COMMAND }, timeout: menuTimeout }, ...(metric ? { metric } : {}) },
+    // A tap can't come the frame the panel appears; reactor-mode-4f (#110) also
+    // left the menu 30 frames before its first press.
+    { wait: { frames: MENU_SETTLE } },
     { wait: { until: { mem: 'row0', equals: from }, timeout: SETTLE } },
     ...scriptFromPlan(plan, 'row0'),
     { buttons: [BATTLE_PANEL_ACTIONS.select.button], frames: HOLD },

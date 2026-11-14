@@ -45,8 +45,9 @@ export const MENUS = Object.freeze({
   // wrapModeY = 1); Tier 2 has seen rows 0 and 1 (Down, Up; #110,
   // reactor-mode-4f) and, with no materia, Down going straight from row 0 to
   // row 3 (the cursor skips rows with no command; #171). So plans never cross
-  // an end (wraps stays unconfirmed), and a row the game skips or lacks stops
-  // the plan executor ('moved' or 'stuck') before anything is selected.
+  // an end (wraps stays unconfirmed). A skip towards the target is progress
+  // (`skips` below); a row the game skips or lacks stops the plan executor
+  // ('moved' past it, or 'stuck' at the last row) before anything is selected.
   battleCommand: Object.freeze({
     name: 'battleCommand',
     meaning: 'the battle command menu of the acting party slot (Attack at row 0)',
@@ -57,6 +58,15 @@ export const MENUS = Object.freeze({
     rowsStatus: 'hypothesis',
     wraps: true,
     wrapsStatus: 'hypothesis',
+    // The cursor skips rows with no command: with no materia, one Down goes
+    // from row 0 to row 3 and one Up comes back to 0, for slots 1 and 2
+    // (#171, save-boot-11d and save-boot-11e). Plans therefore count a landing
+    // on a later planned row as progress (planner `skips`, #189). Which rows a
+    // given member lacks is not read, so a tap on a skipped row stops the
+    // executor ('moved') when the cursor lands past it, and nothing is selected.
+    skips: true,
+    skipsStatus: 'confirmed',
+    skipsScenario: SC('save-boot-11d-battle-command-rows'),
     // Generic labels: command names depend on the character's materia and are
     // game data; they are never committed (#116 contract).
     labels: Object.freeze(['Command 1', 'Command 2', 'Command 3', 'Command 4']),
@@ -65,11 +75,17 @@ export const MENUS = Object.freeze({
 });
 
 /**
- * The planner arguments for a menu: { rows, wraps, axis }. `wraps` is true only
- * when wrapping is confirmed, so a plan never relies on a hypothesis about it.
+ * The planner arguments for a menu: { rows, wraps, axis, skips }. `wraps` and
+ * `skips` are true only when confirmed, so a plan never relies on a
+ * hypothesis about them.
  */
 export function menuPlanArgs(name) {
   const m = MENUS[name];
   if (!m) throw new RangeError(`unknown menu: ${name}`);
-  return { rows: m.rows, wraps: m.wrapsStatus === 'confirmed' && m.wraps, axis: m.axis };
+  return {
+    rows: m.rows,
+    wraps: m.wrapsStatus === 'confirmed' && m.wraps,
+    axis: m.axis,
+    skips: m.skipsStatus === 'confirmed' && m.skips === true,
+  };
 }

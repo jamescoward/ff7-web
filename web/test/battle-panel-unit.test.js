@@ -216,16 +216,30 @@ describe('createBattlePanel', () => {
     assert.ok(!s.masks.includes(PAD.circle));
   });
 
-  test('a row the game skips stops the plan as moved', async () => {
+  test('a skipped target row stops the plan as moved; a skip towards the target is progress (#189)', async () => {
+    const skipRow2 = (s) => {
+      const orig = s.sim.advance.bind(s.sim);
+      s.sim.advance = function () { orig(); if (this.row === 2) this.row = 3; }; // row 2 is blank and skipped
+    };
+    // Row 2 itself: the cursor lands past it, nothing is selected.
     const s = await setup();
     await s.panel.tick();
-    await s.panel.tapRow(3);
-    const orig = s.sim.advance.bind(s.sim);
-    s.sim.advance = function () { orig(); if (this.row === 2) this.row = 3; }; // row 2 is blank and skipped
+    await s.panel.tapRow(2);
+    skipRow2(s);
     await s.drive();
     assert.equal(s.panel.last.error.reason, 'moved');
     assert.ok(!s.masks.includes(PAD.circle));
     assert.equal(s.mixer.mask, 0);
+    // Row 3 past the skipped row 2: reached (#171 showed the game skips rows
+    // with no command), then Circle. Before #189 this stopped as moved.
+    const t = await setup();
+    await t.panel.tick();
+    await t.panel.tapRow(3);
+    skipRow2(t);
+    await t.drive();
+    assert.deepEqual(t.panel.last, { ok: true, row: 3 });
+    assert.equal(t.sim.row, 3);
+    assert.ok(t.masks.includes(PAD.circle));
   });
 
   test('the menu leaving mid-plan (another slot, targeting) stops it at once', async () => {

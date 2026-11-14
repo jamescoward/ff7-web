@@ -12,8 +12,11 @@
 // or a confirmed read showing the menu has gone ('left'), releases everything
 // and sends nothing more, not even Circle. Taps are ignored while a plan or a
 // press runs. The plan is cancelled when the flag turns off, the gate closes,
-// or the panel hides. Row taps need a confirmed row for the acting slot (only
-// slot 0's is confirmed so far, #171): otherwise the rows are disabled.
+// or the panel hides. Row taps need a confirmed row for the acting slot (every
+// slot's row is confirmed since #171): a sample without one disables the rows.
+// The game skips rows with no command (#171); the plan counts a press that
+// lands on a later planned row as progress (#189, semantic/menus.js `skips`),
+// and a tap on a skipped row stops with 'moved' once the cursor lands past it.
 // Original project code, GPL-2.0-or-later.
 
 import { ADDRESS_TABLE } from './semantic/addresses.js';

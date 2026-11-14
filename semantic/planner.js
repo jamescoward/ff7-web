@@ -53,19 +53,27 @@ function checkTiming(t) {
  *           wrap). false: the plan never crosses an end
  *   axis    'vertical' (Up/Down, the default) or 'horizontal' (Left/Right);
  *           the forward button (Down or Right) raises the row
+ *   skips   true if the game may skip rows (a press can move the cursor more
+ *           than one row, as the battle command menu does over rows with no
+ *           command, #171). The executor then counts a press that lands on a
+ *           later planned row, between the expected row and `to`, as
+ *           progress, and drops the presses it no longer needs. A landing
+ *           past `to` still stops it. Needs wraps false (RangeError
+ *           otherwise): without wrapping, "further along" is well defined
  *   timing  { hold, settle, gap } overrides of DEFAULT_TIMING
  *
- * Returns { from, to, rows, wraps, timing, steps }, where each step is
+ * Returns { from, to, rows, wraps, skips, timing, steps }, where each step is
  * { button, mask, expect }: press `button` (pad bits `mask`) for timing.hold
  * frames, then the cursor should read `expect`. Already there: no steps.
  * Bad input (rows < 1, a row out of range, non-integers) throws RangeError.
  */
-export function planCursorMove({ from, to, rows, wraps = false, axis = 'vertical', timing } = {}) {
+export function planCursorMove({ from, to, rows, wraps = false, axis = 'vertical', skips = false, timing } = {}) {
   if (!isInt(rows) || rows < 1) throw new RangeError(`rows must be an integer >= 1, got ${rows}`);
   for (const [k, v] of [['from', from], ['to', to]]) {
     if (!isInt(v) || v < 0 || v >= rows) throw new RangeError(`${k} must be a row in 0..${rows - 1}, got ${v}`);
   }
   if (axis !== 'vertical' && axis !== 'horizontal') throw new RangeError(`axis must be "vertical" or "horizontal", got ${axis}`);
+  if (skips && wraps) throw new RangeError('skips needs wraps false');
   const t = checkTiming(timing);
   const [back, fwd] = axis === 'vertical' ? ['up', 'down'] : ['left', 'right'];
 
@@ -87,7 +95,7 @@ export function planCursorMove({ from, to, rows, wraps = false, axis = 'vertical
     row = (row + dir + rows) % rows;
     steps.push(Object.freeze({ button, mask: PLAN_PAD[button], expect: row }));
   }
-  return Object.freeze({ from, to, rows, wraps: !!wraps, timing: Object.freeze(t), steps: Object.freeze(steps) });
+  return Object.freeze({ from, to, rows, wraps: !!wraps, skips: !!skips, timing: Object.freeze(t), steps: Object.freeze(steps) });
 }
 
 /**
@@ -119,7 +127,8 @@ export function planFrames(plan) {
  *              reason: 'start'    the cursor did not read plan.from at the
  *                                 first call
  *                      'moved'    the cursor changed to a row that is not the
- *                                 expected one
+ *                                 expected one (with plan.skips: nor a later
+ *                                 planned row)
  *                      'stuck'    the cursor still read the previous row
  *                                 timing.settle frames after the release
  *                      'unread'   the cursor could not be read for
@@ -144,6 +153,19 @@ export function createPlanExecutor(plan) {
     return result;
   };
   const running = (mask) => ({ mask, state: 'running' });
+  // The cursor reads steps[j].expect: steps up to j are done; go on with j + 1.
+  const arrived = (j, frame) => {
+    prev = steps[j].expect;
+    index = j + 1;
+    if (index === steps.length) return finish('done');
+    since = frame;
+    if (gap === 0) {
+      state = 'press';
+      return running(steps[index].mask);
+    }
+    state = 'gap';
+    return running(0);
+  };
 
   return {
     step(frame, cursor) {
@@ -184,19 +206,11 @@ export function createPlanExecutor(plan) {
           if (++unread >= settle) return finish('failed', { reason: 'unread', step: index, expected: expect, actual: null, frame });
         } else {
           unread = 0;
-          if (cursor === expect) {
-            prev = expect;
-            index++;
-            if (index === steps.length) return finish('done');
-            if (gap === 0) {
-              state = 'press';
-              since = frame;
-              return running(steps[index].mask);
-            }
-            state = 'gap';
-            since = frame;
-            return running(0);
-          }
+          if (cursor === expect) return arrived(index, frame);
+          // plan.skips: a landing on a later planned row (the game skipped
+          // rows in between) is progress; the presses it covered are dropped.
+          const ahead = plan.skips && cursor !== prev ? steps.findIndex((s, j) => j > index && s.expect === cursor) : -1;
+          if (ahead > index) return arrived(ahead, frame);
           if (cursor !== prev) return finish('failed', { reason: 'moved', step: index, expected: expect, actual: cursor, frame });
         }
         if (frame - since >= settle) return finish('failed', { reason: read ? 'stuck' : 'unread', step: index, expected: expect, actual: read ? cursor : null, frame });

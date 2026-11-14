@@ -20,7 +20,19 @@
 End checks: field ID 0x75 (md1_1), field mode, Cloud's HP in 1..9999, rerun match. Snapshot `touch-md1-1`.
 
 ## Results
-_None yet. The first Tier 2 run is on this PR's first push._
+### Attempt 1 (`5c866b4`, tier2: 63 pass, 1 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | **battle_wait 839**, **turn1 496**, turn2 0, end_wait 0, next_wait 0, next_ok 0, hp_ok 0, match 0 |
+
+Reading:
+- **Dragging up with Interact taps from `reactor-entrance` reaches the first guard battle** in 839 frames, the same as #76 from `field-after-menu`. The menu open/close before it changes nothing.
+- Cloud's first command menu opened 496 frames after BattleMenuInit (widget −1 → 1).
+- Then a wait timed out: one of turn 1's row check, target selection (widget 0) or command taken (widget −1), each within 30 frames, or turn 2's command menu within 1800 frames. A timeout zeroes every later metric, so this run can't say which.
+- Every other scenario passed unchanged.
+
+### Attempt 2 (diagnostic)
+`t1_target` and `t1_done` are the frames of turn 1's target and taken waits. Turn 2's menu wait is 3600 frames, in case the guards' actions hold Cloud's next turn. `next_ok` and `hp_ok` stay as checks without metrics (the limit is 8).
 
 ## Next stretches (route still unknown)
 md1_1 → md1_2 → the reactor interior → the first save point. Field IDs and exits come from `nearby()` gateways (#112) and the field ID reader. There is only one slot, so exploration diagnostics have to share the scenario's 8 metrics. If that is too slow, record it on #120 as the owner question on the slot cap.

@@ -184,11 +184,41 @@ function sample(files, seen) {
   );
 }
 
+/**
+ * A per-run parent cgroup for the container, on cgroup v2 hosts (#149).
+ * The container's own cgroup is removed when it exits, so a memory kill
+ * just before exit can be missed by polling it, and Docker's OOMKilled flag
+ * is unreliable on cgroup v2. The parent outlives the container, and its
+ * memory.events counts kills in the whole subtree (measured on GitHub's
+ * runner: 30/30, including runs where inspect saw Pid 0 or OOMKilled was
+ * false; notes/149-sandbox-memory-flake.md). Returns null elsewhere.
+ */
+export function cgroupParentFor(runId, { driver, version }) {
+  if (String(version) !== '2' || !/^[a-z0-9_]+$/.test(runId)) return null;
+  if (driver === 'systemd') {
+    // A '-' in a slice name means nesting, so the id uses '_' only.
+    const name = `ff7sandbox_${runId}.slice`;
+    return { name, dir: `/sys/fs/cgroup/${name}`, stop: ['systemctl', ['stop', name]] };
+  }
+  if (driver === 'cgroupfs') {
+    const name = `/ff7sandbox_${runId}`;
+    return { name, dir: `/sys/fs/cgroup${name}`, stop: ['rmdir', [`/sys/fs/cgroup${name}`]] };
+  }
+  return null;
+}
+
+function dockerCgroup() {
+  const r = sh('docker', ['info', '--format', '{{.CgroupDriver}} {{.CgroupVersion}}'], { allowFail: true });
+  const [driver, version] = r.status === 0 ? r.stdout.trim().split(' ') : [];
+  return { driver, version };
+}
+
 /** The docker create arguments: every isolation setting is here, in one place. */
-export function createArgs({ name, image, work, disc, out, limits, command }) {
+export function createArgs({ name, image, work, disc, out, limits, command, cgroupParent = null }) {
   return [
     'create',
     '--name', name,
+    ...(cgroupParent ? ['--cgroup-parent', cgroupParent] : []),
     '--pull', 'never',
     '--network', 'none',
     '--ipc', 'none',
@@ -238,19 +268,22 @@ export async function runSandbox({ work, disc, out, command, limits: rawLimits =
   const docker = dockerServerVersion();
   prepareOutput(out, limits.outMiB);
 
-  const name = `ff7-sandbox-${process.pid}-${Date.now()}`;
+  const runId = `${process.pid}_${Date.now()}`;
+  const name = `ff7-sandbox-${runId.replace('_', '-')}`;
+  const parent = cgroupParentFor(runId, dockerCgroup());
+  const parentFiles = parent ? { memEvents: path.join(parent.dir, 'memory.events') } : {};
   const seen = { pidsMax: 0, oomKill: 0 };
   const counters = [];
   let timedOut = false;
   const t0 = Date.now();
   try {
-    sh('docker', createArgs({ name, image, work, disc, out, limits, command }));
+    sh('docker', createArgs({ name, image, work, disc, out, limits, command, cgroupParent: parent?.name }));
     sh('docker', ['start', name]);
 
     const pid = Number(sh('docker', ['inspect', '--format', '{{.State.Pid}}', name]).stdout.trim());
     const files = pid > 0 ? cgroupFiles(pid) : {};
     if (files.pidsEvents) counters.push('pids');
-    if (files.memEvents || files.memOom) counters.push('memory');
+    if (files.memEvents || files.memOom || (parent && existsSync(parentFiles.memEvents))) counters.push('memory');
     const waiter = spawn('docker', ['wait', name], { stdio: 'ignore' });
     const exited = new Promise((resolve) => waiter.on('exit', resolve));
     const poll = setInterval(() => sample(files, seen), 100);
@@ -268,6 +301,8 @@ export async function runSandbox({ work, disc, out, command, limits: rawLimits =
     }
     clearInterval(poll);
     sample(files, seen);
+    // The parent cgroup is still there after the container's own is gone.
+    sample(parentFiles, seen);
 
     const state = JSON.parse(sh('docker', ['inspect', '--format', '{{json .State}}', name]).stdout);
     const elapsed = Math.round((Date.now() - t0) / 1000);
@@ -304,6 +339,13 @@ export async function runSandbox({ work, disc, out, command, limits: rawLimits =
     throw e;
   } finally {
     sh('docker', ['rm', '--force', '--volumes', name], { allowFail: true });
+    if (parent) {
+      try {
+        asRoot(parent.stop[0], parent.stop[1], { allowFail: true });
+      } catch {
+        /* best effort: a cleanup failure must not replace the report */
+      }
+    }
   }
 }
 

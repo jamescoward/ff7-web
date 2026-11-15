@@ -67,9 +67,25 @@ Reading:
 - PosY and PosX show no change after the 100-frame mark, and field models 1 and 2 show no move over the up leg. **This is ambiguous by itself:** a `change` metric is also 0 when an earlier wait timed out (the script then stops there). Attempt 3 saw +1/+1 over the whole up leg, so if the script ran to the end, Cloud moved only in the first 100 frames of the up leg and then stood still for about 1100 frames with no window open and models 1 and 2 still. That points to a wall or solid obstacle, not a scene.
 - Run 2 settles the ambiguity and times the stall.
 
-### Run 2 (last)
-Marks at 0, 20, 40, 60 and 100 frames into the up leg. Metrics:
-- `dy_0` and `dx_0` (since the start of the up leg; non-zero proves the script reached the end);
-- `dy_20`, `dy_40`, `dy_60`;
-- `dx_100` (does Cloud still slide sideways after the stall?);
-- raw `map_cur` and `game_state`.
+### Run 2 (`ff81bf4`, tier2: 63 pass, 1 fail by design; last of the budget)
+Marks at 0, 20, 40, 60 and 100 frames into the up leg.
+
+| scenario | metrics |
+|---|---|
+| touch-playthrough (fail) | dy_0 1, dx_0 1, dy_20 1, dy_40 1, dy_60 1, dx_100 0, map_cur 117, game_state 1 |
+
+Reading:
+- **The script ran to the end:** PosY and PosX rose over the up leg (dy_0, dx_0 = +1, as in attempt 3). So run 1's zeros are real readings, not a timeout.
+- **Cloud stops between 60 and 100 frames into the up leg.** PosY still changes after the 60-frame mark (dy_60 +1), and neither PosY nor PosX changes after the 100-frame mark (run 1: dy_100, dx_700 0; run 2: dx_100 0). The input is the same in both runs, and every earlier part of the chain has repeated exactly in each run so far.
+- He then stands still in md1_1 (117), in field mode, for about 1100 frames of drag-up with Interact taps.
+
+### Conclusion (#200)
+| hypothesis | verdict |
+|---|---|
+| (a) a wall or solid model stops Cloud below the line | **supported.** He walks up for 60-100 frames, then stops dead, with no sideways slide. Nothing else changes that the diagnostic could see. |
+| (b) a scene holds the exit | **not supported as far as measured.** No message window is open at the end; field models 1 and 2 don't move over the up leg; the mode stays field. Not ruled out: a window that opens and closes mid-leg, or models 3-6 moving. |
+| (c) the line is out of reach in z | not tested (`fieldZ` is still a hypothesis). It wouldn't explain Cloud stopping dead. |
+
+**Route suggestion for #120 stretch 2 (a fresh budget there):** at the stall point, gateway 1 straddles Cloud in x with both ends above him (+y) (attempt 3). Something blocks the straight-up drag just short of the line.
+- Next, try a short drag up-right, then up-left, from the stall point, with `change … since` signs, to find which way slides past the obstacle.
+- If neither moves Cloud, read which field model is nearest above him. #112's `nearby()` model positions as signs would show whether a solid model (for example a party member or the gate) stands in the way.

@@ -200,7 +200,7 @@ export function stretch1() {
  * scene); and fieldModelCount. The merged generator has DIAGNOSTIC false, so
  * the committed touch-playthrough stays stretch 1 only.
  */
-export const DIAGNOSTIC = true;
+export const DIAGNOSTIC = false;
 export const DIAG_LEGS = Object.freeze([['up-left', 2400], ['up', 1200]]);
 /** Frames into the last (up) leg at which a mark is taken; multiples of 20. */
 export const DIAG_MARKS = Object.freeze([0, 20, 40, 60, 100]);

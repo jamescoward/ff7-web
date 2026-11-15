@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#200: a diagnostic of #120 stretch 2's blocker, on the #200 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode; and, as signs whatever the checks say: dy_0, dy_20, dy_40, dy_60 (PosY change since 0, 20, 40, 60 frames into the up leg), dx_0, dx_100 (PosX since 0 and 100); raw map_cur and game_state at the end. Only signs and small state values leave.",
+  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_1 (0x75), field mode, Cloud's HP is above 0, and a rerun matches (match). Only frame counts and 1/0 leave.",
   "boot": {
     "from": "reactor-entrance"
   },
@@ -37,47 +37,20 @@
       "addr": "0x8009d85c",
       "type": "u16",
       "description": "partyHp0: g_ActiveCharacters[0].hp (s16 as u16; confirmed #78): Cloud's current HP. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h ActiveCharacterData"
-    },
-    "pos_x": {
-      "addr": "0x80074eb0",
-      "type": "u32",
-      "description": "fieldX[0]: g_FieldEntity[0].PosX (s32 as u32; confirmed #77): the player (playerModel 0, #99). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
-    },
-    "pos_y": {
-      "addr": "0x80074eb4",
-      "type": "u32",
-      "description": "fieldY[0]: g_FieldEntity[0].PosY (s32 as u32; confirmed #77): the player. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
-    },
-    "m1_x": {
-      "addr": "0x80074f34",
-      "type": "u32",
-      "description": "fieldX[1]: g_FieldEntity[1].PosX (s32 as u32; the fieldX array, stride 0x84, #99). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
-    },
-    "m2_x": {
-      "addr": "0x80074fb8",
-      "type": "u32",
-      "description": "fieldX[2]: g_FieldEntity[2].PosX (s32 as u32; stride 0x84, #99). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
-    },
-    "dlg": {
-      "addr": "0x800832a0",
-      "type": "u16",
-      "description": "dialogState: g_WindowData[0].state (s16 as u16; confirmed #108): 0 closed, 6 text done and waiting; 1-14 open. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h"
-    },
-    "mcount": {
-      "addr": "0x8009ac1c",
-      "type": "u16",
-      "description": "fieldModelCount: g_FieldState.modelCount (s16 as u16; confirmed #112). Xeeynamo/ff7-decomp@9411173 (reference only, no code) include/game.h FieldState"
     }
   },
   "input": [
     {
       "segment": "touch-1-first-battle"
-    },
-    {
-      "segment": "touch-2-md1-1-diagnostic"
     }
   ],
   "assert": [
+    {
+      "expect": {
+        "mem": "map_cur",
+        "equals": 117
+      }
+    },
     {
       "expect": {
         "mem": "game_state",
@@ -85,68 +58,28 @@
       }
     },
     {
-      "change": {
-        "mem": "pos_y",
-        "is": "increased",
-        "signed": true,
-        "since": "u0"
-      },
-      "metric": "dy_0"
+      "expect": {
+        "mem": "hp0",
+        "in": [
+          1,
+          9999
+        ]
+      }
     },
     {
-      "change": {
-        "mem": "pos_y",
-        "is": "changed",
-        "signed": true,
-        "since": "u20"
-      },
-      "metric": "dy_20"
-    },
-    {
-      "change": {
-        "mem": "pos_y",
-        "is": "changed",
-        "signed": true,
-        "since": "u40"
-      },
-      "metric": "dy_40"
-    },
-    {
-      "change": {
-        "mem": "pos_y",
-        "is": "unchanged",
-        "signed": true,
-        "since": "u60"
-      },
-      "metric": "dy_60"
-    },
-    {
-      "change": {
-        "mem": "pos_x",
-        "is": "increased",
-        "signed": true,
-        "since": "u0"
-      },
-      "metric": "dx_0"
-    },
-    {
-      "change": {
-        "mem": "pos_x",
-        "is": "unchanged",
-        "signed": true,
-        "since": "u100"
-      },
-      "metric": "dx_100"
+      "sameState": "rerun",
+      "metric": "match"
     }
   ],
+  "snapshot": "touch-md1-1",
   "metrics": [
-    "dy_0",
-    "dy_20",
-    "dy_40",
-    "dy_60",
-    "dx_0",
-    "dx_100",
-    "map_cur",
-    "game_state"
+    "battle_wait",
+    "turn1",
+    "t1_target",
+    "t1_done",
+    "turn2",
+    "end_wait",
+    "next_wait",
+    "match"
   ]
 }

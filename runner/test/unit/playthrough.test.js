@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { DRAG_DIRECTIONS, MEMORY, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { DIAG_END, DIAG_LEGS, DIAG_MARKS, DIAG_MEMORY, DRAG_DIRECTIONS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -74,5 +74,29 @@ describe('#120 touch playthrough', () => {
       assert.equal(Number(MEMORY[mem].addr), e.address, mem);
       assert.equal(e.status, 'confirmed', entry);
     }
+  });
+  test('#200 diagnostic: memory matches the semantic address table (element i of an array is address + i * stride)', () => {
+    const names = { pos_x: ['fieldX', 0], pos_y: ['fieldY', 0], m1_x: ['fieldX', 1], m2_x: ['fieldX', 2], dlg: ['dialogState', 0], mcount: ['fieldModelCount', 0] };
+    for (const [mem, [entry, i]] of Object.entries(names)) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === entry);
+      assert.ok(e, entry);
+      assert.equal(Number(DIAG_MEMORY[mem].addr), e.address + i * (e.stride ?? 0), mem);
+      assert.equal(e.status, 'confirmed', entry);
+    }
+  });
+
+  test('#200 diagnostic: the input is PR #197 attempt 3 (up-left 2400, up 1200, Interact taps), marks add no frames', () => {
+    assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 1200]]);
+    const steps = stretch2Diagnostic().steps;
+    const frames = steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
+    assert.equal(frames, 30 + 2400 + 1200 + 30);
+    const marks = steps.filter((s) => s.mark).map((s) => s.mark);
+    assert.deepEqual(marks, DIAG_MARKS.map((m) => `u${m}`));
+    for (const s of steps) if (s.buttons) assert.ok(s.buttons.includes(dragButtons('up-left')[0]) || s.buttons.includes('up'));
+    // Every change check names a mark the script reaches, and every metric is a check or a memory name.
+    for (const a of DIAG_END.assert) if (a.change) assert.ok(marks.includes(a.change.since), a.change.since);
+    const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
+    for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
+    assert.ok(DIAG_END.metrics.length <= 8);
   });
 });

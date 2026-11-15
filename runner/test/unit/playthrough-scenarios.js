@@ -195,7 +195,7 @@ export function stretch1() {
  * frames (Interact taps 15 of every 20 frames), and Cloud ended just below
  * the md1_2 gateway line, still in md1_1. This replays that input exactly and
  * measures, over the up leg: whether PosY/PosX still change after marks at
- * 100, 300 and 700 frames (a stall: a wall or a frozen player); dialogState at
+ * 0-700 frames (a stall: a wall or a frozen player); dialogState at
  * the end (a message window: a scene); whether field models 1 and 2 moved (a
  * scene); and fieldModelCount. The merged generator has DIAGNOSTIC false, so
  * the committed touch-playthrough stays stretch 1 only.
@@ -203,7 +203,7 @@ export function stretch1() {
 export const DIAGNOSTIC = true;
 export const DIAG_LEGS = Object.freeze([['up-left', 2400], ['up', 1200]]);
 /** Frames into the last (up) leg at which a mark is taken; multiples of 20. */
-export const DIAG_MARKS = Object.freeze([0, 100, 300, 700]);
+export const DIAG_MARKS = Object.freeze([0, 20, 40, 60, 100]);
 
 export function stretch2Diagnostic() {
   const steps = [{ wait: { frames: 30 } }];
@@ -238,17 +238,21 @@ export const DIAG_MEMORY = Object.freeze({
 const since = (mem, mark, is, metric) => ({ change: { mem, is, signed: true, since: mark }, metric });
 /** End checks of the diagnostic. Its change checks may fail by design: their metrics (signs) are what it is for. */
 export const DIAG_END = Object.freeze({
-  summary: 'field mode (no metric); and, as signs whatever the checks say: dy_100, dy_300, dy_700 (PosY change since 100, 300, 700 frames into the up leg), dx_700 (PosX since 700), m1_dx, m2_dx (field models 1 and 2 PosX since the up leg began); raw dlg (dialogState) and mcount (fieldModelCount) at the end.',
+  // Run 1 (e9f45c0): dy_100 dy_300 dy_700 dx_700 m1_dx m2_dx all 0, dlg 0,
+  // mcount 7. A change metric is also 0 when a wait timed out, so run 2 adds
+  // dy_0/dx_0 (attempt 3 saw +1/+1 over the whole up leg: non-zero proves the
+  // script ran to the end) and finer marks to time the stall.
+  summary: 'field mode; and, as signs whatever the checks say: dy_0, dy_20, dy_40, dy_60 (PosY change since 0, 20, 40, 60 frames into the up leg), dx_0, dx_100 (PosX since 0 and 100); raw map_cur and game_state at the end.',
   assert: [
     { expect: { mem: 'game_state', equals: 1 } },
-    since('pos_y', 'u100', 'changed', 'dy_100'),
-    since('pos_y', 'u300', 'changed', 'dy_300'),
-    since('pos_y', 'u700', 'unchanged', 'dy_700'),
-    since('pos_x', 'u700', 'unchanged', 'dx_700'),
-    since('m1_x', 'u0', 'unchanged', 'm1_dx'),
-    since('m2_x', 'u0', 'unchanged', 'm2_dx'),
+    since('pos_y', 'u0', 'increased', 'dy_0'),
+    since('pos_y', 'u20', 'changed', 'dy_20'),
+    since('pos_y', 'u40', 'changed', 'dy_40'),
+    since('pos_y', 'u60', 'unchanged', 'dy_60'),
+    since('pos_x', 'u0', 'increased', 'dx_0'),
+    since('pos_x', 'u100', 'unchanged', 'dx_100'),
   ],
-  metrics: ['dy_100', 'dy_300', 'dy_700', 'dx_700', 'm1_dx', 'm2_dx', 'dlg', 'mcount'],
+  metrics: ['dy_0', 'dy_20', 'dy_40', 'dy_60', 'dx_0', 'dx_100', 'map_cur', 'game_state'],
 });
 
 export const STRETCHES = DIAGNOSTIC ? [stretch1, stretch2Diagnostic] : [stretch1];

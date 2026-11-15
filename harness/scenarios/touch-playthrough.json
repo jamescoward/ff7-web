@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#200: a diagnostic of #120 stretch 2's blocker, on the #200 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode (no metric); and, as signs whatever the checks say: dy_100, dy_300, dy_700 (PosY change since 100, 300, 700 frames into the up leg), dx_700 (PosX since 700), m1_dx, m2_dx (field models 1 and 2 PosX since the up leg began); raw dlg (dialogState) and mcount (fieldModelCount) at the end. Only signs and small state values leave.",
+  "description": "#200: a diagnostic of #120 stretch 2's blocker, on the #200 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode; and, as signs whatever the checks say: dy_0, dy_20, dy_40, dy_60 (PosY change since 0, 20, 40, 60 frames into the up leg), dx_0, dx_100 (PosX since 0 and 100); raw map_cur and game_state at the end. Only signs and small state values leave.",
   "boot": {
     "from": "reactor-entrance"
   },
@@ -87,66 +87,66 @@
     {
       "change": {
         "mem": "pos_y",
-        "is": "changed",
+        "is": "increased",
         "signed": true,
-        "since": "u100"
+        "since": "u0"
       },
-      "metric": "dy_100"
+      "metric": "dy_0"
     },
     {
       "change": {
         "mem": "pos_y",
         "is": "changed",
         "signed": true,
-        "since": "u300"
+        "since": "u20"
       },
-      "metric": "dy_300"
+      "metric": "dy_20"
+    },
+    {
+      "change": {
+        "mem": "pos_y",
+        "is": "changed",
+        "signed": true,
+        "since": "u40"
+      },
+      "metric": "dy_40"
     },
     {
       "change": {
         "mem": "pos_y",
         "is": "unchanged",
         "signed": true,
-        "since": "u700"
+        "since": "u60"
       },
-      "metric": "dy_700"
+      "metric": "dy_60"
+    },
+    {
+      "change": {
+        "mem": "pos_x",
+        "is": "increased",
+        "signed": true,
+        "since": "u0"
+      },
+      "metric": "dx_0"
     },
     {
       "change": {
         "mem": "pos_x",
         "is": "unchanged",
         "signed": true,
-        "since": "u700"
+        "since": "u100"
       },
-      "metric": "dx_700"
-    },
-    {
-      "change": {
-        "mem": "m1_x",
-        "is": "unchanged",
-        "signed": true,
-        "since": "u0"
-      },
-      "metric": "m1_dx"
-    },
-    {
-      "change": {
-        "mem": "m2_x",
-        "is": "unchanged",
-        "signed": true,
-        "since": "u0"
-      },
-      "metric": "m2_dx"
+      "metric": "dx_100"
     }
   ],
   "metrics": [
-    "dy_100",
-    "dy_300",
-    "dy_700",
-    "dx_700",
-    "m1_dx",
-    "m2_dx",
-    "dlg",
-    "mcount"
+    "dy_0",
+    "dy_20",
+    "dy_40",
+    "dy_60",
+    "dx_0",
+    "dx_100",
+    "map_cur",
+    "game_state"
   ]
 }

@@ -51,3 +51,25 @@ The next push repeats the same script, to check determinism (the acceptance asks
 
 ## Next stretches (route still unknown)
 md1_1 → md1_2 → the reactor interior → the first save point. Field IDs and exits come from `nearby()` gateways (#112) and the field ID reader. There is only one slot, so exploration diagnostics have to share the scenario's 8 metrics. If that is too slow, record it on #120 as the owner question on the slot cap.
+
+## #200: diagnostic of stretch 2's blocker (PR #201)
+This measures and makes no route attempt. Its budget is 2 Tier 2 runs. Both runs replay PR #197 attempt 3's input exactly: in md1_1 after it loads, wait 30 frames, drag up-left for 2400 frames, then drag up for 1200 frames, with Interact taps 15 of every 20 frames. Mark steps take no frames, so they don't change the input. The touch-playthrough scenario is used on the #200 branch only (`DIAGNOSTIC` in the generator); main keeps stretch 1.
+
+### Run 1 (`e9f45c0`, tier2: 63 pass, 1 fail by design)
+Marks at 0, 100, 300 and 700 frames into the up leg.
+
+| scenario | metrics |
+|---|---|
+| touch-playthrough (fail) | dy_100 0, dy_300 0, dy_700 0, dx_700 0, m1_dx 0, m2_dx 0, dlg 0, mcount 7 |
+
+Reading:
+- **No message window is open at the end** (dialogState 0), and the field has 7 models. These are plain reads at the end of the run, so they hold whether or not every wait held.
+- PosY and PosX show no change after the 100-frame mark, and field models 1 and 2 show no move over the up leg. **This is ambiguous by itself:** a `change` metric is also 0 when an earlier wait timed out (the script then stops there). Attempt 3 saw +1/+1 over the whole up leg, so if the script ran to the end, Cloud moved only in the first 100 frames of the up leg and then stood still for about 1100 frames with no window open and models 1 and 2 still. That points to a wall or solid obstacle, not a scene.
+- Run 2 settles the ambiguity and times the stall.
+
+### Run 2 (last)
+Marks at 0, 20, 40, 60 and 100 frames into the up leg. Metrics:
+- `dy_0` and `dx_0` (since the start of the up leg; non-zero proves the script reached the end);
+- `dy_20`, `dy_40`, `dy_60`;
+- `dx_100` (does Cloud still slide sideways after the stall?);
+- raw `map_cur` and `game_state`.

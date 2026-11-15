@@ -95,7 +95,7 @@ describe('#120 touch playthrough', () => {
     for (const s of steps) if (s.buttons) assert.ok(s.buttons.includes(dragButtons('up-left')[0]) || s.buttons.includes('up'));
     // Every change check names a mark the script reaches, and every metric is a check or a memory name.
     for (const a of DIAG_END.assert) if (a.change) assert.ok(marks.includes(a.change.since), a.change.since);
-    const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY)]);
+    const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
   });

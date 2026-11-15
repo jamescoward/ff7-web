@@ -19,6 +19,7 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { battlePanelPlan } from '../../../semantic/battle-panel.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 import { createFieldDrag } from '../../../web/js/field-drag.js';
@@ -43,6 +44,9 @@ const DRAG_VECTORS = Object.freeze({
   right: [DRAG_PX, 0],
   'up-right': [DIAG, -DIAG],
 });
+
+/** Every drag direction the generator may use. */
+export const DRAG_DIRECTIONS = Object.freeze(Object.keys(DRAG_VECTORS));
 
 /** The pad buttons field-drag.js holds for a drag in direction `dir` (lower-case PAD names). */
 export function dragButtons(dir) {
@@ -94,9 +98,11 @@ export const MEMORY = Object.freeze({
   },
 });
 
-const WIDGET_NONE = 0xffff;
-const WIDGET_TARGET = 0;
-const WIDGET_COMMAND = 1;
+/** A signed battleMenuWidget value from semantic/ as the u16 the `widget` entry reads. */
+export const widgetU16 = (v) => v & 0xffff;
+export const WIDGET_NONE = widgetU16(BATTLE_WIDGET_NONE);
+export const WIDGET_TARGET = widgetU16(BATTLE_WIDGET_TARGET);
+export const WIDGET_COMMAND = widgetU16(BATTLE_WIDGET_COMMAND);
 const HOLD = 4;
 const SETTLE = 30;
 /** Frames between the command menu opening and the first tap (as reactor-mode-4f). */

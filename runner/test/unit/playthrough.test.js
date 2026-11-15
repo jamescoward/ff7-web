@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { MEMORY, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
-import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
+import { DRAG_DIRECTIONS, MEMORY, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { ADDRESS_TABLE, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
 describe('#120 touch playthrough', () => {
@@ -27,7 +27,7 @@ describe('#120 touch playthrough', () => {
 
   test('every button the script holds is one a touch control offers', () => {
     const offered = new Set([
-      ...['up', 'down', 'left', 'right'],
+      ...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)),
       ...FIELD_ACTIONS.map((a) => a.button),
       ...Object.values(BATTLE_PANEL_ACTIONS).map((a) => a.button),
     ]);
@@ -49,6 +49,21 @@ describe('#120 touch playthrough', () => {
     assert.deepEqual(t.at(-1).wait.until, { mem: 'widget', equals: 0xffff });
     // A plan to a lower row adds its cursor presses before select.
     assert.ok(battleTurn(1).filter((s) => s.buttons).length > 2);
+  });
+
+  test('widget waits use the semantic/ battleMenuWidget values, read as u16', () => {
+    assert.equal(MEMORY.widget.type, 'u16');
+    assert.equal(WIDGET_NONE, BATTLE_WIDGET_NONE & 0xffff);
+    assert.equal(WIDGET_NONE, 0xffff);
+    assert.equal(WIDGET_TARGET, BATTLE_WIDGET_TARGET & 0xffff);
+    assert.equal(WIDGET_COMMAND, BATTLE_WIDGET_COMMAND & 0xffff);
+    const values = new Set();
+    const walk = (steps) => {
+      for (const s of steps) if (s.wait?.until?.mem === 'widget') values.add(s.wait.until.equals);
+    };
+    walk(stretch1().steps);
+    walk(battleTurn(0));
+    assert.deepEqual([...values].sort((a, b) => a - b), [WIDGET_TARGET, WIDGET_COMMAND, WIDGET_NONE].sort((a, b) => a - b));
   });
 
   test('memory addresses match the semantic address table', () => {

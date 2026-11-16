@@ -115,10 +115,10 @@ Reading:
 - He stays in md1_1 (117), in field mode.
 
 ### Conclusion (#202)
-- From #200's stall point, Cloud is **not stuck**: both diagonal drags move him for all 600 frames.
+- From #200's stall point, Cloud is **not stuck**: both diagonal drags move him, over the whole probe and still after 200 frames of it. The signs don't show whether he moved every frame.
 - **Neither reaches gateway 1's line.** Up-right slides along the obstacle to the right, past the line's right end, with y still rising but below y1. Up-left goes back down (−y) and past the left end.
 - So the obstacle spans at least the line's x-range just below it. A straight or diagonal drag from below does not reach the md1_2 exit.
-- The field's screen-to-world mapping is not a simple rotation (screen up gives +x/+y, screen up-left gives −x/−y here). So screen directions are a poor guide in md1_1, and the route needs world-space feedback.
+- Hypothesis: screen up-left gives −x/−y here, while screen up gives +x/+y. That is not a simple rotation, but sliding along the obstacle confounds it. Either way, screen directions are a poor guide here, and the route needs world-space feedback.
 
 **Route suggestion for #120 stretch 2 (a fresh budget there):**
 - Approach gateway 1 from the side. After run 1's up-right slide (which ends right of the line and still rising in y), drag up, then left, with `compare` signs against gateway 1 to see whether Cloud gets above y1 there.

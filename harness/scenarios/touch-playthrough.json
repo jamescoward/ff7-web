@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#204: a diagnostic of #120 stretch 2's blocker, on the #204 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode; and, as signs whatever the checks say: m1y .. m6y (field model k's PosY against Cloud's at the end, both raw), g1y (gateway 1's y1 against Cloud); raw map_cur at the end. Only signs and small state values leave.",
+  "description": "#204: a diagnostic of #120 stretch 2's blocker, on the #204 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode; and, as signs whatever the checks say: l1 .. l6 (gateway 1's y1 against field model k's PosY: +1 when the model is below the md1_2 line), g1y2 (gateway 1's y2 against Cloud); raw map_cur at the end. Only signs and small state values leave.",
   "boot": {
     "from": "reactor-entrance"
   },
@@ -65,6 +65,12 @@
       "deref": "0x56",
       "type": "u16",
       "description": "fieldTriggers -> gateways[1] x2 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8). In md1_1, gateway 1 leads to md1_2 (PR #197 attempt 1). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_y2": {
+      "addr": "0x800716c4",
+      "deref": "0x58",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] y2 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8). In md1_1, gateway 1 leads to md1_2 (PR #197 attempt 1). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
     },
     "m1_x": {
       "addr": "0x80074f34",
@@ -144,83 +150,83 @@
     },
     {
       "compare": {
-        "mem": "m1_y",
-        "with": "pos_y",
-        "shift": 0,
+        "mem": "gw1_y1",
+        "with": "m1_y",
+        "shift": 12,
         "signed": true,
         "is": "unequal"
       },
-      "metric": "m1y"
-    },
-    {
-      "compare": {
-        "mem": "m2_y",
-        "with": "pos_y",
-        "shift": 0,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "m2y"
-    },
-    {
-      "compare": {
-        "mem": "m3_y",
-        "with": "pos_y",
-        "shift": 0,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "m3y"
-    },
-    {
-      "compare": {
-        "mem": "m4_y",
-        "with": "pos_y",
-        "shift": 0,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "m4y"
-    },
-    {
-      "compare": {
-        "mem": "m5_y",
-        "with": "pos_y",
-        "shift": 0,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "m5y"
-    },
-    {
-      "compare": {
-        "mem": "m6_y",
-        "with": "pos_y",
-        "shift": 0,
-        "signed": true,
-        "is": "unequal"
-      },
-      "metric": "m6y"
+      "metric": "l1"
     },
     {
       "compare": {
         "mem": "gw1_y1",
+        "with": "m2_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "l2"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y1",
+        "with": "m3_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "l3"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y1",
+        "with": "m4_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "l4"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y1",
+        "with": "m5_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "l5"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y1",
+        "with": "m6_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "l6"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y2",
         "with": "pos_y",
         "shift": 12,
         "signed": true,
         "is": "unequal"
       },
-      "metric": "g1y"
+      "metric": "g1y2"
     }
   ],
   "metrics": [
-    "m1y",
-    "m2y",
-    "m3y",
-    "m4y",
-    "m5y",
-    "m6y",
-    "g1y",
+    "l1",
+    "l2",
+    "l3",
+    "l4",
+    "l5",
+    "l6",
+    "g1y2",
     "map_cur"
   ]
 }

@@ -84,7 +84,7 @@ describe('#120 touch playthrough', () => {
     }
     const trig = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldTriggers');
     assert.equal(trig.status, 'confirmed');
-    for (const [mem, field] of [['gw1_x1', 'x1'], ['gw1_y1', 'y1'], ['gw1_x2', 'x2']]) {
+    for (const [mem, field] of [['gw1_x1', 'x1'], ['gw1_y1', 'y1'], ['gw1_x2', 'x2'], ['gw1_y2', 'y2']]) {
       assert.equal(Number(DIAG_MEMORY[mem].addr), trig.address, mem);
       assert.equal(Number(DIAG_MEMORY[mem].deref), FIELD_GATEWAYS.offset + FIELD_GATEWAYS.size + GATEWAY_FIELDS[field], mem);
     }
@@ -92,7 +92,7 @@ describe('#120 touch playthrough', () => {
 
   test('#204 diagnostic: up-left 2400, up 200 (to #200\'s stall), 30 frames still; Interact taps; model signs against Cloud', () => {
     assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 200]]);
-    assert.ok(['models-y', 'models-x'].includes(DIAG_RUN), DIAG_RUN);
+    assert.ok(['models-y', 'models-line'].includes(DIAG_RUN), DIAG_RUN);
     const steps = stretch2Diagnostic().steps;
     const frames = steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
     assert.equal(frames, 30 + 2400 + 200 + 30);

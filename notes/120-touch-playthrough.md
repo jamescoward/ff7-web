@@ -124,3 +124,15 @@ Reading:
 - Approach gateway 1 from the side. After run 1's up-right slide (which ends right of the line and still rising in y), drag up, then left, with `compare` signs against gateway 1 to see whether Cloud gets above y1 there.
 - Alternatively, read the walkmesh or the nearest solid model at the stall point. That needs new address-table entries, so it is its own issue.
 - Not tested: whether gateway 1's line is reachable in z (`fieldZ` is a hypothesis), and whether y2 differs from y1 (only y1 was compared).
+
+## #204: is a field model the obstacle? (PR #205)
+This measures and makes no route attempt (budget: 2 Tier 2 runs). Input: in md1_1 after it loads, wait 30 frames; drag up-left for 2400 frames, then up for 200 frames (to #200's stall point, as #202); wait 30 frames. Interact taps go 15 of every 20 frames throughout. Branch only (`DIAGNOSTIC`, `DIAG_RUN` in the generator). The positions of field models 1-6 (`fieldX`/`fieldY` elements 1-6) are hypotheses: #99 confirmed only element 0.
+
+### Run 1: models' y against Cloud (`c03ca4e`, tier2: 64 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | m1y 1, m2y 1, m3y 1, m4y 1, m5y 1, m6y 1, g1y 1, map_cur 117 |
+
+Reading:
+- **Every other field model (1-6) is above Cloud in y** at the stall point (PosY greater, raw units). Gateway 1's y1 is above him too (+1, as in #202), and he is still in md1_1 (117), in field mode.
+- So Cloud is the lowest model here. This alone doesn't single out an obstacle: run 2 checks which models lie below gateway 1's line, between Cloud and the exit.

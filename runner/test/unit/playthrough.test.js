@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { DIAG_END, DIAG_LEGS, DIAG_MARKS, DIAG_MEMORY, DRAG_DIRECTIONS, GATEWAY_FIELDS, PROBE, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -90,24 +90,30 @@ describe('#120 touch playthrough', () => {
     }
   });
 
-  test('#202 diagnostic: up-left 2400 (attempt 3), up 200 (past #200\'s stall), then a 600-frame probe; Interact taps; marks add no frames', () => {
-    assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 200], [PROBE, 600]]);
-    assert.ok(['up-right', 'up-left'].includes(PROBE), PROBE);
+  test('#204 diagnostic: up-left 2400, up 200 (to #200\'s stall), 30 frames still; Interact taps; model signs against Cloud', () => {
+    assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 200]]);
+    assert.ok(['models-y', 'models-x'].includes(DIAG_RUN), DIAG_RUN);
     const steps = stretch2Diagnostic().steps;
     const frames = steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
-    assert.equal(frames, 30 + 2400 + 200 + 600 + 30);
-    const marks = steps.filter((s) => s.mark).map((s) => s.mark);
-    assert.deepEqual(marks, DIAG_MARKS.map((m) => `p${m}`));
+    assert.equal(frames, 30 + 2400 + 200 + 30);
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     for (const s of steps) for (const b of s.buttons ?? []) assert.ok(offered.has(b), b);
-    // The probe's presses come after mark p0 and hold exactly the probe's drag bits (plus Interact).
-    const probe = steps.slice(steps.findIndex((s) => s.mark === 'p0')).filter((s) => s.buttons);
-    assert.equal(probe.length, 600 / 20 * 2);
-    const interact = FIELD_ACTIONS.find((a) => a.id === 'interact').button;
-    for (const s of probe) assert.deepEqual(s.buttons.filter((b) => b !== interact).sort(), dragButtons(PROBE).sort());
-    // Every change check names a mark the script reaches, and every metric is a check or a memory name.
-    for (const a of DIAG_END.assert) if (a.change) assert.ok(marks.includes(a.change.since), a.change.since);
-    for (const a of DIAG_END.assert) if (a.compare) assert.ok(DIAG_MEMORY[a.compare.mem] && DIAG_MEMORY[a.compare.with], a.compare.mem);
+    // The model positions are fieldX/fieldY elements 1..6 (the table's stride).
+    const fx = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldX');
+    const fy = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldY');
+    assert.equal(fx.stride, FIELD_ENTITY_STRIDE);
+    assert.equal(fy.stride, FIELD_ENTITY_STRIDE);
+    assert.deepEqual(DIAG_MODELS, [1, 2, 3, 4, 5, 6]);
+    for (const k of DIAG_MODELS) {
+      assert.equal(Number(DIAG_MEMORY[`m${k}_x`].addr), fx.address + k * fx.stride, `m${k}_x`);
+      assert.equal(Number(DIAG_MEMORY[`m${k}_y`].addr), fy.address + k * fy.stride, `m${k}_y`);
+    }
+    // Model and player positions are both raw, so their compares have no shift; gateway lines are field units (shift 12).
+    for (const a of DIAG_END.assert) {
+      if (!a.compare) continue;
+      assert.ok(DIAG_MEMORY[a.compare.mem] && DIAG_MEMORY[a.compare.with], a.compare.mem);
+      assert.equal(a.compare.shift, a.compare.mem.startsWith('gw') ? 12 : 0, a.compare.mem);
+    }
     const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);

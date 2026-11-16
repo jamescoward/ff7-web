@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "touch-playthrough",
-  "description": "#120: the M3 exit chain, played with touch-layer actions only. One scenario that grows stretch by stretch (63 of 64 Tier 2 slots were taken); the input is the generated segments touch-1-first-battle (runner/test/unit/playthrough-scenarios.js; a Tier 1 test checks the files). Each stretch ends on a wait.until, and a timeout fails the scenario. End checks: the field ID is md1_1 (0x75), field mode, Cloud's HP is above 0, and a rerun matches (match). Only frame counts and 1/0 leave.",
+  "description": "#204: a diagnostic of #120 stretch 2's blocker, on the #204 branch only (the merged scenario is stretch 1). The input is the generated segments touch-1-first-battle, touch-2-md1-1-diagnostic (runner/test/unit/playthrough-scenarios.js). Stretch 1's waits still fail the scenario on a timeout. End checks: field mode; and, as signs whatever the checks say: m1y .. m6y (field model k's PosY against Cloud's at the end, both raw), g1y (gateway 1's y1 against Cloud); raw map_cur at the end. Only signs and small state values leave.",
   "boot": {
     "from": "reactor-entrance"
   },
@@ -37,20 +37,105 @@
       "addr": "0x8009d85c",
       "type": "u16",
       "description": "partyHp0: g_ActiveCharacters[0].hp (s16 as u16; confirmed #78): Cloud's current HP. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h ActiveCharacterData"
+    },
+    "pos_x": {
+      "addr": "0x80074eb0",
+      "type": "u32",
+      "description": "fieldX[0]: g_FieldEntity[0].PosX (s32 as u32; confirmed #77): the player (playerModel 0, #99); field units << 12. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "pos_y": {
+      "addr": "0x80074eb4",
+      "type": "u32",
+      "description": "fieldY[0]: g_FieldEntity[0].PosY (s32 as u32; confirmed #77): the player; field units << 12. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "gw1_x1": {
+      "addr": "0x800716c4",
+      "deref": "0x50",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] x1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8). In md1_1, gateway 1 leads to md1_2 (PR #197 attempt 1). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_y1": {
+      "addr": "0x800716c4",
+      "deref": "0x52",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] y1 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8). In md1_1, gateway 1 leads to md1_2 (PR #197 attempt 1). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "gw1_x2": {
+      "addr": "0x800716c4",
+      "deref": "0x56",
+      "type": "u16",
+      "description": "fieldTriggers -> gateways[1] x2 (s16 as u16; layout confirmed #112: gateways at +0x38, 0x18 bytes, x/y at +0/+2 and +6/+8). In md1_1, gateway 1 leads to md1_2 (PR #197 attempt 1). Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe (reference only, no code) include/game.h FieldTriggers, FieldGateway, LinePos"
+    },
+    "m1_x": {
+      "addr": "0x80074f34",
+      "type": "u32",
+      "description": "fieldX[1]: g_FieldEntity[1].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 1 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m1_y": {
+      "addr": "0x80074f38",
+      "type": "u32",
+      "description": "fieldY[1]: g_FieldEntity[1].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 1 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m2_x": {
+      "addr": "0x80074fb8",
+      "type": "u32",
+      "description": "fieldX[2]: g_FieldEntity[2].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 2 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m2_y": {
+      "addr": "0x80074fbc",
+      "type": "u32",
+      "description": "fieldY[2]: g_FieldEntity[2].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 2 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m3_x": {
+      "addr": "0x8007503c",
+      "type": "u32",
+      "description": "fieldX[3]: g_FieldEntity[3].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 3 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m3_y": {
+      "addr": "0x80075040",
+      "type": "u32",
+      "description": "fieldY[3]: g_FieldEntity[3].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 3 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m4_x": {
+      "addr": "0x800750c0",
+      "type": "u32",
+      "description": "fieldX[4]: g_FieldEntity[4].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 4 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m4_y": {
+      "addr": "0x800750c4",
+      "type": "u32",
+      "description": "fieldY[4]: g_FieldEntity[4].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 4 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m5_x": {
+      "addr": "0x80075144",
+      "type": "u32",
+      "description": "fieldX[5]: g_FieldEntity[5].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 5 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m5_y": {
+      "addr": "0x80075148",
+      "type": "u32",
+      "description": "fieldY[5]: g_FieldEntity[5].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 5 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m6_x": {
+      "addr": "0x800751c8",
+      "type": "u32",
+      "description": "fieldX[6]: g_FieldEntity[6].PosX (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 6 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
+    },
+    "m6_y": {
+      "addr": "0x800751cc",
+      "type": "u32",
+      "description": "fieldY[6]: g_FieldEntity[6].PosY (s32 as u32; the array is confirmed for element 0 only, #77/#99; element 6 is a hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h FieldEntity"
     }
   },
   "input": [
     {
       "segment": "touch-1-first-battle"
+    },
+    {
+      "segment": "touch-2-md1-1-diagnostic"
     }
   ],
   "assert": [
-    {
-      "expect": {
-        "mem": "map_cur",
-        "equals": 117
-      }
-    },
     {
       "expect": {
         "mem": "game_state",
@@ -58,28 +143,84 @@
       }
     },
     {
-      "expect": {
-        "mem": "hp0",
-        "in": [
-          1,
-          9999
-        ]
-      }
+      "compare": {
+        "mem": "m1_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m1y"
     },
     {
-      "sameState": "rerun",
-      "metric": "match"
+      "compare": {
+        "mem": "m2_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m2y"
+    },
+    {
+      "compare": {
+        "mem": "m3_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m3y"
+    },
+    {
+      "compare": {
+        "mem": "m4_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m4y"
+    },
+    {
+      "compare": {
+        "mem": "m5_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m5y"
+    },
+    {
+      "compare": {
+        "mem": "m6_y",
+        "with": "pos_y",
+        "shift": 0,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "m6y"
+    },
+    {
+      "compare": {
+        "mem": "gw1_y1",
+        "with": "pos_y",
+        "shift": 12,
+        "signed": true,
+        "is": "unequal"
+      },
+      "metric": "g1y"
     }
   ],
-  "snapshot": "touch-md1-1",
   "metrics": [
-    "battle_wait",
-    "turn1",
-    "t1_target",
-    "t1_done",
-    "turn2",
-    "end_wait",
-    "next_wait",
-    "match"
+    "m1y",
+    "m2y",
+    "m3y",
+    "m4y",
+    "m5y",
+    "m6y",
+    "g1y",
+    "map_cur"
   ]
 }

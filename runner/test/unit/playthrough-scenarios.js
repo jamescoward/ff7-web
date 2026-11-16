@@ -204,7 +204,7 @@ export function stretch1() {
  */
 export const DIAGNOSTIC = true;
 /** #202 run 1 probes up-right; run 2 up-left. */
-export const PROBE = 'up-right';
+export const PROBE = 'up-left';
 export const DIAG_LEGS = Object.freeze([['up-left', 2400], ['up', 200], [PROBE, 600]]);
 /** Frames into the last (probe) leg at which a mark is taken; multiples of 20. */
 export const DIAG_MARKS = Object.freeze([0, 200]);

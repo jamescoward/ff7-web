@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { DIAG_END, DIAG_LEGS, DIAG_MARKS, DIAG_MEMORY, DRAG_DIRECTIONS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
-import { ADDRESS_TABLE, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
+import { DIAG_END, DIAG_LEGS, DIAG_MARKS, DIAG_MEMORY, DRAG_DIRECTIONS, GATEWAY_FIELDS, PROBE, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
 describe('#120 touch playthrough', () => {
@@ -75,26 +75,39 @@ describe('#120 touch playthrough', () => {
       assert.equal(e.status, 'confirmed', entry);
     }
   });
-  test('#200 diagnostic: memory matches the semantic address table (element i of an array is address + i * stride)', () => {
-    const names = { pos_x: ['fieldX', 0], pos_y: ['fieldY', 0], m1_x: ['fieldX', 1], m2_x: ['fieldX', 2], dlg: ['dialogState', 0], mcount: ['fieldModelCount', 0] };
-    for (const [mem, [entry, i]] of Object.entries(names)) {
+  test('diagnostic: player memory matches the semantic address table; gateway derefs use fieldTriggers and FIELD_GATEWAYS', () => {
+    for (const [mem, entry] of Object.entries({ pos_x: 'fieldX', pos_y: 'fieldY' })) {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === entry);
       assert.ok(e, entry);
-      assert.equal(Number(DIAG_MEMORY[mem].addr), e.address + i * (e.stride ?? 0), mem);
+      assert.equal(Number(DIAG_MEMORY[mem].addr), e.address, mem);
       assert.equal(e.status, 'confirmed', entry);
+    }
+    const trig = ADDRESS_TABLE.entries.find((x) => x.name === 'fieldTriggers');
+    assert.equal(trig.status, 'confirmed');
+    for (const [mem, field] of [['gw1_x1', 'x1'], ['gw1_y1', 'y1'], ['gw1_x2', 'x2']]) {
+      assert.equal(Number(DIAG_MEMORY[mem].addr), trig.address, mem);
+      assert.equal(Number(DIAG_MEMORY[mem].deref), FIELD_GATEWAYS.offset + FIELD_GATEWAYS.size + GATEWAY_FIELDS[field], mem);
     }
   });
 
-  test('#200 diagnostic: the input is PR #197 attempt 3 (up-left 2400, up 1200, Interact taps), marks add no frames', () => {
-    assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 1200]]);
+  test('#202 diagnostic: up-left 2400 (attempt 3), up 200 (past #200\'s stall), then a 600-frame probe; Interact taps; marks add no frames', () => {
+    assert.deepEqual(DIAG_LEGS, [['up-left', 2400], ['up', 200], [PROBE, 600]]);
+    assert.ok(['up-right', 'up-left'].includes(PROBE), PROBE);
     const steps = stretch2Diagnostic().steps;
     const frames = steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
-    assert.equal(frames, 30 + 2400 + 1200 + 30);
+    assert.equal(frames, 30 + 2400 + 200 + 600 + 30);
     const marks = steps.filter((s) => s.mark).map((s) => s.mark);
-    assert.deepEqual(marks, DIAG_MARKS.map((m) => `u${m}`));
-    for (const s of steps) if (s.buttons) assert.ok(s.buttons.includes(dragButtons('up-left')[0]) || s.buttons.includes('up'));
+    assert.deepEqual(marks, DIAG_MARKS.map((m) => `p${m}`));
+    const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
+    for (const s of steps) for (const b of s.buttons ?? []) assert.ok(offered.has(b), b);
+    // The probe's presses come after mark p0 and hold exactly the probe's drag bits (plus Interact).
+    const probe = steps.slice(steps.findIndex((s) => s.mark === 'p0')).filter((s) => s.buttons);
+    assert.equal(probe.length, 600 / 20 * 2);
+    const interact = FIELD_ACTIONS.find((a) => a.id === 'interact').button;
+    for (const s of probe) assert.deepEqual(s.buttons.filter((b) => b !== interact).sort(), dragButtons(PROBE).sort());
     // Every change check names a mark the script reaches, and every metric is a check or a memory name.
     for (const a of DIAG_END.assert) if (a.change) assert.ok(marks.includes(a.change.since), a.change.since);
+    for (const a of DIAG_END.assert) if (a.compare) assert.ok(DIAG_MEMORY[a.compare.mem] && DIAG_MEMORY[a.compare.with], a.compare.mem);
     const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);

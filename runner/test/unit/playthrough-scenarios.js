@@ -204,7 +204,7 @@ export function stretch1() {
  *   walkmesh; map_cur says he is still in md1_1.
  * Interact taps 15 of every 20 frames throughout, as attempt 3.
  */
-export const DIAGNOSTIC = true;
+export const DIAGNOSTIC = false;
 /**
  * #204 run 1 ('models-y', c03ca4e) put every model 1-6 above Cloud in y.
  * Run 2 ('models-line') compares gateway 1's y1 with each model's PosY

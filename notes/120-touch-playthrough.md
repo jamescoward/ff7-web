@@ -103,3 +103,24 @@ Reading:
 - At the end **both of gateway 1's x ends are left of him** (g1x, g1x2 −1; at the stall they straddled him, attempt 3), and its y1 end is still above him (g1y +1). So he slid along the obstacle to the right, past the line's right end, without reaching it in y.
 - He stays in md1_1 (117), in field mode.
 - So up-right is the wrong way past the obstacle: it goes round to the right of the exit. Run 2 tries up-left.
+
+### Run 2: probe up-left (`b1c8f02`, tier2: 64 pass, 0 fail; last of the budget)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | dx_p0 −1, dy_p0 −1, dy_p200 −1, g1x 1, g1x2 1, g1y 1, map_cur 117, game_state 1 |
+
+Reading:
+- **Up-left moves Cloud from the stall point too, but away from the line:** −x and −y over the probe, still moving after 200 frames.
+- At the end **both of gateway 1's x ends are right of him** (g1x, g1x2 +1), and y1 is still above him. He went past the line's left end, moving back down in y.
+- He stays in md1_1 (117), in field mode.
+
+### Conclusion (#202)
+- From #200's stall point, Cloud is **not stuck**: both diagonal drags move him for all 600 frames.
+- **Neither reaches gateway 1's line.** Up-right slides along the obstacle to the right, past the line's right end, with y still rising but below y1. Up-left goes back down (−y) and past the left end.
+- So the obstacle spans at least the line's x-range just below it. A straight or diagonal drag from below does not reach the md1_2 exit.
+- The field's screen-to-world mapping is not a simple rotation (screen up gives +x/+y, screen up-left gives −x/−y here). So screen directions are a poor guide in md1_1, and the route needs world-space feedback.
+
+**Route suggestion for #120 stretch 2 (a fresh budget there):**
+- Approach gateway 1 from the side. After run 1's up-right slide (which ends right of the line and still rising in y), drag up, then left, with `compare` signs against gateway 1 to see whether Cloud gets above y1 there.
+- Alternatively, read the walkmesh or the nearest solid model at the stall point. That needs new address-table entries, so it is its own issue.
+- Not tested: whether gateway 1's line is reachable in z (`fieldZ` is a hypothesis), and whether y2 differs from y1 (only y1 was compared).

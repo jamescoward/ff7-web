@@ -202,7 +202,7 @@ export function stretch1() {
  *   PR #197 attempt 1) then lies; map_cur says whether he crossed.
  * Interact taps 15 of every 20 frames throughout, as attempt 3.
  */
-export const DIAGNOSTIC = true;
+export const DIAGNOSTIC = false;
 /** #202 run 1 probes up-right; run 2 up-left. */
 export const PROBE = 'up-left';
 export const DIAG_LEGS = Object.freeze([['up-left', 2400], ['up', 200], [PROBE, 600]]);

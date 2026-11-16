@@ -89,3 +89,38 @@ Reading:
 **Route suggestion for #120 stretch 2 (a fresh budget there):** at the stall point, gateway 1 straddles Cloud in x with both ends above him (+y) (attempt 3). Something blocks the straight-up drag just short of the line.
 - Next, try a short drag up-right, then up-left, from the stall point, with `change … since` signs, to find which way slides past the obstacle.
 - If neither moves Cloud, read which field model is nearest above him. #112's `nearby()` model positions as signs would show whether a solid model (for example a party member or the gate) stands in the way.
+
+## #202: probe a way past the obstacle (PR #203)
+This measures and makes no route attempt (budget: 2 Tier 2 runs). Input: in md1_1 after it loads, wait 30 frames; drag up-left for 2400 frames (attempt 3's first leg); drag up for 200 frames, which reaches #200's stall (60-100 frames in); then mark `p0`, drag in the probe direction for 600 frames with a mark `p200` 200 frames in; wait 30 frames. Interact taps go 15 of every 20 frames throughout. Branch only (`DIAGNOSTIC`, `PROBE` in the generator).
+
+### Run 1: probe up-right (`3c023c5`, tier2: 64 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | dx_p0 1, dy_p0 1, dy_p200 1, g1x −1, g1x2 −1, g1y 1, map_cur 117, game_state 1 |
+
+Reading:
+- **Up-right moves Cloud from the stall point**, +x and +y over the probe, and he is still moving in y after 200 frames of it (dy_p200 +1). It is not a dead end.
+- At the end **both of gateway 1's x ends are left of him** (g1x, g1x2 −1; at the stall they straddled him, attempt 3), and its y1 end is still above him (g1y +1). So he slid along the obstacle to the right, past the line's right end, without reaching it in y.
+- He stays in md1_1 (117), in field mode.
+- So up-right is the wrong way past the obstacle: it goes round to the right of the exit. Run 2 tries up-left.
+
+### Run 2: probe up-left (`b1c8f02`, tier2: 64 pass, 0 fail; last of the budget)
+| scenario | metrics |
+|---|---|
+| touch-playthrough | dx_p0 −1, dy_p0 −1, dy_p200 −1, g1x 1, g1x2 1, g1y 1, map_cur 117, game_state 1 |
+
+Reading:
+- **Up-left moves Cloud from the stall point too, but away from the line:** −x and −y over the probe, still moving after 200 frames.
+- At the end **both of gateway 1's x ends are right of him** (g1x, g1x2 +1), and y1 is still above him. He went past the line's left end, moving back down in y.
+- He stays in md1_1 (117), in field mode.
+
+### Conclusion (#202)
+- From #200's stall point, Cloud is **not stuck**: both diagonal drags move him, over the whole probe and still after 200 frames of it. The signs don't show whether he moved every frame.
+- **Neither reaches gateway 1's line.** Up-right slides along the obstacle to the right, past the line's right end, with y still rising but below y1. Up-left goes back down (−y) and past the left end.
+- So the obstacle spans at least the line's x-range just below it. A straight or diagonal drag from below does not reach the md1_2 exit.
+- Hypothesis: screen up-left gives −x/−y here, while screen up gives +x/+y. That is not a simple rotation, but sliding along the obstacle confounds it. Either way, screen directions are a poor guide here, and the route needs world-space feedback.
+
+**Route suggestion for #120 stretch 2 (a fresh budget there):**
+- Approach gateway 1 from the side. After run 1's up-right slide (which ends right of the line and still rising in y), drag up, then left, with `compare` signs against gateway 1 to see whether Cloud gets above y1 there.
+- Alternatively, read the walkmesh or the nearest solid model at the stall point. That needs new address-table entries, so it is its own issue.
+- Not tested: whether gateway 1's line is reachable in z (`fieldZ` is a hypothesis), and whether y2 differs from y1 (only y1 was compared).

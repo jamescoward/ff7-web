@@ -332,6 +332,47 @@ const INV_13B = 'save-boot-13b-equipment-menu';
 export const RECORD_WEAPON_MATERIA_SLOTS = 8;
 export const RECORD_ARMOR_MATERIA_SLOTS = 8;
 
+// The field menu's Item screen (#135). Its code and variables are an overlay
+// the menu loads at 0x801D0000 when Item is chosen, so these addresses hold
+// other data whenever the Item screen is not open: read them only in menu
+// mode (gameState 5) after itemMenuScreen has been seen at a known value.
+const ITEM_MENU_SOURCE = 'Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B)';
+const ITEM_MENU_ENTRIES = [
+  {
+    name: 'itemMenuScreen',
+    address: 0x801d3e48,
+    type: 's32',
+    meaning: 'Item screen page (g_ItemMenuCurrentScreen): 0 the Use/Arrange/Key Items tabs, 1 the item list (where opening Item starts), 2 an item chosen and a party member being picked, 3 key items, 4 and 5 arrange. Overlay variable: meaningless unless the Item screen is open',
+    source: `${ITEM_MENU_SOURCE}. Not checked in Tier 2 yet (#135)`,
+    status: 'hypothesis',
+    values: Object.freeze({ 0: 'tabs', 1: 'list', 2: 'target', 3: 'keyItems', 4: 'arrange', 5: 'arrangeCustom' }),
+  },
+  {
+    name: 'itemListRow',
+    address: 0x801d3df9,
+    type: 's8',
+    meaning: 'Item screen list cursor, the row on the visible page (g_ItemMenuWidgets[1].row; 10 rows a page). The inventory slot under the cursor is itemListRow + itemListOffset',
+    source: `${ITEM_MENU_SOURCE}: g_ItemMenuWidgets at 0x801D3DDC, entry 1 at +0x12. Not checked in Tier 2 yet (#135)`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'itemListOffset',
+    address: 0x801d3df0,
+    type: 's16',
+    meaning: 'Item screen list scroll: the inventory slot on the top visible row (g_ItemMenuWidgets[1].rowOffset)',
+    source: `${ITEM_MENU_SOURCE}. Not checked in Tier 2 yet (#135)`,
+    status: 'hypothesis',
+  },
+  {
+    name: 'itemTargetSlot',
+    address: 0x801d3e0b,
+    type: 's8',
+    meaning: 'Item screen party cursor on the target page (itemMenuScreen 2): the party slot an item is used on (g_ItemMenuWidgets[2].row, 3 rows)',
+    source: `${ITEM_MENU_SOURCE}: entry 2 at +0x24. Not checked in Tier 2 yet (#135)`,
+    status: 'hypothesis',
+  },
+];
+
 const INVENTORY_ENTRIES = [
   {
     name: 'inventorySlot',
@@ -596,5 +637,6 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...WINDOW_ENTRIES,
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
+  ...ITEM_MENU_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

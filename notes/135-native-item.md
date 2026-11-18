@@ -24,4 +24,20 @@ Split by PR (one session does both lanes, overflow under Trip mode rule 9):
   - `save-boot-14b-item-use-plan` (acceptance): opens Item and waits for screen 1, then plans list 0 → 2 and presses Circle (screen 2). It plans the party cursor 0 → 1, presses Circle and waits for slot 2's quantity to read 4. It checks that the count is one lower, slot 1's HP is 333 (and rose since the mark), slot 0's HP and inventory slots 0 and 1 are unchanged, it is still on screen 2 in the menu, and a rerun matches.
 
 ## Results
-_Pending the first Tier 2 run._
+### Attempt 1: `3fa3585`, tier2 check 134950071201 (64 pass, 2 fail)
+| scenario | metrics |
+|---|---|
+| 14a item-screen-open | menu_wait 1, item_screen 1131955011 (0x43784343), list_row 255, list_off 5887, party_row 255, screen_ok 0, frames 960 |
+| 14b item-use-plan | scr1_wait 0 (timed out), every later metric 0 |
+
+What this shows: 90 frames after one Circle (pressed 30 frames after the menu opened), the hypothesised overlay addresses hold something else. Their values aren't small enumerations; 0x43784343 looks like data. So either the Item overlay wasn't loaded (Item not chosen, or the CD read was still running), or it isn't at 0x801D0000. The save and the menu still behave as before: 10b and 13a pass, and menu_wait is 1 in all of them.
+
+### Attempt 2: diagnostics on the overlay bookkeeping
+- `menu_ovl` (D_80062DD4): the menu overlay id last asked for, where 1 means Item.
+- `menu_prev` (D_80062DD0): the overlay id before it.
+- `ovl_addr` (D_80062DEC): where overlays are read to.
+
+All three come from the decomp's `src/main/1F6B4.c` (reference only). The menu now gets 60 frames before Circle.
+- 14a: one Circle, then 300 frames, with no checks between. Reports the three values above, plus item_screen, list_row and row0.
+- 14c: Circle every 60 frames until menu_ovl reads 1 (ovl_wait), then 120 frames. Reports item_screen, list_row, list_off and party_row.
+- 14b is unchanged apart from the 60-frame settle.

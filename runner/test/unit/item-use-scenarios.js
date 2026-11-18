@@ -68,6 +68,21 @@ const MEMORY = {
     type: 'u8',
     description: `itemTargetSlot (hypothesis, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. ${DECOMP}`,
   },
+  menu_ovl: {
+    addr: '0x80062dd4',
+    type: 'u32',
+    description: `D_80062DD4 (hypothesis, #135 attempt 2): the menu overlay id SysMenuLoadMenuFileById last asked for; 1 = the Item screen (ITEMMENU_Init is entry 1 of the init table D_800493A8). ${DECOMP} src/main/1F6B4.c, src/main/ovl.c`,
+  },
+  menu_prev: {
+    addr: '0x80062dd0',
+    type: 'u32',
+    description: `D_80062DD0 (hypothesis): the overlay id before it. ${DECOMP} src/main/1F6B4.c`,
+  },
+  ovl_addr: {
+    addr: '0x80062dec',
+    type: 'u32',
+    description: `D_80062DEC (hypothesis): the RAM address menu overlays are read to (0x801D0000 initially; a setter can change it). ${DECOMP} src/main/1F6B4.c LoadMenuOvl`,
+  },
   inv0: { addr: invAddr(0), type: 'u16', description: 'inventorySlot[0] (confirmed #117): quantity << 9 | index.' },
   inv1: { addr: invAddr(1), type: 'u16', description: 'inventorySlot[1] (confirmed #117).' },
   inv2: { addr: invAddr(2), type: 'u16', description: 'inventorySlot[2] (confirmed #117): the item used.' },
@@ -82,7 +97,7 @@ const OPEN_MENU = [
   { wait: { until: { mem: 'map_cur', equals: 116 }, timeout: 1 } },
   { wait: { frames: 60 } },
   { wait: { until: { mem: 'game_state', equals: 5 }, timeout: 600, press: { buttons: ['triangle'], every: 60, hold: 4 } }, metric: 'menu_wait' },
-  { wait: { frames: 30 } },
+  { wait: { frames: 60 } },
 ];
 /** One press of `button`, held 4 frames as the planner does. */
 const PRESS = (button) => ({ buttons: [button], frames: 4 });
@@ -93,22 +108,47 @@ export function itemUseScenarios() {
   const { gap } = list.timing;
   const used = { ...ITEMS[2], quantity: ITEMS[2].quantity - 1 };
 
+  // Attempt 1 (3fa3585): one Circle 30 frames after the menu opened, then 90
+  // frames: item_screen read 0x43784343, list_row 255, list_off 5887 (not the
+  // overlay's variables). 14a reports which menu overlay was asked for and
+  // where overlays are read to; 14c keeps pressing Circle until the overlay
+  // id reads 1, then waits for the read to finish. Neither stops early.
   const diag = {
     $schema: '../schema/scenario.schema.json',
     format: 2,
     tier: 2,
     name: 'save-boot-14a-item-screen-open',
-    description: `#135 (diagnostic): what the Item screen's hypothesised variables read just after it opens. Load harness/saves/${SAVE}.json and open the field menu (as save-boot-10b), check the main-menu cursor is on row 0 (Item), press Circle, wait 90 frames with no checks, then report the raw item_screen (expected 1, the list), list_row and list_off (expected 0) and party_row. Checks: those expectations and still in the menu.`,
+    description: `#135 (diagnostic, attempt 2): what the menu's overlay bookkeeping and the Item screen's hypothesised variables read after Item is chosen. Load harness/saves/${SAVE}.json, open the field menu (as save-boot-10b) and wait 60 frames, check the main-menu cursor is on row 0 (Item), press Circle once, wait 300 frames with no checks, then report the raw menu_ovl (expected 1), menu_prev, ovl_addr (expected 0x801D0000), item_screen (expected 1), list_row (expected 0), row0 and game_state. Checks: menu_ovl 1, item_screen 1, still in the menu.`,
     boot: { disc: 1, save: SAVE, slot: 1 },
     memory: MEMORY,
-    input: [...OPEN_MENU, { wait: { until: { mem: 'row0', equals: 0 }, timeout: 1 } }, PRESS('circle'), { wait: { frames: 90 } }],
+    input: [...OPEN_MENU.map(({ metric, ...step }) => step), { wait: { until: { mem: 'row0', equals: 0 }, timeout: 1 } }, PRESS('circle'), { wait: { frames: 300 } }],
     assert: [
-      { expect: { mem: 'item_screen', equals: 1 }, metric: 'screen_ok' },
-      { expect: { mem: 'list_row', equals: 0 } },
-      { expect: { mem: 'list_off', equals: 0 } },
+      { expect: { mem: 'menu_ovl', equals: 1 } },
+      { expect: { mem: 'item_screen', equals: 1 } },
       { expect: { mem: 'game_state', equals: 5 } },
     ],
-    metrics: ['load_done', 'menu_wait', 'item_screen', 'list_row', 'list_off', 'party_row', 'screen_ok', 'frames'],
+    metrics: ['load_done', 'menu_ovl', 'menu_prev', 'ovl_addr', 'item_screen', 'list_row', 'row0', 'game_state'],
+  };
+
+  const diagPress = {
+    $schema: '../schema/scenario.schema.json',
+    format: 2,
+    tier: 2,
+    name: 'save-boot-14c-item-screen-press',
+    description: `#135 (diagnostic, attempt 2): as 14a, but Circle is pressed every 60 frames until menu_ovl reads 1 (ovl_wait; 0 = it never did within 600 frames, and the script stops there), then 120 frames pass with no input. Reports the raw item_screen, list_row, list_off, party_row and ovl_addr. Checks: item_screen 1, list_row 0, list_off 0.`,
+    boot: { disc: 1, save: SAVE, slot: 1 },
+    memory: MEMORY,
+    input: [
+      ...OPEN_MENU.map(({ metric, ...step }) => step),
+      { wait: { until: { mem: 'menu_ovl', equals: 1 }, timeout: 600, press: { buttons: ['circle'], every: 60, hold: 4 } }, metric: 'ovl_wait' },
+      { wait: { frames: 120 } },
+    ],
+    assert: [
+      { expect: { mem: 'item_screen', equals: 1 } },
+      { expect: { mem: 'list_row', equals: 0 } },
+      { expect: { mem: 'list_off', equals: 0 } },
+    ],
+    metrics: ['load_done', 'ovl_wait', 'item_screen', 'list_row', 'list_off', 'party_row', 'ovl_addr', 'frames'],
   };
 
   const accept = {
@@ -150,7 +190,7 @@ export function itemUseScenarios() {
     ],
     metrics: ['load_done', 'scr1_wait', 'w_list', 'w_target', 'use_wait', 'count_ok', 'hp_ok', 'match'],
   };
-  return [diag, accept];
+  return [diag, accept, diagPress];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-14a-item-screen-open",
-  "description": "#135 (diagnostic): what the Item screen's hypothesised variables read just after it opens. Load harness/saves/disc1-md1stin-potion.json and open the field menu (as save-boot-10b), check the main-menu cursor is on row 0 (Item), press Circle, wait 90 frames with no checks, then report the raw item_screen (expected 1, the list), list_row and list_off (expected 0) and party_row. Checks: those expectations and still in the menu.",
+  "description": "#135 (diagnostic, attempt 2): what the menu's overlay bookkeeping and the Item screen's hypothesised variables read after Item is chosen. Load harness/saves/disc1-md1stin-potion.json, open the field menu (as save-boot-10b) and wait 60 frames, check the main-menu cursor is on row 0 (Item), press Circle once, wait 300 frames with no checks, then report the raw menu_ovl (expected 1), menu_prev, ovl_addr (expected 0x801D0000), item_screen (expected 1), list_row (expected 0), row0 and game_state. Checks: menu_ovl 1, item_screen 1, still in the menu.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-potion",
@@ -49,6 +49,21 @@
       "addr": "0x801d3e0b",
       "type": "u8",
       "description": "itemTargetSlot (hypothesis, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)"
+    },
+    "menu_ovl": {
+      "addr": "0x80062dd4",
+      "type": "u32",
+      "description": "D_80062DD4 (hypothesis, #135 attempt 2): the menu overlay id SysMenuLoadMenuFileById last asked for; 1 = the Item screen (ITEMMENU_Init is entry 1 of the init table D_800493A8). Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c"
+    },
+    "menu_prev": {
+      "addr": "0x80062dd0",
+      "type": "u32",
+      "description": "D_80062DD0 (hypothesis): the overlay id before it. Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c"
+    },
+    "ovl_addr": {
+      "addr": "0x80062dec",
+      "type": "u32",
+      "description": "D_80062DEC (hypothesis): the RAM address menu overlays are read to (0x801D0000 initially; a setter can change it). Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c LoadMenuOvl"
     },
     "inv0": {
       "addr": "0x8009cbe0",
@@ -124,12 +139,11 @@
           "every": 60,
           "hold": 4
         }
-      },
-      "metric": "menu_wait"
+      }
     },
     {
       "wait": {
-        "frames": 30
+        "frames": 60
       }
     },
     {
@@ -149,28 +163,21 @@
     },
     {
       "wait": {
-        "frames": 90
+        "frames": 300
       }
     }
   ],
   "assert": [
     {
       "expect": {
-        "mem": "item_screen",
+        "mem": "menu_ovl",
         "equals": 1
-      },
-      "metric": "screen_ok"
-    },
-    {
-      "expect": {
-        "mem": "list_row",
-        "equals": 0
       }
     },
     {
       "expect": {
-        "mem": "list_off",
-        "equals": 0
+        "mem": "item_screen",
+        "equals": 1
       }
     },
     {
@@ -182,12 +189,12 @@
   ],
   "metrics": [
     "load_done",
-    "menu_wait",
+    "menu_ovl",
+    "menu_prev",
+    "ovl_addr",
     "item_screen",
     "list_row",
-    "list_off",
-    "party_row",
-    "screen_ok",
-    "frames"
+    "row0",
+    "game_state"
   ]
 }

@@ -41,3 +41,21 @@ All three come from the decomp's `src/main/1F6B4.c` (reference only). The menu n
 - 14a: one Circle, then 300 frames, with no checks between. Reports the three values above, plus item_screen, list_row and row0.
 - 14c: Circle every 60 frames until menu_ovl reads 1 (ovl_wait), then 120 frames. Reports item_screen, list_row, list_off and party_row.
 - 14b is unchanged apart from the 60-frame settle.
+
+### Attempt 2: `194ee1f`, tier2 check 134958467101 (67 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| 14a item-screen-open | menu_ovl 1, menu_prev 0, ovl_addr 2149384192 (0x801D0000), item_screen 1, list_row 0, row0 0, game_state 5 |
+| 14b item-use-plan | scr1_wait 13, w_list 1, w_target 1, use_wait 1, count_ok 1, hp_ok 1, match 1 |
+| 14c item-screen-press | ovl_wait 1, item_screen 1, list_row 0, list_off 0, party_row 0, ovl_addr 0x801D0000, frames 1016 |
+
+What this shows:
+- The overlay addresses were right. Attempt 1 failed because **Circle pressed 30 frames after the field menu opens is ignored**; at 60 frames it opens Item.
+  - The menu overlay id reads 1 one frame after the press, and the overlay's variables read 1 (list page) within 13 frames.
+  - Overlays are read to 0x801D0000.
+- The acceptance passes. The planner's list move 0 → 2 and party move 0 → 1 each land on the first frame after the release. One Circle press uses the item: slot 2's count goes 5 → 4 and party slot 1's HP rises to its max, 333. Slot 0's HP and inventory slots 0 and 1 are unchanged, and a rerun matches.
+- `itemMenuScreen` (values 1 and 2), `itemListRow`, `itemListOffset` (0 only; scrolling not checked) and `itemTargetSlot` are now confirmed.
+- Row counts and wrapping of both lists stay source claims.
+
+### Run 2 (determinism)
+The next push leaves the scenario files unchanged; only the address table's status changes.

@@ -118,14 +118,14 @@ describe('#120 touch playthrough', () => {
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
   });
-  test('stretch 2 probes (fresh budget, attempt 1): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
+  test('stretch 2 probes (fresh budget, attempt 2): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const stall = stallSegment();
     const frames = stall.steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
     assert.equal(frames, 30 + 2400 + 200 + 30);
     assert.equal(tapLeg('up', 200).reduce((n, s) => n + s.frames, 0), 200);
     const probes = probeScenarios();
-    assert.equal(probes.length, 4);
+    assert.equal(probes.length, 6);
     for (const p of probes) {
       assert.equal(p.tier, 2);
       assert.deepEqual(p.boot, { from: 'touch-md1-1' });
@@ -143,7 +143,7 @@ describe('#120 touch playthrough', () => {
         const c = a.compare;
         if (c) {
           assert.ok(p.memory[c.mem] && p.memory[c.with], `${p.name}: ${c.mem}`);
-          assert.equal(c.shift, 12, `${p.name}: gateway ends are field units`);
+          assert.equal(c.shift, c.mem.startsWith('gw') ? 12 : 0, `${p.name}: gateway ends are field units, positions raw`);
         }
       }
     }

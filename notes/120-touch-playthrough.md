@@ -225,3 +225,8 @@ Reading:
 - **Model 3 is the only one of models 1-4 inside gateway 1's x-range** (x1 < its x < x2). Model 2 is left of the line, and models 1 and 4 are right of it. With #204, model 3 stands between Cloud's stall point and the exit line, in both x and y. (Model positions for k ≥ 1 are still hypotheses.)
 - **No message window opens** during 2400 frames of up-left or 1200 frames of up with Interact taps. So dragging up into the obstacle and tapping Interact starts no talk.
 - Round the right end: after the up-right slide, 400 frames up keep raising PosY, and the left drag moves Cloud left and still up. He ends right of the whole line and still below it (both ends +y). This route doesn't reach the line in 2200 frames.
+
+## Stretch 2, fresh attempt 2: talk to model 3 facing other ways
+Six probes replace attempt 1's, again booting from `touch-md1-1` with `touch-playthrough` left as stretch 1:
+- `touch-s2f-talk-{up-left,up-right,left,right,still}`: segment `touch-2-stall`, then Interact taps while dragging that way (or with no drag), until window 0 opens (`w_talk`, 600 frames). If it opens: taps until it closes (`w_close`), then drag up until the field ID leaves md1_1 (`w_exit`), and check md1_2.
+- `touch-s2e-models-still`: after the stall, 600 frames with no input. Do models 1-4 move (`dy1..dy4`, `dx3`), which would mean a scene is running? Which side of Cloud is model 3 (`c3x`)? `dxc` checks that Cloud stays put.

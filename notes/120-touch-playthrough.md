@@ -246,3 +246,23 @@ Reading:
 
 ## Stretch 2, fresh attempt 3 (last): route sweeps over md1_1
 Eight sweeps (`touch-s2g-sweep-*`) replace attempt 2's probes. Each boots from `touch-md1-1`, waits 30 frames, marks `go`, then drags with Interact taps: up 2400; up-right 2400; right 1200 then up 1200; from the stall right 300 then up 900, or left 300 then up 900; from the stall down 200, right 600, up 900, left 600; up-left 1200, up 600, right 900, up 600; and from the stall **running** (a drag past RUN_DISTANCE adds Cross, as field-drag.js does) up 600, up-right 300, up-left 300. Each checks for md1_2 at the end. Metrics: `map_cur`; `dy1..dy4` and `dx3`, the field models' moves since `go` (a scene started); `cy`, Cloud's PosY since `go`; `dlg`.
+
+### Fresh attempt 3 results (`2916822`, tier2: 64 pass, 8 fail; last of the fresh budget)
+`touch-playthrough` passed unchanged.
+
+| sweep | map_cur | cy | dy1 dy2 dy3 dy4 dx3 | dlg |
+|---|---|---|---|---|
+| up 2400 | 117 | 1 | 0 0 0 0 0 | 0 |
+| up-right 2400 | 117 | 1 | 0 0 0 0 0 | 0 |
+| right 1200, up 1200 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, right 300, up 900 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, left 300, up 900 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, down 200, right 600, up 900, left 600 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, run up 600, up-right 300, up-left 300 | 117 | 1 | 0 0 0 0 0 | 0 |
+| up-left 1200, up 600, right 900, up 600 | **116** | 1 | −1 1 1 1 1 | 0 |
+
+Reading:
+- **No sweep reaches md1_2.** In md1_1, models 1-4 never move and no window opens, from the entry or from the stall, walking or running.
+- The up-left, up, right, up sweep ends in **md1stin (116)**: it crossed gateway 0 back. Its model signs come from md1stin's models, so they say nothing about md1_1.
+- **Stop (fresh budget 3/3).** Six attempts over two budgets, plus three measurement-only issues (#200, #202, #204), haven't found the way to md1_2. What is known: model 3 stands in the exit line's x-range, between the stall point and the line. Nothing in md1_1 reacts to Interact at the stall or along these sweeps. No scene runs.
+- **No touch action is shown to be missing.** Every stretch-2 input is a walk or run drag plus Interact, which is all the classic pad does in a field without a menu. The blocker is route knowledge (a trigger or path not found), not a touch action.

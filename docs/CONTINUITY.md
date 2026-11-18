@@ -139,6 +139,7 @@ The owner is away and checks nothing until they return (owner decision, 2026-11-
    - **After 2026-11-25** the second subscription has ended: the main implementer takes any ready issue, in either lane. A UI-lane or overflow claim the second implementer left open counts as abandoned from then on.
    - A lane issue already claimed by the other implementer stays with it.
 10. **Hand-off before the subscription ends.** The last scheduled run (2026-12-04) brings `STATUS.md` up to date for the owner's return, finishes or checkpoints in-flight work, and posts a final digest.
+11. **Defaults over owner decisions** (owner, 2026-11-18; `docs/decisions/2026-11-18-defaults-over-owner-decisions.md`). A reversible choice no longer parks an issue with `needs-owner`: pick a sensible default, record it as a `Decision (agent default, …)` comment on the issue, list it in the digest, and carry on. This covers UI and layout (landscape especially), Labs-flagged feature design, planning, and **one** fresh 3-attempt budget per issue after a reported 3/3 stop. Protected paths, the trust boundary, licences and anything against `CLAUDE.md` still need the owner.
 
 ## Running out of quota
 There is no warning, which is why checkpoints are frequent and the Handoff is always current. If a session notices it is close to its limits, it checkpoints immediately rather than starting a new step.

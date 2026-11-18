@@ -18,7 +18,8 @@
           "every": 20,
           "hold": 15
         }
-      }
+      },
+      "metric": "battle_wait"
     },
     {
       "wait": {
@@ -36,7 +37,8 @@
           "equals": 1
         },
         "timeout": 1800
-      }
+      },
+      "metric": "turn1"
     },
     {
       "wait": {
@@ -65,7 +67,8 @@
           "equals": 0
         },
         "timeout": 30
-      }
+      },
+      "metric": "t1_target"
     },
     {
       "buttons": [
@@ -80,7 +83,8 @@
           "equals": 65535
         },
         "timeout": 30
-      }
+      },
+      "metric": "t1_done"
     },
     {
       "wait": {
@@ -89,7 +93,8 @@
           "equals": 1
         },
         "timeout": 3600
-      }
+      },
+      "metric": "turn2"
     },
     {
       "wait": {
@@ -149,7 +154,8 @@
           "every": 30,
           "hold": 4
         }
-      }
+      },
+      "metric": "end_wait"
     },
     {
       "wait": {
@@ -179,7 +185,8 @@
           "every": 60,
           "hold": 59
         }
-      }
+      },
+      "metric": "next_wait"
     },
     {
       "wait": {

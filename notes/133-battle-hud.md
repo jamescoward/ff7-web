@@ -23,7 +23,7 @@ Labels are "Slot 1/2/3"; no names are read or committed.
   touch (`pointer-events: none`). With `safe-layout` the picture's height budget
   subtracts `--hud-h`, so the whole pad still fits (Safari portrait: the picture
   shrinks to about 197x148 CSS px while the strip shows).
-- **Landscape: hidden.** The pad's halves already sit over the picture's edges on an
+- **Landscape: hidden** (until #166, which overlays a compact strip on the upper picture; `notes/166-landscape-hud.md`). Original note: The pad's halves already sit over the picture's edges on an
   iPhone in landscape (852x393: picture 164..688, face buttons from 660), so there is
   no free space beside the picture. Placing it there needs a decision (shrink the
   picture, or overlay it): follow-up issue.

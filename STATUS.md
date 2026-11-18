@@ -4,6 +4,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Trip mode (2026-11-09 to 2026-12-05):** the owner is away and checks nothing. Scheduled sessions follow `docs/CONTINUITY.md`, "Trip mode": the pause label `agents-paused`, one implementer at a time, touch features behind off-by-default Labs flags labelled `tier3-deferred`, and a weekly digest on #123. The M3/M4 plan (#105–#121, owner-approved 2026-11-06) is in `notes/m3-m4-issue-drafts.md`; after the M2 queue below, take #105 and #106 first. Trip extension issues #130–#137 (owner, 2026-11-07) are listed in the same notes file.
 
+**Defaults over owner decisions (owner, 2026-11-18):** reversible choices (UI and layout, landscape especially, Labs-flagged design, planning, one fresh attempt budget per issue) no longer wait for the owner. Pick a default and record it on the issue. See `docs/decisions/2026-11-18-defaults-over-owner-decisions.md` and Trip mode rule 11.
+
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
@@ -49,12 +51,13 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **#171** (PR #188): `battleCommandRow1` and `battleCommandRow2` are confirmed (save-boot-11e, save-boot-11d), and `battleActor` reads 2 directly at the first menu of a Cloud, Barret, Tifa battle. **With no materia the command cursor skips empty rows**: one Down press goes from row 0 (Attack) to row 3, and Up comes back to 0. `battleInput().row` is now reported for every slot (`notes/171-battle-rows.md`).
 - **#189** (PR #190): the planner has an opt-in `skips` mode (plans that don't wrap only): a press that lands on a later planned row counts as progress. `MENUS.battleCommand` sets it (confirmed by #171), so a `battle-panel` tap on row 3 (Item, with no materia) is reached in one Down, for every slot. A tap on a row the member lacks still stops with `moved` and selects nothing; rows aren't greyed out because no reader for the command list exists. Tier 3 deferred (#123). Done by the second implementer (UI lane).
 - **#134**: Labs flag `world-drag`: with `auto-controls` also on, a confirmed world map shows drag-to-walk (the same pad bits as the field); the Controls button still overrides. Tier 3 deferred (#123). Done by the second implementer (UI lane) (`notes/134-world-drag.md`).
+- **#166**: the battle status strip (`battle-hud`) now shows in landscape too, as a compact, translucent band over the upper picture, below the top bar and between the side controls (owner chose an overlay; layout details by the agent). Tier 3 deferred (#123) (`notes/166-landscape-hud.md`).
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**
 - Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
 - The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
-- Limits: 64 scenarios per run (raised from 32 by #109, PR #122, merged 2026-11-07) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+- Limits: 128 scenarios per run (raised from 32 by #109, PR #122, then to 128 by PR #206, owner, 2026-11-18) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
 - ~~**Measured values in save descriptions:**~~ Decided (owner, 2026-11-06, planning session): values measured in Tier 2 may go in save descriptions, as `harness/saves/disc1-md1stin.json` does. #80 and #101 can build boot points the same way. `docs/SECURITY.md` still says "the author chose"; aligning its wording is an optional `needs-owner` PR.

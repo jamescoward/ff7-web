@@ -445,8 +445,8 @@ test('expect: a tier 2 scenario that could smuggle text is rejected', () => {
     const L = jobWith((w) => put(w, `harness/scenarios/${file}`, content));
     assert.throws(() => buildExpect(L.work), (e) => e instanceof Tier2Error && e.code === 'bad-scenario', what);
   }
-  // One more than the validator's cap (64 since #109) is refused; the cap itself is accepted.
-  assert.equal(MAX_SCENARIOS, 64);
+  // One more than the validator's cap (128 since 2026-11-18, 64 since #109) is refused; the cap itself is accepted.
+  assert.equal(MAX_SCENARIOS, 128);
   const full = jobWith((w) => { for (let i = 0; i < MAX_SCENARIOS; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });
   assert.equal(Object.keys(buildExpect(full.work).scenarios).length, MAX_SCENARIOS);
   const many = jobWith((w) => { for (let i = 0; i <= MAX_SCENARIOS; i++) put(w, `harness/scenarios/s${i}.json`, scenario(`s${i}`)); });

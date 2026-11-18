@@ -232,10 +232,33 @@ body {
 .hud-cell[data-key="atb"] .hud-fill { background: #ffd479; }
 .hud-cell[data-key="limit"] .hud-fill { background: #f59ad4; }
 .hud-cell[data-full] .hud-num { color: #ffd479; }
-/* Landscape phones have no free space beside the picture (the pad's halves
-   already sit over its edges), so the strip is portrait only for now. */
+/* Landscape phones (#166): there is no free space beside the picture, and the
+   pad's halves reach well into it (d-pad to x 286, face buttons from x 542 on an
+   iPhone 14 Pro), as do the top bar and the shoulder buttons along its top. So
+   the strip is a compact, translucent band over the upper battle scene, just
+   below the top bar, centred and narrow enough to fit between the side
+   controls. It still never takes a touch, so taps reach whatever is under it. */
 @media (orientation: landscape) and (max-height: 600px) {
-  .hud { display: none !important; }
+  :root { --hud-h: 58px; }
+  .hud {
+    position: absolute;
+    z-index: 4;
+    top: calc(env(safe-area-inset-top) + 56px); /* the top bar: 6 px padding + 44 px buttons + 6 px */
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(240px, 100%);
+    grid-auto-rows: 17px;
+    gap: 1px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #000000a6;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+  .hud-row { grid-template-columns: 2.6em 1.5fr 1.15fr 0.75fr 0.75fr; gap: 5px; }
+  .hud-slot { font-size: 9px; }
+  .hud-name { font-size: 8px; }
+  .hud-bar { height: 3px; margin-top: 1px; }
 }
 
 /* Virtual gamepad */

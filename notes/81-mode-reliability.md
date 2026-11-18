@@ -25,4 +25,5 @@ Original project notes, GPL-2.0-or-later.
 - `prevGameState` after a load from the title (world, minigame) is reported, not checked: its value there is unconfirmed.
 
 ## Results
-(Tier 2 runs: see the PR.)
+- Run 1 (`1bd8544`, tier2 check 135123491395): 73/73 pass. Shown metrics: movie-1a and movie-2a `advancing` 1; movie-3a `still` 0, `movie_end` 6564, `movie_frame` 1790; reactor-mode-2a `held` 0, `prev_ok` 1, `menu_wait` 1 (the menu opens on the first Triangle). The check summary is cut off past reactor-mode-3, so the other new scenarios' metrics weren't read; they pass.
+- Run 2: on the docs commit (scenarios unchanged), see PR #210.

@@ -6,13 +6,14 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Defaults over owner decisions (owner, 2026-11-18):** reversible choices (UI and layout, landscape especially, Labs-flagged design, planning, one fresh attempt budget per issue) no longer wait for the owner. Pick a default and record it on the issue. See `docs/decisions/2026-11-18-defaults-over-owner-decisions.md` and Trip mode rule 11.
 
-**Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
+**Current milestone:** M3 (`docs/PHASE0.md`). **M2 is complete** (#81, PR #210, 2026-11-18). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): **#81** (M2 exit, blocked). #140 is done (PR #155). #24 and #25 become ready for M3 when #81 is done.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 and #25 are refined and ready for M3; game-state lane also has #121 and #168.
 
 **Done in M2:**
+- **#81** (PR #210): the M2 exit set. 17 Tier 2 points cover field, battle, menu, world, minigame and movie, settled and just after a transition (9 new scenarios: wait for the first frame of the new mode, then check it 60 frames later and that gameState held). `runner/test/unit/mode-reliability.test.js` reads each point's own checks and feeds them to `mode()` (owner decision on #81: raw inputs in Tier 2, `mode()` in Tier 1). Green on two runs (`notes/81-mode-reliability.md`).
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
 - **#75** (PR #83): the semantic layer (`semantic/`), the address table with provenance, and the USA boot-executable hash gate.
 - **#74** (PR #85): named snapshots, `boot.from`, input segments and still-picture waits. The chain title → New Game → `reactor-entrance` (frame 11095) is deterministic.

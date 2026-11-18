@@ -57,5 +57,14 @@ What this shows:
 - `itemMenuScreen` (values 1 and 2), `itemListRow`, `itemListOffset` (0 only; scrolling not checked) and `itemTargetSlot` are now confirmed.
 - Row counts and wrapping of both lists stay source claims.
 
-### Run 2 (determinism)
-The next push leaves the scenario files unchanged; only the address table's status changes.
+### Run 2 (determinism): `6933559`, tier2 check 134985748881 (67 pass, 0 fail)
+The scenario files are unchanged since attempt 2. 14a, 14b and 14c report **identical metrics** to attempt 2, field for field, and each run's rerun matched (`match` 1). So the planned item use is deterministic over two runs.
+
+## Limits
+- The list cursor is checked only on rows 0-2 of the first page, with the list offset at 0. Scrolling past row 9 and Arrange/Key Items aren't covered.
+- The party cursor is checked only on rows 0 and 1. Its 3 rows and wrapping are source claims, so plans never wrap.
+- The only item used is index 0; that it restores 100 HP is a source claim. The check is that HP reaches max (333 from 300).
+- Choosing Item needs the field menu to have been open for more than 30 frames. A UI should read `itemMenuScreen` after its press rather than assume the press landed.
+
+## Next (PR 2)
+The `native-item` Labs screen, off by default. In a confirmed menu with `itemMenuScreen` 1, it covers the picture with inventory slots (IDs and counts from `inventory()`) and party HP/MP. A tap on an item, then a party slot, runs `itemList` and `itemTarget` plans through `createPlanExecutor` with Circle between them. It confirms the use by reading the count and HP.

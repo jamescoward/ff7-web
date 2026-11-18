@@ -4,6 +4,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Trip mode (2026-11-09 to 2026-12-05):** the owner is away and checks nothing. Scheduled sessions follow `docs/CONTINUITY.md`, "Trip mode": the pause label `agents-paused`, one implementer at a time, touch features behind off-by-default Labs flags labelled `tier3-deferred`, and a weekly digest on #123. The M3/M4 plan (#105–#121, owner-approved 2026-11-06) is in `notes/m3-m4-issue-drafts.md`; after the M2 queue below, take #105 and #106 first. Trip extension issues #130–#137 (owner, 2026-11-07) are listed in the same notes file.
 
+**Defaults over owner decisions (owner, 2026-11-18):** reversible choices (UI and layout, landscape especially, Labs-flagged design, planning, one fresh attempt budget per issue) no longer wait for the owner. Pick a default and record it on the issue. See `docs/decisions/2026-11-18-defaults-over-owner-decisions.md` and Trip mode rule 11.
+
 **Current milestone:** M2 (`docs/PHASE0.md`). **M1.5 (private eval) is complete:** the disc boot smoke test #36 passes in Tier 2 (2026-11-05, PR #64).
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
@@ -55,7 +57,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **Things a new agent must know:**
 - Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
 - The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
-- Limits: 64 scenarios per run (raised from 32 by #109, PR #122, merged 2026-11-07) and 8 metrics per scenario. The owner approved 128 on 2026-11-18; that change is in a `needs-owner` PR (branch `issue-81-tier2-cap-128`) and applies only once it merges. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+- Limits: 128 scenarios per run (raised from 32 by #109, PR #122, then to 128 by PR #206, owner, 2026-11-18) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
 - ~~**Measured values in save descriptions:**~~ Decided (owner, 2026-11-06, planning session): values measured in Tier 2 may go in save descriptions, as `harness/saves/disc1-md1stin.json` does. #80 and #101 can build boot points the same way. `docs/SECURITY.md` still says "the author chose"; aligning its wording is an optional `needs-owner` PR.

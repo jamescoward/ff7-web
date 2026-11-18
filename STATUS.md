@@ -54,7 +54,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **Things a new agent must know:**
 - Runner code may import only from inside `runner/`. The Tier 2 build and the sandbox ship only `runner/` and `harness/`; that is why the disc reader is `runner/iso9660.js`. `web/js/semantic/` is a byte-identical copy of `semantic/*.js` plus `runner/iso9660.js`: run `node semantic/sync-web.js` after editing either.
 - The trusted side reads only top-level `harness/scenarios/*.json` as scenarios. Segments live in `harness/scenarios/segments/`. Scenarios run in file-name order, and a `boot.from` needs an earlier scenario that kept that snapshot.
-- Limits: 64 scenarios per run (raised from 32 by #109, PR #122, merged 2026-11-07) and 8 metrics per scenario. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
+- Limits: 64 scenarios per run (raised from 32 by #109, PR #122, merged 2026-11-07) and 8 metrics per scenario. The owner approved 128 on 2026-11-18; that change is in a `needs-owner` PR (branch `issue-81-tier2-cap-128`) and applies only once it merges. Each Tier 2 try costs a push and a CI run, so batch hypotheses.
 
 **Needs the owner:**
 - ~~**Measured values in save descriptions:**~~ Decided (owner, 2026-11-06, planning session): values measured in Tier 2 may go in save descriptions, as `harness/saves/disc1-md1stin.json` does. #80 and #101 can build boot points the same way. `docs/SECURITY.md` still says "the author chose"; aligning its wording is an optional `needs-owner` PR.

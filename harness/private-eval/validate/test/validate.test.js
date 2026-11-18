@@ -365,7 +365,7 @@ test(`the largest possible summary is under SUMMARY_MAX_BYTES (${SUMMARY_MAX_BYT
   const metrics = {};
   for (let i = 0; i < MAX_METRICS; i++) metrics[`m${String(i).repeat(31)}`.slice(0, 32)] = -MAX_INT;
   const scenarios = Array.from({ length: MAX_SCENARIOS }, (_, i) => ({
-    name: `${String(i).padStart(2, '0')}${'x'.repeat(62)}`,
+    name: `${String(i).padStart(3, '0')}${'x'.repeat(61)}`,
     status: 'error',
     metrics,
   }));
@@ -380,9 +380,10 @@ test(`the largest possible summary is under SUMMARY_MAX_BYTES (${SUMMARY_MAX_BYT
   assert.ok(String(-999999.999).length <= String(-MAX_INT).length);
 });
 
-test('the information bound: at most about 18 kbit per run, all of it numbers and statuses', () => {
-  // 18 kbit since #109 (owner decision, 2026-11-06): MAX_SCENARIOS went from 32 to 64,
-  // which doubles the bound (it was about 9 kbit). docs/SECURITY.md states the accepted risk.
+test('the information bound: at most about 35 kbit per run, all of it numbers and statuses', () => {
+  // 35 kbit since 2026-11-18 (owner decision, #81): MAX_SCENARIOS went from 64 to 128,
+  // which doubles the bound again (about 9 kbit at 32, 18 kbit at 64 after #109).
+  // docs/SECURITY.md states the accepted risk.
   // What a hostile program controls, given --expect: for each expected
   // scenario, whether it reports and its status (4 outcomes); for each
   // expected key, whether it's present and its value. Integers within
@@ -393,7 +394,7 @@ test('the information bound: at most about 18 kbit per run, all of it numbers an
   const perMetric = Math.log2(values + 1); // +1: absent
   const perScenario = Math.log2(1 + STATUSES.length) + MAX_METRICS * perMetric;
   const bits = MAX_SCENARIOS * perScenario + Math.log2(REASONS.length + 1);
-  assert.ok(bits < 18000, `bound is ${Math.round(bits)} bits`);
+  assert.ok(bits < 35000, `bound is ${Math.round(bits)} bits`);
 });
 
 // --- Fuzz ----------------------------------------------------------------------
@@ -437,8 +438,8 @@ function mutate(r) {
       // A copy: the hostile [] and {} are shared, and assigning one into itself made a cycle.
       if (target && typeof target === 'object') target[key] = structuredClone(pick(HOSTILE_VALUES));
     }
-    // Up to 80 unique names (more than MAX_SCENARIOS = 64, #109), then duplicates.
-    if (r() < 0.2) d.scenarios = Array.from({ length: Math.floor(r() * 160) }, (_, i) => ({ name: `s${i % 80}`, status: pick(STATUSES) }));
+    // Up to 160 unique names (more than MAX_SCENARIOS = 128), then duplicates.
+    if (r() < 0.2) d.scenarios = Array.from({ length: Math.floor(r() * 320) }, (_, i) => ({ name: `s${i % 160}`, status: pick(STATUSES) }));
     return Buffer.from(JSON.stringify(d) ?? '');
   }
   // Textual: corrupt the bytes of a valid document.

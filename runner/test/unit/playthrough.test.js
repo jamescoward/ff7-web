@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -118,14 +118,18 @@ describe('#120 touch playthrough', () => {
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
   });
-  test('stretch 2 probes (fresh budget, attempt 2): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
+  test('stretch 2 probes (fresh budget, attempt 3): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const stall = stallSegment();
     const frames = stall.steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
     assert.equal(frames, 30 + 2400 + 200 + 30);
     assert.equal(tapLeg('up', 200).reduce((n, s) => n + s.frames, 0), 200);
     const probes = probeScenarios();
-    assert.equal(probes.length, 6);
+    assert.equal(probes.length, 8);
+    assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
+    assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));
+    for (const b of runButtons('up-left')) offered.add(b);
+    for (const b of runButtons('up-right')) offered.add(b);
     for (const p of probes) {
       assert.equal(p.tier, 2);
       assert.deepEqual(p.boot, { from: 'touch-md1-1' });

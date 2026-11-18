@@ -243,3 +243,6 @@ Reading:
 - **No message window opens** in 600 frames of Interact taps facing up-left, up-right, left or right, or with no drag. With attempt 1 (up-left, up), Interact at the stall point starts no talk in any direction.
 - **Models 1-4 don't move** during 600 still frames, and Cloud stays put: no scene is running at the stall. Model 3 (the one in the line's x-range) is to Cloud's right.
 - So the way past is not a talk at the stall. Left: a scene trigger elsewhere in md1_1 that the route never crossed, or a walkmesh route not yet tried.
+
+## Stretch 2, fresh attempt 3 (last): route sweeps over md1_1
+Eight sweeps (`touch-s2g-sweep-*`) replace attempt 2's probes. Each boots from `touch-md1-1`, waits 30 frames, marks `go`, then drags with Interact taps: up 2400; up-right 2400; right 1200 then up 1200; from the stall right 300 then up 900, or left 300 then up 900; from the stall down 200, right 600, up 900, left 600; up-left 1200, up 600, right 900, up 600; and from the stall **running** (a drag past RUN_DISTANCE adds Cross, as field-drag.js does) up 600, up-right 300, up-left 300. Each checks for md1_2 at the end. Metrics: `map_cur`; `dy1..dy4` and `dx3`, the field models' moves since `go` (a scene started); `cy`, Cloud's PosY since `go`; `dlg`.

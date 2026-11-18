@@ -230,3 +230,16 @@ Reading:
 Six probes replace attempt 1's, again booting from `touch-md1-1` with `touch-playthrough` left as stretch 1:
 - `touch-s2f-talk-{up-left,up-right,left,right,still}`: segment `touch-2-stall`, then Interact taps while dragging that way (or with no drag), until window 0 opens (`w_talk`, 600 frames). If it opens: taps until it closes (`w_close`), then drag up until the field ID leaves md1_1 (`w_exit`), and check md1_2.
 - `touch-s2e-models-still`: after the stall, 600 frames with no input. Do models 1-4 move (`dy1..dy4`, `dx3`), which would mean a scene is running? Which side of Cloud is model 3 (`c3x`)? `dxc` checks that Cloud stays put.
+
+### Fresh attempt 2 results (`aa67516`, tier2: 65 pass, 5 fail by design)
+`touch-playthrough` passed unchanged.
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2e-models-still | pass | c3x 1, dy1 0, dy2 0, dy3 0, dy4 0, dx3 0, dxc 0, map_cur 117 |
+| touch-s2f-talk-{up-left,up-right,left,right,still} | fail (no window) | w_talk 0, w_close 0, w_exit 0, map_cur 117, dlg 0 (all five) |
+
+Reading:
+- **No message window opens** in 600 frames of Interact taps facing up-left, up-right, left or right, or with no drag. With attempt 1 (up-left, up), Interact at the stall point starts no talk in any direction.
+- **Models 1-4 don't move** during 600 still frames, and Cloud stays put: no scene is running at the stall. Model 3 (the one in the line's x-range) is to Cloud's right.
+- So the way past is not a talk at the stall. Left: a scene trigger elsewhere in md1_1 that the route never crossed, or a walkmesh route not yet tried.

@@ -3,7 +3,8 @@
 // Layout: with the strip shown, on the iPhone 14 Pro profiles of #106, it sits
 // below the picture inside the viewport and covers neither the picture nor any
 // control, and every pad control stays on screen (with and without
-// `safe-layout`). In landscape it stays hidden.
+// `safe-layout`). In landscape (#166) it is a translucent band over the upper
+// part of the picture, inside the picture and the viewport, covering no control.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { BROWSERS, launch, loadPlaywright, serveWeb, until } from './helpers.js';
@@ -182,14 +183,23 @@ for (const name of BROWSERS) {
           try {
             await page.evaluate(() => window.ff7web.battleHud.setGate({ active: true }));
             const vp = page.viewportSize();
-            if (vp.width > vp.height) {
-              await page.waitForTimeout(SETTLE);
-              assert.equal(await hudShown(page), false, 'portrait only');
-            } else {
+            const landscape = vp.width > vp.height;
+            // The widest numbers the strip can show (HP and MP top out at 9999 and 999).
+            await page.evaluate(() => { Object.assign(window.fake.slots[1].value, { hp: 9999, maxHp: 9999, mp: 999, maxMp: 999 }); });
+            {
               await waitShown(page, true, 'strip');
+              await until(async () => (await cellText(page, 1, 'hp'))?.num === '9999/9999', { timeout: 3000, what: 'widest numbers' });
               const hud = await rect(page, '#hud');
               const canvas = await rect(page, '#screen');
-              assert.ok(hud.y >= canvas.y + canvas.height - TOL, `strip ${fmt(hud)} is below the picture ${fmt(canvas)}`);
+              if (landscape) {
+                // Over the picture (#166): inside it, so it never reaches the pad's side columns.
+                assert.ok(hud.x >= canvas.x - TOL && hud.x + hud.width <= canvas.x + canvas.width + TOL
+                  && hud.y >= canvas.y - TOL && hud.y + hud.height <= canvas.y + canvas.height + TOL, `strip ${fmt(hud)} inside the picture ${fmt(canvas)}`);
+                assert.ok(hud.y + hud.height <= canvas.y + canvas.height / 2, `strip ${fmt(hud)} in the upper half of the picture`);
+                assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('hud')).pointerEvents), 'none', 'never takes a touch');
+              } else {
+                assert.ok(hud.y >= canvas.y + canvas.height - TOL, `strip ${fmt(hud)} is below the picture ${fmt(canvas)}`);
+              }
               assert.ok(hud.x >= -TOL && hud.x + hud.width <= vp.width + TOL && hud.y + hud.height <= vp.height - profile.insets.bottom + TOL,
                 `strip ${fmt(hud)} inside the viewport ${vp.width}x${vp.height}`);
               assert.ok(Math.abs(canvas.width / canvas.height - 4 / 3) * canvas.height <= TOL + 0.5, `picture ${fmt(canvas)} keeps 4:3`);

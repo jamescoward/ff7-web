@@ -210,3 +210,18 @@ The owner gave stretch 2 a fresh budget of 3 attempts (#120, comment of 2026-11-
 | `touch-s2d-around-right` | a route round the obstacle's right end: stall, up-right 600, up 400, left 1200 | `map_cur`, `dy_u2`, `dx_l`, `dy_l`, `g1x`, `g1x2`, `g1y`, `g1y2` |
 
 A wait that times out stops its script and reports 0 (s2b, s2c), so those probes may fail by design. Model positions for k ≥ 1 are still hypotheses (#99).
+
+### Fresh attempt 1 results (`b89cbc0`, tier2: 65 pass, 3 fail by design)
+`touch-playthrough` (stretch 1) passed with the same metrics as before (battle_wait 839, turn1 496, turn2 752, end_wait 482, next_wait 495, match 1).
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2a-models-x | pass | a1 −1, b1 −1; a2 1, b2 1; **a3 −1, b3 1**; a4 −1, b4 −1 |
+| touch-s2b-window-up-left | fail (by design) | w_ul 0, w_close 0, map_cur 117, dlg 0 |
+| touch-s2c-window-up | fail (by design) | w_up 0, w_close 0, w_exit 0, map_cur 117, dlg 0 |
+| touch-s2d-around-right | fail (md1_2 not reached) | dy_u2 1, dx_l −1, dy_l 1, g1x −1, g1x2 −1, g1y 1, g1y2 1, map_cur 117 |
+
+Reading:
+- **Model 3 is the only one of models 1-4 inside gateway 1's x-range** (x1 < its x < x2). Model 2 is left of the line, and models 1 and 4 are right of it. With #204, model 3 stands between Cloud's stall point and the exit line, in both x and y. (Model positions for k ≥ 1 are still hypotheses.)
+- **No message window opens** during 2400 frames of up-left or 1200 frames of up with Interact taps. So dragging up into the obstacle and tapping Interact starts no talk.
+- Round the right end: after the up-right slide, 400 frames up keep raising PosY, and the left drag moves Cloud left and still up. He ends right of the whole line and still below it (both ends +y). This route doesn't reach the line in 2200 frames.

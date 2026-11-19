@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ADDRESS_TABLE, CHARACTER_RECORD_SIZE } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, CHARACTER_RECORD_SIZE, MENU_OVERLAY_EQUIP } from '../../../semantic/addresses.js';
 import { EQUIP_ROW, ITEMS, OVERLAY_EQUIP, SAVE, WEAPON_AFTER, WEAPON_BEFORE, equipScenarios } from './equip-scenarios.js';
 import { SCENARIO_DIR, serialise } from './planner-scenarios.js';
 import { loadScenario } from '../../scenario.js';
@@ -63,5 +63,12 @@ describe('#121 equip scenarios', () => {
     assert.equal(Number(s.memory.weapon0.addr), byName('characterWeapon').address + CHARACTER_RECORD_SIZE * 0);
     assert.equal(Number(s.memory.inv0.addr), byName('inventorySlot').address);
     assert.equal(Number(s.memory.inv1.addr), byName('inventorySlot').address + 2);
+  });
+
+  test('menuOverlay 4 (Equip) is confirmed by 15b, the value the scenarios wait for', () => {
+    assert.equal(MENU_OVERLAY_EQUIP, OVERLAY_EQUIP);
+    const e = byName('menuOverlay');
+    assert.equal(e.values[OVERLAY_EQUIP], 'equip');
+    assert.equal(e.confirmedValues[OVERLAY_EQUIP], 'harness/scenarios/save-boot-15b-equip-screen-open.json');
   });
 });

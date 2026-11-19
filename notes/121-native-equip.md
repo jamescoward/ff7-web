@@ -25,7 +25,24 @@ The cursor positions on the Equip screen are assumptions (Weapon slot first, the
   - `save-boot-15c-equip-weapon-plan` (acceptance): as 15b, then Circle (Weapon slot), 60 frames, Circle (first list entry), and wait until weapon0 reads 1. Checks weapon 1, changed since the mark, still overlay 4 in the menu, rerun match. Reports raw weapon0, inv0 and inv1, to see where the old weapon went.
 
 ## Results
-_Pending the first Tier 2 run._
+### Attempt 1: `a9c90d4`, tier2 check 135347732970 (82 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| 15a equip-row-circle | row_wait 1, menu_ovl 0, menu_prev 0, row0 3, weapon0 0, game_state 5, frames 1291 |
+| 15b equip-screen-open | row_wait 1, ovl_wait 61, menu_ovl 4, menu_prev 0, weapon0 0, game_state 5, frames 1168 |
+| 15c equip-weapon-plan | ovl_wait 61, eq_wait 1, weap_ok 1, weapon0 1, inv0 65535 (0xFFFF), inv1 642 (0x282), match 1 |
+
+What this shows:
+- **The planned move lands on Equip.** `menuPanelPlan(0, 3)` reaches row 3 (`row_wait` 1).
+- **One Circle on Equip doesn't load the overlay.** `menuOverlay` stays 0 after 300 frames (15a), so a party pick comes first. That matches #135's 14f (Materia, row 2).
+- **The second Circle, 60 frames later, asks for overlay 4** (15b: `ovl_wait` 61 is the press at frame 60 plus one frame). This matches `YAMA_EQIPMENU_EQUIP` in the decomp's enum. It also checks the label order Item, Magic, Materia, Equip through the overlay id (row 3 → id 4). **`menuOverlay` value 4 is now confirmed.** `menu_prev` reads 0.
+- **The acceptance passes.** Two more Circles, 120 and 180 frames after the overlay was asked for, equip weapon 1:
+  - `weapon0` reads 1 on the first frame checked (`eq_wait` 1);
+  - inventory slot 0 (which held weapon 1) is now empty;
+  - slot 1 (weapon 2, ×1) is unchanged;
+  - a rerun matches.
+  So the Equip screen opens on the Weapon slot, the first list entry is weapon 1, and Cloud can equip it. These are observed for this save only.
+- **The old weapon 0 didn't go into slot 0 or 1.** Where it went is not read.
 
 ## Limits (part 1)
 - No Equip-screen cursor is read. A native screen can then only plan from the screen's opening state, and has to confirm each change by reading the savemap.

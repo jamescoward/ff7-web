@@ -176,7 +176,7 @@ labs.registerFlag(ITEM_FLAG, {
 labs.registerFlag(CROP_FLAG, {
   label: 'Crop black borders',
   description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
-  pr: null,
+  pr: 213,
   checklist: [
     'Field rooms and a battle: is anything cut off at an edge?',
     'Is there visible pumping (the picture resizing) in dark scenes or fades?',

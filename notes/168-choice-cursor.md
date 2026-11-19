@@ -102,3 +102,24 @@ What decides attempt 2:
 - `self` −1, else the check is miswired: fix that first.
 - a model with TalkOff 0 that some walk brings within range (n = −1): attempt 2 walks that way and presses Circle, then waits for the ask pointer (the acceptance chain from the first budget's attempt 3);
 - every TalkOff set, or no walk coming near: mktinn is a dead end at this progress value, and attempt 2 moves to another field from #80/#99's catalogue with the same diagnostic.
+
+### Attempt 1 (fresh budget) results (`87d7724`, tier2: 83 pass, 17 fail; every fail is a diagnostic)
+| scenario | load_done | self | n1 | n2 | n3 | n4 | win0 | x_dir y_dir |
+|---|---|---|---|---|---|---|---|---|
+| save-boot-16a-mktinn-talk-ranges | 295 | **−1** | 1 | 1 | 1 | −1 | 0 | — |
+| all 16 walks (8 directions × 40 and 160 frames) | 295 | — | 1 | 1 | 1 | −1 | 0 | **0 0** |
+
+`save-boot-16b-mktinn-talk-off`: m1_off … m4_off = **1, 1, 1, 1**. Every other scenario passed unchanged.
+
+Reading:
+- `self` −1: the `near` check is wired correctly (distance 0 < SolidRange).
+- **The player does not move in mktinn**: no direction, short or long, changes PosX or PosY. The first budget's attempt 3 note listed this as an untested cause; it is the cause.
+- **Every mktinn model has TalkOff set**, so the game would talk to none of them even in range. Model 4 lies within range of the player from the load point and never moves away (the player doesn't move); a party model parked on the player is likely (hypothesis).
+- So mktinn at the generated saves' progress value (6) is a dead end for any talk. Both earlier attempts with talk there could not have worked. The mktinn scenarios and save are removed (definitions in `87d7724`).
+
+## Attempt 2 (fresh budget) plan: five fields, talkability and a talk sweep with the acceptance in-run
+The five #99 boot points where the pad does move the player: md1_2 (118), nmkin_1 (120), md8_1 (133), mds7st1 (144), mds7 (151). Saves as `disc1-nmkin-1` (triangle 0, x 0x7FFF, progress 6, Cloud alone), field ID changed.
+- `save-boot-16-<field>-talk-off`: `cnt` (g_FieldModelCount) and `off1`..`off6` (TalkOff of models 1-6). Says which fields have talkable models at all, whatever the sweep finds.
+- `save-boot-16-<field>-talk-<dir>`, 8 directions: walk pressing Circle until window 0 opens (`win_wait`, timeout 600), then Circle every 8 frames until pointerEnabled reads 1 (`ptr_wait`, timeout 900; the wait ends on that frame, before the next edge), then the acceptance chain of the first budget's attempt 3 (Down, Up, `still6`, Circle closes `close_wait`, `up_dir` −1, `back_dir` 0, `match`).
+
+45 scenarios, 127 of the 128 allowed. Pass for #168: one talk scenario passes in full. Then `dialogPointer`/`dialogPointerY` become confirmed, that scenario stays (renamed into the acceptance) and the rest go. If none passes: `win_wait` > 0 with `ptr_wait` 0 means a plain message (a talkable NPC, no ask in that direction); `off*` says where talks are possible at all. That decides attempt 3, the last.

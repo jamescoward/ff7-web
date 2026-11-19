@@ -117,3 +117,6 @@ What this shows:
 So `menuOverlay` is the gate that separates the Item screen from every other page: it is now confirmed, with values 0 and 1. `itemMenuScreen` alone is not enough, because it reads stale or unrelated values outside the Item screen.
 
 The native screen therefore hides on the tab row, because 0 is not a page it shows. One Back press leaves the game's own tab row on screen.
+
+### Run 2 (determinism): `1701a20`, tier2 check 135240928620 (79 pass, 0 fail)
+The scenario inputs are unchanged since `cd09981`. 14d, 14e and 14f report **identical metrics** to run 1, field for field, and 14a-c match part 1's runs.

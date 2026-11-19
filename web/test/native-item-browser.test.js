@@ -195,14 +195,11 @@ for (const name of BROWSERS) {
         await page.waitForTimeout(600);
         await page.evaluate(() => { window.sim.page = 'list'; });
         await until(() => visible(page), { timeout: 3000, what: 'shown again when Item reopens' });
-        // The classic pad: Up on the d-pad still reaches setPad.
+        // The classic pad still reaches setPad while the panel is up.
         await page.evaluate(() => { window.pads.length = 0; });
-        const up = page.locator('#pad [data-btn="up"]').first();
-        if (await up.count()) {
-          await up.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true });
-          await until(async () => (await pads(page)).some((m) => m & UP), { timeout: 2000, what: 'pad Up' });
-          await up.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
-        }
+        const cross = await page.locator('[data-btn="cross"]').boundingBox();
+        await page.touchscreen.tap(cross.x + cross.width / 2, cross.y + cross.height / 2);
+        await until(async () => (await pads(page)).includes(CROSS), { timeout: 2000, what: 'classic pad Cross' });
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

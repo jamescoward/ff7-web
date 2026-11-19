@@ -10,7 +10,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 (PR #213) and #25 (PR #217) are done; game-state lane also has #168, #215 and #216.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 (PR #213) and #25 (PR #217) are done; game-state lane also has #215 and #216. #168 is blocked again after its fresh budget (PR #218: a new `near` check; lead: a message opens in **window 1** in mds7st1, see `notes/168-choice-cursor.md`).
 
 **Done in M2:**
 - **#121 part 1** (PR #212): the Equip screen is `menuOverlay` 4, confirmed in Tier 2. Circle on Equip first picks a party member, and the next Circle loads the overlay. From a generated save (Cloud alone, spare weapons), the planned move to Equip, then Circle, Circle, equips weapon 1, read from the savemap and deterministic over two runs. The EQIPMENU overlay is not decompiled, so no Equip cursor address has a source (`notes/121-native-equip.md`).

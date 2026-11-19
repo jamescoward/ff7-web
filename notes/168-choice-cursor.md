@@ -148,3 +148,33 @@ What it tells:
 - no `n<k>` −1 anywhere: (a). Straight walks from triangle 0 don't reach the NPCs, and steering needs the camera mapping per field first.
 
 Attempt 3 can't pass the acceptance by itself: it ends the fresh budget. #168 then goes back to `status:blocked` with these results and the next method.
+
+### Attempt 3 (fresh budget) results (`d731bc3`, tier2: 82 pass, 32 fail; eval step 10.2 min)
+| field | every direction: n (talkable models) | windows at the end |
+|---|---|---|
+| md1_2 | n1 n2 n3 = 1 1 1 | all 0 |
+| nmkin_1 | n2 n3 n4 = 1 1 1 | all 0 |
+| mds7 | n1 = 1 | all 0 |
+| mds7st1 | n4 n5 n6 = 1 1 1 | all 0, **except `down`: w1 = 6** |
+
+Every other scenario passed unchanged.
+
+Reading:
+- **No walk ended within talk range of any watched talkable model** (no −1 anywhere), so (a) holds for those models: straight 300-frame walks from triangle 0 don't reach them.
+- **mds7st1, walking down, then Circle: window 1 is in state 6** (text shown, waiting for Circle) 30 frames after the press. Window 0 stayed 0. So **at least one message there opens in window 1, not window 0**. Every earlier attempt watched only window 0, so any talk that used window 1 would have looked like nothing.
+- Models 4-6 were all out of range, so the message did not come from them. It came from a model not watched here (7-9; `cnt` is 10) or from a script line or trigger crossed while walking. Whether it is an ask, and which model or line it is, is not known (one run, not rerun).
+- Window 1's state at +0x2C of g_WindowData[1] (0x800832D0) is a hypothesis: it has the same layout as window 0, per the reference (4 windows, 0x30 each).
+
+## Blockers after the fresh budget (2026-11-19)
+Both budgets are spent (3 + 3 attempts). The fresh budget's results narrowed the problem down:
+1. mktinn and md8_1 at progress 6 have no talkable models, and the player can't move in mktinn.
+2. md1_2, nmkin_1, mds7 and mds7st1 have talkable models, but straight walks from the generated saves' start point don't reach them.
+3. **Lead:** in mds7st1, walking down for 300 frames and pressing Circle opens a message in **window 1**. The next attempt should start there:
+   - watch window 1 (state, pointerEnabled at 0x800832BA, pointerY at 0x800832C6);
+   - rerun the walk to confirm it is deterministic;
+   - press Circle through the message and see whether a choice follows.
+
+   If a choice appears in window 1, `dialogPointer` / `dialogPointerY` should become per-window entries; `dialogue()` reads window 0 only today.
+4. The Tier 2 time budget is tight. 45 long scenarios took 16.4 of the sandbox's 20 minutes, so a search must be short scenarios with no long waits.
+
+The new `near` check (format 2) and its tests stay; the diagnostics are removed (definitions in `87d7724`, `f885ac7`, `d731bc3`).

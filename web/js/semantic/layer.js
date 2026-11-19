@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -467,6 +467,23 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       if (page === 'list') value.listRow = await one('itemListRow');
       else value.targetSlot = await one('itemTargetSlot');
       return { value, confirmed: true };
+    },
+
+    /**
+     * #121: is the game's Equip screen open? { value: { open } }. open is
+     * true only in a confirmed menu mode while a confirmed menuOverlay names
+     * the Equip overlay (MENU_OVERLAY_EQUIP); false when either says
+     * otherwise. No Equip-screen cursor is read: none has a source yet
+     * (notes/121-native-equip.md).
+     */
+    async equipScreen() {
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: { open: false }, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: { open: false }, confirmed: false };
+      return { value: { open: o.values.menuOverlay === MENU_OVERLAY_EQUIP }, confirmed: true };
     },
 
     /** #117: the materia inventory. { value: [{ slot, id, ap }] } for each non-empty slot, in slot order. */

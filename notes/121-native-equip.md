@@ -59,3 +59,17 @@ The `native-equip` Labs screen, off by default:
 ## Limits (part 1)
 - No Equip-screen cursor is read. A native screen can then only plan from the screen's opening state, and has to confirm each change by reading the savemap.
 - Equipability and list order are not read. They are kernel data, and the native screen must not assume them: it should confirm the result after the press.
+
+## Part 2: the `native-equip` Labs screen (PR #214)
+Design is the agent default recorded on #121 (Trip mode rule 11). Everything is offered only as far as part 1's Tier 2 results reach.
+
+- **Gate:** `equipScreen()` (semantic/layer.js) is open only in a confirmed menu mode with a confirmed `menuOverlay` of 4. No Equip-screen variable is read.
+- **View:** `equipment(slot)` for each party slot (weapon, armor, accessory numbers) and `spareWeapons(inventory())`, the weapons in inventory slot order (semantic/equip-screen.js).
+- **Tap rule** (`equipTapAllowed`): only the first spare weapon; only with exactly one party slot occupied (`equipMemberSlot`: the party pick is not read); only after `EQUIP_SETTLE_FRAMES` (120, 15c's first press) since the open screen was first seen; only while *pristine*.
+- **Pristine:** set when the screen is first seen open. It ends with any tap or Back from the panel, or any pad input from another source once the opening press is released. The screen sees other input through `createInputMixer().onChange` (web/js/pad.js, additive). A first attempt sampled `mixer.mask` every 16 ms and missed a short classic-pad tap in the browser test, so it was replaced. Without `onChange` the screen is never pristine.
+- **Presses:** `EQUIP_FIRST_WEAPON_PRESSES`: Circle at 0, Circle at 60 game frames (15c). Then `equipOutcome` compares the member's weapon before and after: "Equipped", "Changed to weapon #m, not #n", or after 8 polls "No change seen".
+- **Not measured:** how long the screen takes to settle on the device after the panel first sees overlay 4 (the 120 frames count from the panel's first poll, which is at or after the overlay was asked for, so it is at least 15c's wait); where Back goes from the Equip screen.
+
+### Follow-ups
+- #215: the main-menu party-pick cursor (a hypothesis: `g_PartyMenuTables[1]`'s row, next to the confirmed `menuCursor`), so the panel works for a three-member party.
+- #216: the Equip-screen slot and list cursors, and the list order beyond its first entry (no source; a RAM-diff method needs its own contract).

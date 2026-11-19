@@ -517,14 +517,24 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .native-item[hidden] { display: none; }
-.ni-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
-.ni-title { font-weight: 600; }
-.ni-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ni-head, .ne-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.ni-title, .ne-title { font-weight: 600; }
+.ni-msg, .ne-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ni-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .ni-party { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
-.ni-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ni-nav, .ne-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .native-item .btn { flex: none; min-height: 44px; min-width: 44px; font-size: 14px; padding: 0 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .native-item .btn:disabled { opacity: 0.4; }
 .native-item .btn[data-cursor] { outline: 2px solid #ffd479; outline-offset: -2px; }
 .native-item .btn[data-chosen] { background: #ffd47933; }
-.ni-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+.ni-nav .btn, .ne-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+
+/* Native Equip screen (#121), Labs flag `native-equip` (off by default): the
+   same panel as the native Item screen (.native-item; ne- classes mirror its
+   ni- ones), with member rows
+   (text, not buttons) and spare-weapon buttons (js/native-equip.js,
+   <html data-native-equip-on>). The known member's row is highlighted. */
+.ne-members { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.ne-weapons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ne-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ne-member[data-chosen] { background: #ffd47933; }

@@ -55,16 +55,19 @@ export function padNames(mask) {
  */
 export function createInputMixer(setPad) {
   const sources = new Map();
+  const listeners = new Set();
   let current = 0;
+  const changed = (next) => {
+    current = next;
+    setPad(next);
+    for (const cb of listeners) cb(next);
+  };
   return {
     set(source, mask) {
       sources.set(source, padMask(mask));
       let next = 0;
       for (const m of sources.values()) next |= m;
-      if (next !== current) {
-        current = next;
-        setPad(next);
-      }
+      if (next !== current) changed(next);
       return current;
     },
     get mask() {
@@ -72,10 +75,12 @@ export function createInputMixer(setPad) {
     },
     releaseAll() {
       sources.clear();
-      if (current !== 0) {
-        current = 0;
-        setPad(0);
-      }
+      if (current !== 0) changed(0);
+    },
+    /** Call `cb(mask)` after each change of the combined mask (#121: the native Equip screen sees other input). Returns an unsubscribe function. */
+    onChange(cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
     },
   };
 }

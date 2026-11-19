@@ -123,3 +123,28 @@ The five #99 boot points where the pad does move the player: md1_2 (118), nmkin_
 - `save-boot-16-<field>-talk-<dir>`, 8 directions: walk pressing Circle until window 0 opens (`win_wait`, timeout 600), then Circle every 8 frames until pointerEnabled reads 1 (`ptr_wait`, timeout 900; the wait ends on that frame, before the next edge), then the acceptance chain of the first budget's attempt 3 (Down, Up, `still6`, Circle closes `close_wait`, `up_dir` −1, `back_dir` 0, `match`).
 
 45 scenarios, 127 of the 128 allowed. Pass for #168: one talk scenario passes in full. Then `dialogPointer`/`dialogPointerY` become confirmed, that scenario stays (renamed into the acceptance) and the rest go. If none passes: `win_wait` > 0 with `ptr_wait` 0 means a plain message (a talkable NPC, no ask in that direction); `off*` says where talks are possible at all. That decides attempt 3, the last.
+
+### Attempt 2 (fresh budget) results (`f885ac7`, tier2: 87 pass, 40 fail; the eval step took 16.4 min of the sandbox's 20)
+| field | load_done | cnt | off1..off6 | talkable (TalkOff 0, index < cnt) |
+|---|---|---|---|---|
+| md1_2 (118) | 354 | 4 | 0 0 0 0 0 0 | 1, 2, 3 |
+| nmkin_1 (120) | 352 | 9 | 1 0 0 0 0 0 | 2-6 (and maybe 7, 8) |
+| md8_1 (133) | 342 | 5 | 1 1 1 1 0 0 | none |
+| mds7st1 (144) | 392 | 10 | 1 1 1 0 0 0 | 4-6 (maybe 7-9) |
+| mds7 (151) | 474 | 11 | 0 1 1 1 1 1 | 1 (maybe 7-10) |
+
+All 40 talk sweeps: `win_wait` 0, so window 0 never opened within 600 frames of walking with a Circle edge every 8 frames, in any direction, in any field. Every earlier scenario passed unchanged.
+
+Reading:
+- Talkable models exist in four fields (TalkOff 0), unlike mktinn and md8_1.
+- Window 0 never opened. Two causes are left, not told apart by this run: (a) the straight walks never come within talk range of a talkable model while facing it; (b) a talk opens its message in window 1, 2 or 3 (g_WindowData holds four windows, #108's note; a field script names the window) and window 0 was the only one watched. A third, (c) a talkable model whose script has no talk handler at this progress value, would also give this.
+
+## Attempt 3 (fresh budget, the last) plan: reach and window diagnostic
+The four fields with talkable models, 8 directions each (32 scenarios, shorter than attempt 2's so the run stays well inside the sandbox time): hold the direction for 300 frames, press Circle once (4 frames), wait 30 frames. Nothing waits after the load, so nothing can zero the results. Reports `w0`..`w3` (raw state of each window) and `n<k>`, the `near` sign for up to three talkable models per field.
+
+What it tells:
+- some `n<k>` −1 with a window not 0: a talk works. If it is window 1-3, (b) is the cause and the window index is the fix.
+- some `n<k>` −1 with every window 0: in range but no window, so either the facing was wrong or (c).
+- no `n<k>` −1 anywhere: (a). Straight walks from triangle 0 don't reach the NPCs, and steering needs the camera mapping per field first.
+
+Attempt 3 can't pass the acceptance by itself: it ends the fresh budget. #168 then goes back to `status:blocked` with these results and the next method.

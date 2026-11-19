@@ -1,17 +1,15 @@
-// #168 (fresh budget, attempt 2): look for a talkable NPC with a choice in
-// the five fields a generated save loads into and where the pad moves the
-// player (#99), generated so the 45 committed scenarios are this file's
-// output, not hand-written. choice-scenarios.test.js checks the committed
-// files equal it.
+// #168 (fresh budget, attempt 3; attempt 2's definitions are in f885ac7):
+// find out whether a walk reaches a talkable model and whether a Circle there
+// opens any of the four message windows, in the four #99 fields where the pad
+// moves the player and attempt 2 found models with TalkOff clear. Generated so
+// the committed scenarios are this file's output, not hand-written;
+// choice-scenarios.test.js checks the committed files equal it.
 //
 //   node runner/test/unit/choice-scenarios.js    rewrite the files
 //
-// Why (notes/168-choice-cursor.md): attempt 1 found that in Wall Market's
-// inn, at the generated saves' progress value, every model has TalkOff set
-// and the player cannot move, so no talk can happen there. Per field this
-// reports the model count and TalkOff of models 1-6, and walks in eight
-// directions pressing Circle until a window opens, then until a choice's
-// pointer shows; if one does, the acceptance runs in the same scenario.
+// Why (notes/168-choice-cursor.md): attempt 2's 40 talk sweeps never saw
+// window 0 open, and a timeout zeroes every later check. Here nothing waits
+// after the load, and raw window states and near signs always report.
 //
 // Addresses are entries of semantic/addresses.js (g_FieldEntity 0x80074EA4,
 // stride 0x84; TalkOff +0x5B; g_FieldModelCount; g_WindowData[0]; #77, #99,
@@ -40,34 +38,11 @@ export const FIELDS = Object.freeze([
   { key: 'mds7st1', id: 144 },
   { key: 'mds7', id: 151 },
 ]);
-/** TalkOff is reported for models 1..6 (model 0 is the player, #99). */
-export const MODELS = [1, 2, 3, 4, 5, 6];
-
 const COMMON = {
   game_state: { addr: '0x8009c560', type: 'u16', description: 'g_GameState (s16 as u16; confirmed #76): field 1.' },
   map_cur: { addr: '0x8009a05c', type: 'u16', description: 'g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID.' },
   loading: { addr: '0x800965e8', type: 'u16', description: 'g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field.' },
 };
-
-function staticMemory() {
-  const m = {
-    ...COMMON,
-    cnt: { addr: '0x8009c6c4', type: 'u16', description: 'g_FieldModelCount (fieldModelCount, confirmed #112): models in the field, the player included.' },
-  };
-  for (const k of MODELS) {
-    m[`off${k}`] = { addr: at(k, 0x5b), type: 'u8', description: `g_FieldEntity[${k}].TalkOff (fieldTalkOff, hypothesis, #112): not 0 = the model cannot be talked to (#168 attempt 1: 1 for every mktinn model). ${DECOMP} include/game.h FieldEntity.` };
-  }
-  return m;
-}
-
-function talkMemory() {
-  return {
-    ...COMMON,
-    win0: { addr: '0x800832a0', type: 'u16', description: 'g_WindowData[0].state (dialogState, confirmed #108): 0 closed, 6 text shown and waiting.' },
-    ptr_en: { addr: '0x8008328e', type: 'u8', description: `g_WindowData[0].pointerEnabled at +0x1A (dialogPointer, hypothesis, #168): 1 while a choice (field opcode ask) waits in state 6. ${DECOMP} include/game.h WindowData, src/field/field_dialog.c FieldDialogAskUpdateStates.` },
-    ptr_y: { addr: '0x8008329a', type: 'u16', description: 'g_WindowData[0].pointerY at +0x26 (dialogPointerY, s16 as u16; hypothesis, #168): chosen line * 16 + 6 while a choice waits. Same source.' },
-  };
-}
 
 /** Load the generated save as save-boot-1-load does (#38), then wait for the field to settle. */
 const LOAD = [
@@ -86,10 +61,6 @@ export const DIRECTIONS = Object.freeze({
   left: ['left'],
   'up-left': ['up', 'left'],
 });
-/** Frames to walk (pressing Circle) before giving up on a window; then frames of Circle presses before giving up on a pointer. */
-export const WALK_TIMEOUT = 600;
-export const ASK_TIMEOUT = 900;
-
 const scenario = (name, description, save, memory, input, asserts, metrics, fieldId) => ({
   $schema: '../schema/scenario.schema.json',
   format: 2,
@@ -103,48 +74,55 @@ const scenario = (name, description, save, memory, input, asserts, metrics, fiel
   metrics,
 });
 
+/**
+ * Talkable models per field: TalkOff 0 and index below the model count, from
+ * attempt 2's talk-off scenarios (f885ac7); at most three per field (8 metrics).
+ */
+export const TALKABLE = Object.freeze({ 'md1-2': [1, 2, 3], 'nmkin-1': [2, 3, 4], mds7st1: [4, 5, 6], mds7: [1] });
+/** Held frames of walking, then a Circle press and frames to let a window open. */
+export const WALK_FRAMES = 300;
+export const OPEN_FRAMES = 30;
+const WINDOWS = [0, 1, 2, 3];
+
+function attempt3Memory(models) {
+  const m = { ...COMMON };
+  m.pos_x = { addr: at(0, 0x0c), type: 'u32', description: 'g_FieldEntity[0].PosX (s32 as u32; confirmed #77): the player (model 0, #99).' };
+  m.pos_y = { addr: at(0, 0x10), type: 'u32', description: 'g_FieldEntity[0].PosY (s32 as u32; confirmed #77): the player.' };
+  m.solid0 = { addr: at(0, 0x6c), type: 'u16', description: `g_FieldEntity[0].SolidRange (confirmed #112). ${DECOMP} include/game.h FieldEntity.` };
+  for (const w of WINDOWS) {
+    m[`w${w}`] = { addr: hex(0x800832a0 + w * 0x30), type: 'u16', description: `g_WindowData[${w}].state (window ${w} of 4, stride 0x30; dialogState is window 0, confirmed #108; windows 1-3 hypotheses): 0 closed. ${DECOMP} config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData.` };
+  }
+  for (const k of models) {
+    m[`m${k}_x`] = { addr: at(k, 0x0c), type: 'u32', description: `g_FieldEntity[${k}].PosX (fieldX hypothesis for k >= 1, #99).` };
+    m[`m${k}_y`] = { addr: at(k, 0x10), type: 'u32', description: `g_FieldEntity[${k}].PosY (fieldY hypothesis for k >= 1, #99).` };
+    m[`m${k}_talk`] = { addr: at(k, 0x6e), type: 'u16', description: `g_FieldEntity[${k}].TalkRange (fieldTalkRange, hypothesis, #112). ${DECOMP} include/game.h FieldEntity.` };
+  }
+  return m;
+}
+
 export function choiceScenarios() {
   const out = [];
   for (const f of FIELDS) {
+    const models = TALKABLE[f.key];
+    if (!models) continue;
     const save = `disc1-${f.key}`;
-    out.push(
-      scenario(
-        `save-boot-16-${f.key}-talk-off`,
-        `#168 fresh budget, attempt 2 (diagnostic). Boot harness/saves/${save}.json (field ${f.id}, a #99 boot point where the pad moves the player) and load as save-boot-1-load does, then 60 still frames. Reports the field's model count (cnt) and TalkOff of models 1-6 (off1..off6: 0 = the model can be talked to; a model index at or above cnt is not a model). Only the count, these flag bytes and load_done leave.`,
-        save,
-        staticMemory(),
-        [{ wait: { frames: 60 } }],
-        [],
-        ['load_done', 'cnt', ...MODELS.map((k) => `off${k}`)],
-        f.id,
-      ),
-    );
     for (const [dir, buttons] of Object.entries(DIRECTIONS)) {
       out.push(
         scenario(
-          `save-boot-16-${f.key}-talk-${dir}`,
-          `#168 fresh budget, attempt 2 (search and acceptance in one run). Boot harness/saves/${save}.json (field ${f.id}) and load. Phase 1: hold ${buttons.join('+')} with Circle held 7 of every 8 frames (a Circle edge every 8 frames while walking and facing the way the player goes) until window 0 leaves state 0 (win_wait: a talk opened a message or a choice; timeout ${WALK_TIMEOUT}). Phase 2: Circle (hold 2) every 8 frames until window 0's pointerEnabled reads 1 (ptr_wait: a choice shows its pointer; the wait ends on that frame, before the next edge could pick; timeout ${ASK_TIMEOUT}). Then the #168 acceptance: mark, Down (4 frames: one line) and 12 frames, mark, Up (4) and 12; window 0 still in state 6 (still6); Circle (4) picks and closes window 0 (close_wait: back to 0, timeout 300). pointerY ends lower than after Down (up_dir -1) and where the pointer appeared (back_dir 0). A rerun matches (match). The first zero says how far it got. Only frame counts and signs leave.`,
+          `save-boot-16-${f.key}-reach-${dir}`,
+          `#168 fresh budget, attempt 3 (diagnostic; nothing here can time out after the load). Boot harness/saves/${save}.json (field ${f.id}) and load. Hold ${buttons.join('+')} for ${WALK_FRAMES} frames (the walk ends against whatever is in the way, facing that way), press Circle (4 frames) and wait ${OPEN_FRAMES} frames. w0..w3: the state of each of the four message windows at the end (not 0 = that Circle talk opened a message in that window; attempt 2 watched window 0 only). ${models.map((k) => `n${k}`).join(', ')}: the talk-distance sign of each model attempt 2 found talkable (TalkOff 0) from the player at the end (-1 within TalkRange + the player's SolidRange). Only the states, the signs and load_done leave.`,
           save,
-          talkMemory(),
+          attempt3Memory(models),
           [
-            { wait: { until: { mem: 'win0', differs: 0 }, timeout: WALK_TIMEOUT, press: { buttons: [...buttons, 'circle'], every: 8, hold: 7 } }, metric: 'win_wait' },
-            { wait: { until: { mem: 'ptr_en', equals: 1 }, timeout: ASK_TIMEOUT, press: { buttons: ['circle'], every: 8, hold: 2 } }, metric: 'ptr_wait' },
-            { mark: 'ask' },
-            { buttons: ['down'], frames: 4 },
-            { wait: { frames: 12 } },
-            { mark: 'down' },
-            { buttons: ['up'], frames: 4 },
-            { wait: { frames: 12 } },
-            { wait: { until: { mem: 'win0', equals: 6 }, timeout: 1 }, metric: 'still6' },
+            { buttons, frames: WALK_FRAMES },
             { buttons: ['circle'], frames: 4 },
-            { wait: { until: { mem: 'win0', equals: 0 }, timeout: 300 }, metric: 'close_wait' },
+            { wait: { frames: OPEN_FRAMES } },
           ],
-          [
-            { change: { mem: 'ptr_y', is: 'decreased', signed: true, since: 'down' }, metric: 'up_dir' },
-            { change: { mem: 'ptr_y', is: 'unchanged', signed: true, since: 'ask' }, metric: 'back_dir' },
-            { sameState: 'rerun', metric: 'match' },
-          ],
-          ['load_done', 'win_wait', 'ptr_wait', 'up_dir', 'back_dir', 'still6', 'close_wait', 'match'],
+          models.map((k) => ({
+            near: { x: `m${k}_x`, y: `m${k}_y`, toX: 'pos_x', toY: 'pos_y', range: [`m${k}_talk`, 'solid0'], shift: 12, is: 'within' },
+            metric: `n${k}`,
+          })),
+          ['load_done', ...WINDOWS.map((w) => `w${w}`), ...models.map((k) => `n${k}`)],
           f.id,
         ),
       );

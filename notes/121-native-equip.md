@@ -44,6 +44,18 @@ What this shows:
   So the Equip screen opens on the Weapon slot, the first list entry is weapon 1, and Cloud can equip it. These are observed for this save only.
 - **The old weapon 0 didn't go into slot 0 or 1.** Where it went is not read.
 
+### Run 2 (determinism): `3582897`, tier2 check 135367413475 (82 pass, 0 fail)
+The scenario files are unchanged since `a9c90d4`. 15a, 15b and 15c report **identical metrics** to attempt 1, field for field, and 15c's rerun matched (`match` 1). So the planned weapon change is deterministic over two runs.
+
+## Next (part 2)
+The `native-equip` Labs screen, off by default:
+- **Gate:** a confirmed menu, `menuOverlay` 4, and the time since that value appeared. There is no screen-state variable, so the native screen knows only the opening state (Weapon slot, first entry).
+- **View:** the party member's weapon, armor and accessory from `equipment()`, and the spare weapons from `inventory()`.
+- **Weapon tap:** a tap on a spare weapon runs Circle, Circle only when it is the first candidate. Otherwise it plans from the opening state, which is not confirmed beyond entry 0. It confirms by reading `characterWeapon`.
+- **Follow-ups to file:**
+  - the Equip-screen cursor addresses, which have no source (a RAM-diff method needs its own contract);
+  - list order beyond the first entry.
+
 ## Limits (part 1)
 - No Equip-screen cursor is read. A native screen can then only plan from the screen's opening state, and has to confirm each change by reading the savemap.
 - Equipability and list order are not read. They are kernel data, and the native screen must not assume them: it should confirm the result after the press.

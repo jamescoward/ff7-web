@@ -10,7 +10,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 and #25 are refined and ready for M3; game-state lane also has #168.
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 (PR #213) and #25 (PR #217) are done; game-state lane also has #168, #215 and #216.
 
 **Done in M2:**
 - **#121 part 1** (PR #212): the Equip screen is `menuOverlay` 4, confirmed in Tier 2. Circle on Equip first picks a party member, and the next Circle loads the overlay. From a generated save (Cloud alone, spare weapons), the planned move to Equip, then Circle, Circle, equips weapon 1, read from the savemap and deterministic over two runs. The EQIPMENU overlay is not decompiled, so no Equip cursor address has a source (`notes/121-native-equip.md`).
@@ -65,6 +65,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
   - Confirmed in Tier 2: the Item-screen cursors and a planned Potion use (PR #209).
   - Confirmed in Tier 2: **`menuOverlay` (D_80062DD4)**, 1 on the Item screen and 0 after leaving it or choosing another row. It is the gate, because the Item-screen variables are stale overlay memory elsewhere (save-boot-14d/e/f).
   - Tier 3 deferred (#123). Notes: `notes/135-native-item.md`. Done as overflow work by the second implementer.
+- **#25** (PR #217): Labs flag `interact-label`. With drag-to-walk shown, the field Interact button says Talk (a confirmed NPC in range), Exit (a confirmed exit in range, no NPC) or dims (confirmed, nothing in range), from `interactLabel()` in `semantic/controls.js` over `nearby()` (#112); a tap still presses Circle. Until #112's talk rule (`fieldZ`, `fieldTalkOff`, `fieldTalkRange`) is confirmed in Tier 2, `nearby()` is unconfirmed and the label stays plain in a real game. Tier 3 deferred (#123). Done by the second implementer (UI lane) (`notes/25-interact-label.md`).
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

@@ -13,6 +13,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 and #25 are refined and ready for M3; game-state lane also has #121 and #168.
 
 **Done in M2:**
+- **#121 part 1** (PR #212): the Equip screen is `menuOverlay` 4, confirmed in Tier 2. Circle on Equip first picks a party member, and the next Circle loads the overlay. From a generated save (Cloud alone, spare weapons), the planned move to Equip, then Circle, Circle, equips weapon 1, read from the savemap and deterministic over two runs. The EQIPMENU overlay is not decompiled, so no Equip cursor address has a source (`notes/121-native-equip.md`). Next: part 2, the `native-equip` Labs screen.
 - **#81** (PR #210): the M2 exit set. 17 Tier 2 points cover field, battle, menu, world, minigame and movie, settled and just after a transition (9 new scenarios: wait for the first frame of the new mode, then check it 60 frames later and that gameState held). `runner/test/unit/mode-reliability.test.js` reads each point's own checks and feeds them to `mode()` (owner decision on #81: raw inputs in Tier 2, `mode()` in Tier 1). Green on two runs (`notes/81-mode-reliability.md`).
 - **#37** (PR #84): scenario format 2, with the title boot point at T = 1250, a shared in-memory snapshot, ordered scripts, and `wait.until`.
 - **#75** (PR #83): the semantic layer (`semantic/`), the address table with provenance, and the USA boot-executable hash gate.

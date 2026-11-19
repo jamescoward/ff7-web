@@ -383,17 +383,23 @@ const ITEM_MENU_ENTRIES = [
 // overlay, so the overlay variables above are never read for another page.
 /** menuOverlay value for the Item screen (ITEMMENU_Init is entry 1 of the init table). */
 export const MENU_OVERLAY_ITEM = 1;
+/**
+ * menuOverlay value for the Equip screen (#121; enum YamadaOvl,
+ * YAMA_EQIPMENU_EQUIP). Circle on the main menu's Equip row first picks a
+ * party member (the id stays 0, save-boot-15a); the next Circle asks for 4.
+ */
+export const MENU_OVERLAY_EQUIP = 4;
 const MENU_OVERLAY_ENTRIES = [
   {
     name: 'menuOverlay',
     address: 0x80062dd4,
     type: 'u32',
-    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 0 back on the main menu',
-    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343)`,
+    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 4 = the Equip screen; 0 back on the main menu',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343). Tier 2 (#121): one Circle on the Equip row (row 3) leaves it at 0, a party pick coming first (save-boot-15a); the next Circle, 60 frames later, makes it read 4 (YAMA_EQIPMENU_EQUIP in the decomp's enum YamadaOvl), and the Weapon slot and list then equip a spare weapon (15b, 15c)`,
     status: 'confirmed',
     scenario: SC('save-boot-14e-item-screen-cross-twice'),
-    values: Object.freeze({ 0: 'other', 1: 'item' }),
-    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open') }),
+    values: Object.freeze({ 0: 'other', 1: 'item', 4: 'equip' }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open'), 4: SC('save-boot-15b-equip-screen-open') }),
   },
 ];
 

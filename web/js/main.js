@@ -4,6 +4,8 @@
 import { createAutoControls, AUTO_FLAG, WORLD_DRAG_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
+import { createBorderCrop, CROP_FLAG } from './border-crop.js';
+import { cropAspect } from './crop.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
@@ -171,6 +173,18 @@ labs.registerFlag(ITEM_FLAG, {
     'The classic pad still works while the panel is up (portrait and landscape).',
   ],
 });
+labs.registerFlag(CROP_FLAG, {
+  label: 'Crop black borders',
+  description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
+  pr: null,
+  checklist: [
+    'Field rooms and a battle: is anything cut off at an edge?',
+    'Is there visible pumping (the picture resizing) in dark scenes or fades?',
+    'Open the menu, play a movie: is the full frame shown at once?',
+    'Portrait: is the picture larger with the flag on than off?',
+    'The classic pad and drag-to-walk still work as before.',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -220,6 +234,14 @@ const audio = createAudio();
 const cards = createCardStore();
 let pendingFrame = null;
 let drawn = 0;
+// Border crop (#24): the crop computed for each posted frame, and the last
+// frame, so a mode change or a flag toggle redraws at once, even while paused.
+const crops = new WeakMap();
+let lastFrame = null;
+let shown = null; // the part of the frame on the canvas: { x, y, w, h }
+let shownAspect = 0;
+const root = document.documentElement;
+const stage = document.querySelector('.stage');
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
@@ -230,6 +252,10 @@ const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
+const borderCrop = createBorderCrop({
+  labs,
+  onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
+});
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -237,12 +263,39 @@ function draw() {
   const f = pendingFrame;
   if (!f) return;
   pendingFrame = null;
-  if (canvas.width !== f.width || canvas.height !== f.height) {
-    canvas.width = f.width;
-    canvas.height = f.height;
+  const c = borderCrop.allowed ? crops.get(f) ?? null : null;
+  if (c) {
+    drawCropped(f, c);
+  } else {
+    if (shownAspect) {
+      // Back to the full frame: drop the crop's aspect (the default is 4:3).
+      shownAspect = 0;
+      stage.style.removeProperty('--screen-aspect');
+      delete root.dataset.borderCropOn;
+    }
+    if (canvas.width !== f.width || canvas.height !== f.height) {
+      canvas.width = f.width;
+      canvas.height = f.height;
+    }
+    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
   }
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
+  shown = { x: c?.x ?? 0, y: c?.y ?? 0, w: c?.w ?? f.width, h: c?.h ?? f.height };
   drawn = f.frame;
+}
+// Only the crop is drawn, moved to the canvas origin; the screen box takes the
+// crop's share of 4:3, so the pixel aspect ratio is kept.
+function drawCropped(f, c) {
+  if (canvas.width !== c.w || canvas.height !== c.h) {
+    canvas.width = c.w;
+    canvas.height = c.h;
+  }
+  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
+  const aspect = cropAspect(c, f.width, f.height);
+  if (Math.abs(aspect - shownAspect) > 1e-3) {
+    shownAspect = aspect;
+    stage.style.setProperty('--screen-aspect', aspect.toFixed(4));
+    root.dataset.borderCropOn = '';
+  }
 }
 requestAnimationFrame(draw);
 
@@ -264,6 +317,7 @@ const backendReady = createWorkerBackend({
   onSemantic: (gate) => {
     overlay.setGate(gate);
     autoControls.setGate(gate);
+    borderCrop.setGate(gate);
     battleHud.setGate(gate);
     dialogueTaps.setGate(gate);
     menuPanel.setGate(gate);
@@ -281,6 +335,7 @@ const backendReady = createWorkerBackend({
 }).then((b) => {
   backend = b;
   autoControls.setBackend(b);
+  borderCrop.setBackend(b);
   battleHud.setBackend(b);
   dialogueTaps.setBackend(b);
   menuPanel.setBackend(b);
@@ -288,6 +343,9 @@ const backendReady = createWorkerBackend({
   itemScreen.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
+    const c = borderCrop.frame(f);
+    if (c) crops.set(f, c);
+    lastFrame = f;
     pendingFrame = f;
   });
   return b;
@@ -409,6 +467,7 @@ window.ff7web = {
   overlay,
   labs,
   autoControls,
+  borderCrop,
   battleHud,
   dialogueTaps,
   menuPanel,
@@ -416,4 +475,6 @@ window.ff7web = {
   battlePanel,
   suspend,
   drawnFrame: () => drawn,
+  /** The part of the frame on screen: { x, y, w, h }, or null before a frame (#24). */
+  shownRect: () => (shown ? { ...shown } : null),
 };

@@ -74,19 +74,25 @@ describe('itemScreen reader', () => {
     assert.ok(!reads.some(([a]) => a === 0x80000000 + SCREEN));
   });
 
-  test('an unconfirmed page (tabs 0, arrange 4, data 0x43784343) shows nothing', async () => {
-    for (const screen of [0, 3, 4, 0x43784343]) {
+  test('the tab row (0, confirmed by save-boot-14d) is a confirmed non-page', async () => {
+    const r = await setup({ screen: 0 }).s.itemScreen();
+    assert.deepEqual(r, { value: NONE, confirmed: true });
+  });
+
+  test('an unconfirmed page (key items 3, arrange 4, data 0x43784343) shows nothing', async () => {
+    for (const screen of [3, 4, 0x43784343]) {
       const r = await setup({ screen }).s.itemScreen();
       assert.deepEqual(r.value, NONE, `screen ${screen}`);
       assert.equal(r.confirmed, false);
     }
   });
 
-  test('with menuOverlay a hypothesis (the shipped table until Tier 2), nothing is confirmed', async () => {
-    const shipped = ADDRESS_TABLE.entries.find((x) => x.name === 'menuOverlay').status;
-    const r = await setup({ table: ADDRESS_TABLE }).s.itemScreen();
-    if (shipped === 'confirmed') assert.equal(r.value.page, 'list');
-    else assert.deepEqual(r, { value: NONE, confirmed: false });
+  test('the shipped table: menuOverlay 1 opens the gate, 0 (main menu, another row) closes it', async () => {
+    assert.equal((await setup({ table: ADDRESS_TABLE }).s.itemScreen()).value.page, 'list');
+    const back = await setup({ table: ADDRESS_TABLE, overlay: 0, screen: 0 }).s.itemScreen();
+    assert.deepEqual(back, { value: NONE, confirmed: true, reason: 'not the Item screen' });
+    const unknown = await setup({ table: ADDRESS_TABLE, overlay: 7 }).s.itemScreen();
+    assert.deepEqual(unknown, { value: NONE, confirmed: false });
   });
 
   test('a failed read reports the reason', async () => {

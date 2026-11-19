@@ -59,6 +59,10 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
   - Circle pressed only 30 frames after the field menu opens is ignored, so choosing Item needs the menu open longer than that.
   - In `save-boot-14b`, planned moves (`MENUS.itemList` and `MENUS.itemTarget`) use an author-chosen item on party slot 1: the count goes 5 to 4 and HP 300 to 333. The result is deterministic over two runs.
   - Part 2, the `native-item` Labs screen, is next (`notes/135-native-item.md`). Done as overflow work by the second implementer.
+- **#135** (PR #209, PR #211): Labs flag `native-item`. While the game's Item screen is open, a native panel covers the picture: the visible item page (kind, number, count; no names) and party HP/MP. A tap on an item and then on a party member runs the planner for the list cursor and then the party cursor, pressing Circle after each. The panel then reads the count and HP to confirm the use. Back presses Cross; Hide uncovers the picture.
+  - Confirmed in Tier 2: the Item-screen cursors and a planned Potion use (PR #209).
+  - Confirmed in Tier 2: **`menuOverlay` (D_80062DD4)**, 1 on the Item screen and 0 after leaving it or choosing another row. It is the gate, because the Item-screen variables are stale overlay memory elsewhere (save-boot-14d/e/f).
+  - Tier 3 deferred (#123). Notes: `notes/135-native-item.md`. Done as overflow work by the second implementer.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

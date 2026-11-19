@@ -88,7 +88,9 @@ describe('address table', () => {
       // #112
       'fieldModelCount', 'fieldDir', 'fieldSolidRange', 'fieldTriggers',
       // #135
-      'itemMenuScreen', 'itemListRow', 'itemListOffset', 'itemTargetSlot'];
+      'itemMenuScreen', 'itemListRow', 'itemListOffset', 'itemTargetSlot',
+      // #135 part 2
+      'menuOverlay'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

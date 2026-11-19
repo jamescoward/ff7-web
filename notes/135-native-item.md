@@ -101,3 +101,19 @@ The `native-item` Labs screen, off by default. In a confirmed menu with `itemMen
   - a refused use, which shows "No change seen";
   - Back, Hide and the classic pad;
   - layout in portrait and landscape, with `safe-layout` on and off.
+
+### Tier 2: `cd09981`, tier2 check 135239378057 (79 pass, 0 fail)
+| scenario | metrics |
+|---|---|
+| 14d item-screen-cross | ovl_wait 1, menu_ovl 1, item_screen 0, list_row 0, row0 0, game_state 5, frames 1141 |
+| 14e item-screen-cross-twice | ovl_wait 1, menu_ovl 0, item_screen 0, list_row 0, row0 0, game_state 5, frames 1205 |
+| 14f other-submenu | row_wait 1, menu_ovl 0, item_screen 1131955011 (0x43784343), row0 2, game_state 5, frames 1277 |
+
+What this shows:
+- **Cross on the list** goes to the Item screen's tab row. `itemMenuScreen` reads 0, which is now a confirmed value, and the overlay id is still 1.
+- **A second Cross** returns to the main menu. `menuOverlay` reads **0**, while `itemMenuScreen` keeps its stale 0.
+- **Choosing main-menu row 2** also leaves `menuOverlay` at 0. The Item-screen address then holds unrelated data, the same value attempt 1 saw.
+
+So `menuOverlay` is the gate that separates the Item screen from every other page: it is now confirmed, with values 0 and 1. `itemMenuScreen` alone is not enough, because it reads stale or unrelated values outside the Item screen.
+
+The native screen therefore hides on the tab row, because 0 is not a page it shows. One Back press leaves the game's own tab row on screen.

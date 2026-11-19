@@ -613,6 +613,30 @@
           }
         },
         {
+          "description": "Ground distance between two points against a sum of ranges, at the end of the script (#168): the sign of floor(hypot(x - toX, y - toY)) - (sum of range), where x, y, toX and toY are named u8/u16/u32 locations read as two's complement and then shifted right by shift (arithmetic), and range names u8/u16/u32 locations read unsigned. is: \"within\" (sign -1, strictly closer than the range, as the field talk rule) or \"outside\" (sign 0 or 1). Computed inside the run; no value leaves. metric: that sign (-1, 0 or 1), whether or not the check passes; 0 if the run stopped, a wait timed out or a deref location did not resolve.",
+          "type": "object",
+          "required": ["near"],
+          "additionalProperties": false,
+          "properties": {
+            "near": {
+              "type": "object",
+              "required": ["x", "y", "toX", "toY", "range", "is"],
+              "additionalProperties": false,
+              "properties": {
+                "x": { "type": "string" },
+                "y": { "type": "string" },
+                "toX": { "type": "string" },
+                "toY": { "type": "string" },
+                "range": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "type": "string" } },
+                "shift": { "type": "integer", "minimum": 0, "maximum": 31 },
+                "is": { "enum": ["within", "outside"] }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "The script is played again and must end in the same state (main RAM and picture, compared by hash inside the run): \"rerun\" from the same start point, \"boot\" after a fresh boot through the boot point with no snapshot. metric: 1 if the states match, else 0.",
           "type": "object",
           "required": ["sameState"],

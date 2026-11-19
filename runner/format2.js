@@ -138,6 +138,26 @@ export function compareOutcome(chk, locA, locB, a, b) {
   return { sign, holds };
 }
 
+/**
+ * A near check (#168): the sign of d - r (-1, 0 or 1), where d is the ground
+ * distance between two points, floor(hypot(x - toX, y - toY)) after an
+ * arithmetic >> shift of each coordinate (all four read as two's
+ * complement), and r is the sum of the range locations (unsigned). -1 means
+ * strictly within r, as the field module's talk rule (distance < TalkRange +
+ * SolidRange; notes/112-field-interactables.md). vals holds the decoded
+ * (unsigned) values in the order x, y, toX, toY, ...range; locs the matching
+ * locations. A missing value gives sign 0, not held.
+ */
+export function nearOutcome(chk, locs, vals) {
+  if (vals.some((v) => v === null)) return { sign: 0, holds: false };
+  const [x, y, tx, ty] = [0, 1, 2, 3].map((i) => Math.floor(asSigned(locs[i], vals[i]) / 2 ** chk.shift));
+  const d = Math.floor(Math.hypot(x - tx, y - ty));
+  const r = vals.slice(4).reduce((a, b) => a + b, 0);
+  const sign = Math.sign(d - r);
+  const holds = chk.is === 'within' ? sign < 0 : sign >= 0;
+  return { sign, holds };
+}
+
 /** Normalise a wait's press; null if none. Throws ScenarioError. */
 function loadPress(p, where) {
   if (!p) return null;
@@ -316,6 +336,16 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
         if (!NUMERIC.has(loc.type)) fail(`${where}.compare: a compare check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
       }
       return { kind: 'compare', mem: c.mem, with: c.with, shift: c.shift ?? 0, is: c.is, signed: c.signed === true, metric: a.metric };
+    }
+    if ('near' in a) {
+      const n = a.near;
+      const names = [n.x, n.y, n.toX, n.toY, ...n.range];
+      for (const k of names) {
+        const loc = memory[k];
+        if (!loc) fail(`${where}.near: no memory location named "${k}"`);
+        if (!NUMERIC.has(loc.type)) fail(`${where}.near: a near check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
+      }
+      return { kind: 'near', names, shift: n.shift ?? 0, is: n.is, metric: a.metric };
     }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
@@ -633,7 +663,7 @@ export async function runScenario2(sc, opts = {}) {
   let card = null; // a generated card for a save boot (#38), in memory only
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
-  const actual = new Map(); // expect or change check -> value at the end of the script; compare -> [a, b]
+  const actual = new Map(); // expect or change check -> value at the end of the script; compare -> [a, b]; near -> values in names order
   const startValues = new Map(); // change check -> value at the start of the script
   const live = new Set();
   const track = (b) => {
@@ -785,6 +815,10 @@ export async function runScenario2(sc, opts = {}) {
           actual.set(a, [readLoc(main.backend, sc.memory[a.mem]), readLoc(main.backend, sc.memory[a.with])]);
           continue;
         }
+        if (a.kind === 'near') {
+          actual.set(a, a.names.map((k) => readLoc(main.backend, sc.memory[k])));
+          continue;
+        }
         if (a.kind !== 'expect' && a.kind !== 'change') continue;
         const loc = sc.memory[a.kind === 'expect' ? a.cond.mem : a.mem];
         actual.set(a, readLoc(main.backend, loc));
@@ -855,6 +889,16 @@ export async function runScenario2(sc, opts = {}) {
         sign: ok(have) ? out.sign : 0,
       };
     }
+    if (a.kind === 'near') {
+      const have = actual.has(a);
+      const out = have ? nearOutcome(a, a.names.map((k) => sc.memory[k]), actual.get(a)) : { sign: 0, holds: false };
+      const [x, y, toX, toY, ...range] = a.names;
+      return {
+        near: { x, y, toX, toY, range, ...(a.shift ? { shift: a.shift } : {}), is: a.is },
+        pass: ok(out.holds),
+        sign: ok(have) ? out.sign : 0,
+      };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -869,7 +913,7 @@ export async function runScenario2(sc, opts = {}) {
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
   sc.asserts.forEach((a, i) => {
     if (a.metric === undefined) return;
-    namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
+    namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' || a.kind === 'near' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
   });
   const framesRun = run?.frames ?? 0;
   const builtin = {

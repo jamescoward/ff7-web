@@ -8,7 +8,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { BOOT_POINTS, scriptFrames } from '../../bootpoints.js';
-import { BUILTIN_METRICS_2, asSigned, changeOutcome, compareOutcome, conditionHolds, loadBootPoint, readLoc } from '../../format2.js';
+import { BUILTIN_METRICS_2, asSigned, changeOutcome, compareOutcome, conditionHolds, loadBootPoint, nearOutcome, readLoc } from '../../format2.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, ScenarioError, loadScenario } from '../../scenario.js';
 import { findTier2Scenarios, MAX_METRICS, parseSnapshot } from '../../tier2.js';
@@ -197,6 +197,65 @@ describe('change checks (#77)', () => {
     // Crossing zero: -1 -> 1 is an increase only when read as signed.
     assert.deepEqual(changeOutcome(chk('increased', true), u32, 0xffffffff, 1), { sign: 1, holds: true });
     assert.deepEqual(changeOutcome(chk('increased'), u32, 0xffffffff, 1), { sign: -1, holds: false });
+  });
+});
+
+describe('near checks (#168)', () => {
+  const s32 = { len: 4 };
+  const u16 = { len: 2 };
+  const locs = [s32, s32, s32, s32, u16, u16];
+  const raw = (v) => (v < 0 ? v + 2 ** 32 : v); // an s32 as the u32 read returns it
+  const at = (x, y, tx, ty, r1, r2) => [raw(x * 4096), raw(y * 4096), raw(tx * 4096), raw(ty * 4096), r1, r2];
+
+  test('the sign of floor(hypot) - sum of ranges, in shifted units', () => {
+    const chk = (is) => ({ shift: 12, is });
+    // 3-4-5: distance 5 against ranges 4 + 2 = 6 -> within.
+    assert.deepEqual(nearOutcome(chk('within'), locs, at(10, 20, 13, 24, 4, 2)), { sign: -1, holds: true });
+    assert.deepEqual(nearOutcome(chk('outside'), locs, at(10, 20, 13, 24, 4, 2)), { sign: -1, holds: false });
+    // Exactly the range is not within (the game's rule is strictly less).
+    assert.deepEqual(nearOutcome(chk('within'), locs, at(10, 20, 13, 24, 3, 2)), { sign: 0, holds: false });
+    assert.deepEqual(nearOutcome(chk('outside'), locs, at(10, 20, 13, 24, 3, 2)), { sign: 0, holds: true });
+    assert.deepEqual(nearOutcome(chk('within'), locs, at(10, 20, 13, 24, 2, 2)), { sign: 1, holds: false });
+    // Negative coordinates are two's complement; floor of a non-integer distance (hypot(1,1) = 1.41 -> 1).
+    assert.deepEqual(nearOutcome(chk('within'), locs, at(-5, -7, -4, -6, 1, 1)), { sign: -1, holds: true });
+    assert.deepEqual(nearOutcome(chk('within'), locs, at(-5, -7, -4, -6, 1, 0)), { sign: 0, holds: false });
+  });
+
+  test('the shift is arithmetic on each coordinate', () => {
+    // PosX -1 (raw) >> 12 is -1, not 0: distance to 0 is 1.
+    const v = [raw(-1), 0, 0, 0, 1, 0];
+    assert.deepEqual(nearOutcome({ shift: 12, is: 'within' }, locs, v), { sign: 0, holds: false });
+    assert.deepEqual(nearOutcome({ shift: 0, is: 'within' }, locs, [5, 0, 0, 0, 6, 0]), { sign: -1, holds: true });
+  });
+
+  test('a missing value gives sign 0, not held', () => {
+    const v = at(0, 0, 1, 1, 9, 9);
+    v[2] = null;
+    assert.deepEqual(nearOutcome({ shift: 12, is: 'within' }, locs, v), { sign: 0, holds: false });
+    assert.deepEqual(nearOutcome({ shift: 12, is: 'outside' }, locs, v), { sign: 0, holds: false });
+  });
+
+  test('loading: names, types and is are checked', () => {
+    const doc = base();
+    for (const k of ['ax', 'ay', 'bx', 'by']) doc.memory[k] = { addr: '0x800f0000', type: 'u32' };
+    doc.memory.r1 = { addr: '0x800f0010', type: 'u16' };
+    doc.assert.push({ near: { x: 'ax', y: 'ay', toX: 'bx', toY: 'by', range: ['r1', 'counter'], shift: 12, is: 'within' }, metric: 'n1' });
+    doc.metrics.push('n1');
+    const sc = loadScenario(doc);
+    assert.deepEqual(sc.asserts.at(-1), { kind: 'near', names: ['ax', 'ay', 'bx', 'by', 'r1', 'counter'], shift: 12, is: 'within', metric: 'n1' });
+
+    const noMem = clone(doc);
+    noMem.assert.at(-1).near.toY = 'nope';
+    assert.throws(() => loadScenario(noMem), /no memory location named "nope"/);
+    const bytes = clone(doc);
+    bytes.assert.at(-1).near.range = ['marker'];
+    assert.throws(() => loadScenario(bytes), /needs u8, u16 or u32/);
+    const badIs = clone(doc);
+    badIs.assert.at(-1).near.is = 'less';
+    assert.throws(() => loadScenario(badIs), /schema/);
+    const noRange = clone(doc);
+    noRange.assert.at(-1).near.range = [];
+    assert.throws(() => loadScenario(noRange), /schema/);
   });
 });
 

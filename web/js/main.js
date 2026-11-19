@@ -177,7 +177,7 @@ labs.registerFlag(ITEM_FLAG, {
 labs.registerFlag(EQUIP_FLAG, {
   label: 'Native Equip screen',
   description: 'When the game\'s Equip screen is open, a native panel covers the picture: each party member\'s weapon, armor and accessory, and the spare weapons (numbers and counts, no names). With one party member, tap the first spare weapon: Circle, then Circle, is pressed and the panel reads the weapon to confirm the change. Other weapons and larger parties are shown but not tappable yet. Back presses Cross; Hide shows the picture again.',
-  pr: null,
+  pr: 214,
   checklist: [
     'Main menu, Equip, pick a member: the panel covers the picture; leave Equip: the picture comes back.',
     'With only Cloud in the party and a spare weapon: tap it once the button is enabled. Does the panel say "Equipped", and does the game agree?',

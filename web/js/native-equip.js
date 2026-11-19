@@ -34,7 +34,7 @@ import { PAD } from './pad.js';
 
 export const EQUIP_FLAG = 'native-equip';
 export const EQUIP_HZ = 4;
-/** Loop period while a tap runs or other input is watched: about one game frame (60 Hz). */
+/** Loop period while a tap runs: about one game frame (60 Hz). */
 export const LOOP_MS = 16;
 export const PRESS_MS = 100;
 /** Polls (at EQUIP_HZ) to wait for the weapon to change before saying no change was seen. */
@@ -60,22 +60,22 @@ export function buildEquipScreen(root) {
     if (text !== undefined) e.textContent = text;
     return e;
   };
-  const head = el('div', 'ni-head');
-  head.append(el('span', 'ni-title', 'Equip'), el('span', 'ni-msg'));
-  const members = el('div', 'ni-party ne-members');
+  const head = el('div', 'ne-head');
+  head.append(el('span', 'ne-title', 'Equip'), el('span', 'ne-msg'));
+  const members = el('div', 'ne-members');
   for (let slot = 0; slot < EQUIP_PARTY_SLOTS; slot++) {
     const d = el('div', 'ne-member', '');
     d.dataset.slot = String(slot);
     members.append(d);
   }
-  const weapons = el('div', 'ni-items ne-weapons');
+  const weapons = el('div', 'ne-weapons');
   for (let row = 0; row < WEAPON_ROWS; row++) {
     const b = el('button', 'btn ne-weapon', '—');
     b.type = 'button';
     b.dataset.row = String(row);
     weapons.append(b);
   }
-  const nav = el('div', 'ni-nav');
+  const nav = el('div', 'ne-nav');
   const back = el('button', 'btn ne-back', EQUIP_SCREEN_ACTIONS.back.label);
   back.type = 'button';
   back.dataset.action = 'back';
@@ -97,7 +97,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
   let openFrame = null; // game frame when the open screen was first seen
   let pristine = false; // still in the opening state: no tap and no other input since it opened
   let armed = false; // the opening press has been released, so later input counts
-  let watch = null; // interval watching other input while pristine
+  let ours = 0; // the mask this screen holds in the mixer
   let members = [null, null, null];
   let weapons = [];
   let peek = false;
@@ -107,7 +107,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
   let last = null;
 
   const doc = root.ownerDocument;
-  const msg = () => root.querySelector('.ni-msg');
+  const msg = () => root.querySelector('.ne-msg');
   const flagOn = () => labs.isOn(EQUIP_FLAG);
   const reader = () => {
     if (source) return source;
@@ -132,23 +132,20 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     root.hidden = !on;
     doc.documentElement.toggleAttribute('data-native-equip-on', on);
   }
-  function stopWatch() {
-    if (watch !== null) timers.clearInterval(watch);
-    watch = null;
-  }
   function release() {
     if (run) { timers.clearInterval(run.loop); run = null; }
     if (pressing !== null) timers.clearTimeout(pressing);
     pressing = null;
+    ours = 0;
     mixer.set(SOURCE, 0);
   }
   function pressFor(button) {
-    mixer.set(SOURCE, PAD[button]);
-    pressing = timers.setTimeout(() => { pressing = null; mixer.set(SOURCE, 0); }, PRESS_MS);
+    ours = PAD[button];
+    mixer.set(SOURCE, ours);
+    pressing = timers.setTimeout(() => { pressing = null; ours = 0; mixer.set(SOURCE, 0); }, PRESS_MS);
   }
   function reset() {
     release();
-    stopWatch();
     open = false;
     openFrame = null;
     pristine = false;
@@ -159,15 +156,16 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     members = [null, null, null];
   }
 
-  /** While pristine: any input from another source (after the opening press is released) ends the opening state. */
-  function watchInput() {
-    if (!pristine) { stopWatch(); return; }
-    if (pressing !== null || run !== null) return;
-    const m = mixer.mask;
-    if (!armed) { if (m === 0) armed = true; return; }
-    if (m !== 0) {
+  /**
+   * Every change of the pad mask: while pristine, input from another source
+   * (after the opening press is released) ends the opening state.
+   */
+  function onPad(mask) {
+    if (!open || !pristine) return;
+    const others = mask & ~ours;
+    if (!armed) { if (others === 0) armed = true; return; }
+    if (others !== 0) {
       pristine = false;
-      stopWatch();
       render();
     }
   }
@@ -237,12 +235,10 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
       if (!open) {
         open = true;
         openFrame = frameNow();
-        pristine = true;
+        pristine = canWatch;
         armed = false;
         last = null;
-        stopWatch();
-        watch = timers.setInterval(watchInput, LOOP_MS);
-        watchInput();
+        armed = (mixer.mask & ~ours) === 0;
       }
       members = await readMembers(sem);
       const inv = await readInventory(sem);
@@ -283,7 +279,6 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     const before = members[st.memberSlot]?.weapon;
     if (!Number.isInteger(before)) { last = { ok: false, row, error: { reason: 'unread' } }; return; }
     pristine = false;
-    stopWatch();
     last = null;
     run = { loop: null, start: null, next: 0, memberSlot: st.memberSlot, wanted: weapons[row].number, before };
     run.loop = timers.setInterval(turn, LOOP_MS);
@@ -302,7 +297,6 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     if (!a || !shouldRun() || !open || !idle()) return;
     // Any press of ours leaves the opening state too.
     pristine = false;
-    stopWatch();
     last = null;
     setMsg('');
     pressFor(a.button);
@@ -330,6 +324,9 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     else if (b.dataset.action) tapAction(b.dataset.action);
   });
   labs.onChange((name) => { if (name === EQUIP_FLAG) sync(); });
+  // Without a way to see other input, the opening state can't be trusted: never pristine.
+  const canWatch = typeof mixer.onChange === 'function';
+  if (canWatch) mixer.onChange(onPad);
   show(false);
   return {
     tick,

@@ -29,3 +29,10 @@ the button is exactly as `field-controls.js` made it.
 - Tier 1 unit: `runner/test/unit/semantic-interact-label.test.js` (every row above, both-in-range, over `nearbyFrom`, and no label text in the web module).
 - Tier 1 browser: `web/test/interact-label-browser.test.js` (labels follow a fake `nearby()`, a tap on Talk sends Circle then release, flag off restores the button and stops reads, no reads with the classic pad). The iPhone-profile test picks up the new flag automatically.
 - Tier 2: none needed (contract). Tier 3: deferred (#123).
+
+## CI: a race in the native Item panel (fixed here)
+On this PR, `web/test/native-item-browser.test.js` "a use the game refuses is reported as no change" timed out on WebKit twice (the job and its one re-run), while it passes on every recent main run. WebKit is not installed in the agent container, so the WebKit failure itself was not reproduced.
+
+What was found: the Item panel enabled its rows as soon as a 4 Hz poll saw the target page, but `startPlan` silently drops a tap while the previous Circle press is still held (`PRESS_MS` = 100) or a plan runs (`idle()` false). A tap in that window did nothing, so "No change seen" never came. A scratch Chromium script that clicks the party row the instant it enables dropped 1 tap in 40 on main, 0 in 40 with the fix.
+
+Fix (`web/js/native-item.js`): rows are disabled unless `idle()`, and the panel re-renders when a press is released and when a plan starts. No test was changed. That this is what failed on WebKit is a hypothesis: CI on the fix decides.

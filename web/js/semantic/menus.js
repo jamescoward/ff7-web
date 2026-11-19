@@ -72,6 +72,37 @@ export const MENUS = Object.freeze({
     labels: Object.freeze(['Command 1', 'Command 2', 'Command 3', 'Command 4']),
     labelsStatus: 'generic',
   }),
+  // The Item screen's item list (#135): Item on the main menu opens it with
+  // the cursor on row 0 of the first page. Rows are the visible page (10
+  // rows); the list scrolls through 320 inventory slots past either end of
+  // the page and does not wrap (SOURCE CLAIMS: Xeeynamo/ff7-decomp@33ce78c,
+  // src/menu/itemmenu.c ITEMMENU_Init: numRowsPerPage 10, numTotalRows 320,
+  // wrapModeY 0). Plans stay on the visible page; scrolling is not planned.
+  itemList: Object.freeze({
+    name: 'itemList',
+    meaning: 'the Item screen item list, the visible page (inventory slot = row + itemListOffset)',
+    cursor: 'itemListRow',
+    axis: 'vertical',
+    rows: 10,
+    rowsStatus: 'hypothesis',
+    wraps: false,
+    wrapsStatus: 'hypothesis',
+    labelsStatus: 'none',
+  }),
+  // The Item screen's party cursor, after an item is chosen (#135): one row
+  // per party slot. 3 rows that wrap are SOURCE CLAIMS (ITEMMENU_Init:
+  // numTotalRows 3, wrapModeY 1), so plans never cross an end.
+  itemTarget: Object.freeze({
+    name: 'itemTarget',
+    meaning: 'the Item screen party cursor: the party slot an item is used on',
+    cursor: 'itemTargetSlot',
+    axis: 'vertical',
+    rows: 3,
+    rowsStatus: 'hypothesis',
+    wraps: true,
+    wrapsStatus: 'hypothesis',
+    labelsStatus: 'none',
+  }),
 });
 
 /**

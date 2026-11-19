@@ -332,6 +332,52 @@ const INV_13B = 'save-boot-13b-equipment-menu';
 export const RECORD_WEAPON_MATERIA_SLOTS = 8;
 export const RECORD_ARMOR_MATERIA_SLOTS = 8;
 
+// The field menu's Item screen (#135). Its code and variables are an overlay
+// the menu loads at 0x801D0000 when Item is chosen, so these addresses hold
+// other data whenever the Item screen is not open: read them only in menu
+// mode (gameState 5) after itemMenuScreen has been seen at a known value.
+const ITEM_MENU_SOURCE = 'Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B)';
+const ITEM_MENU_ENTRIES = [
+  {
+    name: 'itemMenuScreen',
+    address: 0x801d3e48,
+    type: 's32',
+    meaning: 'Item screen page (g_ItemMenuCurrentScreen): 0 the Use/Arrange/Key Items tabs, 1 the item list (where opening Item starts), 2 an item chosen and a party member being picked, 3 key items, 4 and 5 arrange. Overlay variable: meaningless unless the Item screen is open',
+    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 1 after Item is chosen from the main menu (menu overlay id D_80062DD4 reads 1, overlays are read to 0x801D0000; save-boot-14a, 14c), 2 after Circle on a usable item (save-boot-14b). Circle pressed 30 frames after the field menu opens is ignored; 60 frames works`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14a-item-screen-open'),
+    values: Object.freeze({ 0: 'tabs', 1: 'list', 2: 'target', 3: 'keyItems', 4: 'arrange', 5: 'arrangeCustom' }),
+    confirmedValues: Object.freeze({ 1: SC('save-boot-14a-item-screen-open'), 2: SC('save-boot-14b-item-use-plan') }),
+  },
+  {
+    name: 'itemListRow',
+    address: 0x801d3df9,
+    type: 's8',
+    meaning: 'Item screen list cursor, the row on the visible page (g_ItemMenuWidgets[1].row; 10 rows a page). The inventory slot under the cursor is itemListRow + itemListOffset',
+    source: `${ITEM_MENU_SOURCE}: g_ItemMenuWidgets at 0x801D3DDC, entry 1 at +0x12. Tier 2 (#135): 0 when the list opens (save-boot-14a, 14c); two planned Downs read 1 then 2, and Circle then uses inventory slot 2 (save-boot-14b)`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14b-item-use-plan'),
+  },
+  {
+    name: 'itemListOffset',
+    address: 0x801d3df0,
+    type: 's16',
+    meaning: 'Item screen list scroll: the inventory slot on the top visible row (g_ItemMenuWidgets[1].rowOffset)',
+    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 0 when the list opens (save-boot-14c). Scrolling is not checked`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14c-item-screen-press'),
+  },
+  {
+    name: 'itemTargetSlot',
+    address: 0x801d3e0b,
+    type: 's8',
+    meaning: 'Item screen party cursor on the target page (itemMenuScreen 2): the party slot an item is used on (g_ItemMenuWidgets[2].row, 3 rows)',
+    source: `${ITEM_MENU_SOURCE}: entry 2 at +0x24. Tier 2 (#135): 0 on the target page; one planned Down reads 1, and Circle then raises party slot 1's HP (save-boot-14b)`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14b-item-use-plan'),
+  },
+];
+
 const INVENTORY_ENTRIES = [
   {
     name: 'inventorySlot',
@@ -596,5 +642,6 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...WINDOW_ENTRIES,
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
+  ...ITEM_MENU_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

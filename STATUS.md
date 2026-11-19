@@ -53,6 +53,12 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **#189** (PR #190): the planner has an opt-in `skips` mode (plans that don't wrap only): a press that lands on a later planned row counts as progress. `MENUS.battleCommand` sets it (confirmed by #171), so a `battle-panel` tap on row 3 (Item, with no materia) is reached in one Down, for every slot. A tap on a row the member lacks still stops with `moved` and selects nothing; rows aren't greyed out because no reader for the command list exists. Tier 3 deferred (#123). Done by the second implementer (UI lane).
 - **#134**: Labs flag `world-drag`: with `auto-controls` also on, a confirmed world map shows drag-to-walk (the same pad bits as the field); the Controls button still overrides. Tier 3 deferred (#123). Done by the second implementer (UI lane) (`notes/134-world-drag.md`).
 - **#166**: the battle status strip (`battle-hud`) now shows in landscape too, as a compact, translucent band over the upper picture, below the top bar and between the side controls (owner chose an overlay; layout details by the agent). Tier 3 deferred (#123) (`notes/166-landscape-hud.md`).
+- **#135, part 1** (PR #209): the Item screen's state is confirmed in Tier 2:
+  - `itemMenuScreen` reads 1 on the list and 2 while a party member is picked. It is an overlay variable at 0x801D3E48; menu overlays load at 0x801D0000.
+  - `itemListRow`, `itemListOffset` and `itemTargetSlot` are confirmed too.
+  - Circle pressed only 30 frames after the field menu opens is ignored, so choosing Item needs the menu open longer than that.
+  - In `save-boot-14b`, planned moves (`MENUS.itemList` and `MENUS.itemTarget`) use an author-chosen item on party slot 1: the count goes 5 to 4 and HP 300 to 333. The result is deterministic over two runs.
+  - Part 2, the `native-item` Labs screen, is next (`notes/135-native-item.md`). Done as overflow work by the second implementer.
 - **#79** (PR #86): the web app's debug overlay. The owner's iPhone check passed, and Mode follows battle, field and menu live.
 
 **Things a new agent must know:**

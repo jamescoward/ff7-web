@@ -7,6 +7,7 @@ import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
+import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -158,6 +159,18 @@ labs.registerFlag(BATTLE_PANEL_FLAG, {
     'The classic pad and the battle status strip still work while the panel is up.',
   ],
 });
+labs.registerFlag(ITEM_FLAG, {
+  label: 'Native Item screen',
+  description: 'When the game\'s Item screen is open, a native panel covers the picture: the visible item page (item numbers and counts, no names) and the party\'s HP and MP. Tap an item, then a party member: the cursors move there, Circle is pressed, and the panel reads the count and HP to confirm the use. Back presses Cross; Hide shows the picture again.',
+  pr: 211,
+  checklist: [
+    'Main menu, Item: the panel covers the picture; leave Item (Back or the pad): the picture comes back.',
+    'Tap an item, then a hurt party member: is it used on that member, and does the panel say "Used" with the new count and HP?',
+    'Does each row match the game\'s own list (same order, same counts)?',
+    'Tap Hide: the picture shows until Item is closed and opened again.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -216,6 +229,7 @@ const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
+const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -254,6 +268,7 @@ const backendReady = createWorkerBackend({
     dialogueTaps.setGate(gate);
     menuPanel.setGate(gate);
     battlePanel.setGate(gate);
+    itemScreen.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -270,6 +285,7 @@ const backendReady = createWorkerBackend({
   dialogueTaps.setBackend(b);
   menuPanel.setBackend(b);
   battlePanel.setBackend(b);
+  itemScreen.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     pendingFrame = f;
@@ -396,6 +412,7 @@ window.ff7web = {
   battleHud,
   dialogueTaps,
   menuPanel,
+  itemScreen,
   battlePanel,
   suspend,
   drawnFrame: () => drawn,

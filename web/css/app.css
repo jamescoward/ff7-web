@@ -488,3 +488,38 @@ body {
   :root[data-safe-layout][data-battle-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
   :root[data-safe-layout][data-battle-panel-on] .screen { width: 100%; max-height: none; }
 }
+
+/* Native Item screen (#135), Labs flag `native-item` (off by default): a panel
+   that covers the picture while the game's Item screen is open (js/native-item.js,
+   <html data-native-item-on>). It sits inside .screen, so it takes the
+   picture's size in portrait and landscape and never moves the pad. Ten item
+   rows in two columns, three party rows, then Back and Hide; every button is
+   at least 44 px tall, and the panel scrolls inside itself when the picture
+   is too short. Disabled buttons (empty rows, the page not in use) are greyed. */
+.native-item {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg, #000);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.native-item[hidden] { display: none; }
+.ni-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.ni-title { font-weight: 600; }
+.ni-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ni-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ni-party { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.ni-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.native-item .btn { flex: none; min-height: 44px; min-width: 44px; font-size: 14px; padding: 0 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.native-item .btn:disabled { opacity: 0.4; }
+.native-item .btn[data-cursor] { outline: 2px solid #ffd479; outline-offset: -2px; }
+.native-item .btn[data-chosen] { background: #ffd47933; }
+.ni-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }

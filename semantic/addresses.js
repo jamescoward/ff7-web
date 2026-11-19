@@ -343,11 +343,11 @@ const ITEM_MENU_ENTRIES = [
     address: 0x801d3e48,
     type: 's32',
     meaning: 'Item screen page (g_ItemMenuCurrentScreen): 0 the Use/Arrange/Key Items tabs, 1 the item list (where opening Item starts), 2 an item chosen and a party member being picked, 3 key items, 4 and 5 arrange. Overlay variable: meaningless unless the Item screen is open',
-    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 1 after Item is chosen from the main menu (menu overlay id D_80062DD4 reads 1, overlays are read to 0x801D0000; save-boot-14a, 14c), 2 after Circle on a usable item (save-boot-14b). Circle pressed 30 frames after the field menu opens is ignored; 60 frames works`,
+    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 1 after Item is chosen from the main menu (menu overlay id D_80062DD4 reads 1, overlays are read to 0x801D0000; save-boot-14a, 14c), 2 after Circle on a usable item (save-boot-14b), 0 (the tabs) after Cross on the list (save-boot-14d). Circle pressed 30 frames after the field menu opens is ignored; 60 frames works`,
     status: 'confirmed',
     scenario: SC('save-boot-14a-item-screen-open'),
     values: Object.freeze({ 0: 'tabs', 1: 'list', 2: 'target', 3: 'keyItems', 4: 'arrange', 5: 'arrangeCustom' }),
-    confirmedValues: Object.freeze({ 1: SC('save-boot-14a-item-screen-open'), 2: SC('save-boot-14b-item-use-plan') }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14d-item-screen-cross'), 1: SC('save-boot-14a-item-screen-open'), 2: SC('save-boot-14b-item-use-plan') }),
   },
   {
     name: 'itemListRow',
@@ -375,6 +375,25 @@ const ITEM_MENU_ENTRIES = [
     source: `${ITEM_MENU_SOURCE}: entry 2 at +0x24. Tier 2 (#135): 0 on the target page; one planned Down reads 1, and Circle then raises party slot 1's HP (save-boot-14b)`,
     status: 'confirmed',
     scenario: SC('save-boot-14b-item-use-plan'),
+  },
+];
+
+// The menu's overlay bookkeeping (#135 part 2): which menu overlay was last
+// asked for. The native Item screen is shown only while it names the Item
+// overlay, so the overlay variables above are never read for another page.
+/** menuOverlay value for the Item screen (ITEMMENU_Init is entry 1 of the init table). */
+export const MENU_OVERLAY_ITEM = 1;
+const MENU_OVERLAY_ENTRIES = [
+  {
+    name: 'menuOverlay',
+    address: 0x80062dd4,
+    type: 'u32',
+    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 0 back on the main menu',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343)`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14e-item-screen-cross-twice'),
+    values: Object.freeze({ 0: 'other', 1: 'item' }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open') }),
   },
 ];
 
@@ -643,5 +662,6 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
   ...ITEM_MENU_ENTRIES,
+  ...MENU_OVERLAY_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

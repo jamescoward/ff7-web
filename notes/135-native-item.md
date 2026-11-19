@@ -68,3 +68,36 @@ The scenario files are unchanged since attempt 2. 14a, 14b and 14c report **iden
 
 ## Next (PR 2)
 The `native-item` Labs screen, off by default. In a confirmed menu with `itemMenuScreen` 1, it covers the picture with inventory slots (IDs and counts from `inventory()`) and party HP/MP. A tap on an item, then a party slot, runs `itemList` and `itemTarget` plans through `createPlanExecutor` with Circle between them. It confirms the use by reading the count and HP.
+
+## Part 2: the `native-item` Labs screen (PR #211)
+
+### Design
+- **Gate (`itemScreen()` in `semantic/layer.js`).** The Item screen's variables are overlay memory and hold other data when another page is loaded (attempt 1 read 0x43784343). So the reader returns a page only through a chain of confirmed reads:
+  1. `gameState` reads menu (5);
+  2. `menuOverlay` (D_80062DD4, new entry) reads 1, the Item overlay;
+  3. `itemMenuScreen` reads a confirmed value: 1 is `list`, 2 is `target`.
+
+  Anything else is `page: null`. Diagnostics 14d, 14e and 14f check what `menuOverlay` and `itemMenuScreen` read after the Item screen is left (Cross once, twice) and after another main-menu row is chosen.
+- **Pure facts (`semantic/item-screen.js`).** `itemPageRows(listOffset, inventory)` gives the 10 visible rows (slot = offset + row). `itemRowLabel` uses kind, number and count, so no names are shown. `itemListPlan` and `itemTargetPlan` never wrap or scroll. `itemUseOutcome(before, after)` reports a use when the count fell by exactly one. Buttons are in `ITEM_SCREEN_ACTIONS` (`semantic/controls.js`): Circle selects and Back is Cross.
+- **UI (`web/js/native-item.js`).** It polls `itemScreen()` at 4 Hz. While a page is open, a panel covers the picture: it sits inside `.screen`, so it has the same box in portrait and landscape and the pad never moves.
+  - **List page:** a tap on a non-empty row plans the list cursor there (one game frame at a time, as `menu-panel` does), then presses Circle.
+  - **Target page:** a tap on a party row plans the party cursor, reads the item's count and that slot's HP, then presses Circle. The next polls read both again: "Used: ×5 → ×4, HP 300 → 333", or "No change seen" after 8 polls (2 s).
+  - **Hide** uncovers the picture until the Item screen closes.
+  - **Stops:** any executor stop sends nothing more. A failed read changes nothing.
+  - **Writes:** none.
+- **Agent defaults (Trip mode rule 11):**
+  - the panel covers the picture, as the contract says; it is not a strip below it;
+  - Back is Cross;
+  - there is a Hide button;
+  - item numbers within their kind are shown, not raw indices.
+
+### Tests
+- `runner/test/unit/semantic-item-screen.test.js`: the reader's gate chain, and the pure functions.
+- `web/test/native-item-browser.test.js`: a simulated Item screen. It covers:
+  - show and hide;
+  - a failed read;
+  - the flag off;
+  - item then member, as Down, Down, Circle then Down, Circle, with "Used" confirmed;
+  - a refused use, which shows "No change seen";
+  - Back, Hide and the classic pad;
+  - layout in portrait and landscape, with `safe-layout` on and off.

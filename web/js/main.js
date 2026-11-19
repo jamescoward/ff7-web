@@ -10,6 +10,7 @@ import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
+import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -173,6 +174,18 @@ labs.registerFlag(ITEM_FLAG, {
     'The classic pad still works while the panel is up (portrait and landscape).',
   ],
 });
+labs.registerFlag(EQUIP_FLAG, {
+  label: 'Native Equip screen',
+  description: 'When the game\'s Equip screen is open, a native panel covers the picture: each party member\'s weapon, armor and accessory, and the spare weapons (numbers and counts, no names). With one party member, tap the first spare weapon: Circle, then Circle, is pressed and the panel reads the weapon to confirm the change. Other weapons and larger parties are shown but not tappable yet. Back presses Cross; Hide shows the picture again.',
+  pr: null,
+  checklist: [
+    'Main menu, Equip, pick a member: the panel covers the picture; leave Equip: the picture comes back.',
+    'With only Cloud in the party and a spare weapon: tap it once the button is enabled. Does the panel say "Equipped", and does the game agree?',
+    'Do the member rows and the spare weapons match the game (same numbers and counts)?',
+    'Use the pad on the Equip screen: the weapon button turns off until Equip is closed and reopened. Hide shows the picture.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
 labs.registerFlag(CROP_FLAG, {
   label: 'Crop black borders',
   description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
@@ -252,6 +265,7 @@ const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
+const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs });
 const borderCrop = createBorderCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
@@ -323,6 +337,7 @@ const backendReady = createWorkerBackend({
     menuPanel.setGate(gate);
     battlePanel.setGate(gate);
     itemScreen.setGate(gate);
+    equipScreen.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -341,6 +356,7 @@ const backendReady = createWorkerBackend({
   menuPanel.setBackend(b);
   battlePanel.setBackend(b);
   itemScreen.setBackend(b);
+  equipScreen.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     const c = borderCrop.frame(f);
@@ -472,6 +488,7 @@ window.ff7web = {
   dialogueTaps,
   menuPanel,
   itemScreen,
+  equipScreen,
   battlePanel,
   suspend,
   drawnFrame: () => drawn,

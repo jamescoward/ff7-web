@@ -528,3 +528,10 @@ body {
 .native-item .btn[data-cursor] { outline: 2px solid #ffd479; outline-offset: -2px; }
 .native-item .btn[data-chosen] { background: #ffd47933; }
 .ni-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+
+/* Native Equip screen (#121), Labs flag `native-equip` (off by default): the
+   same panel as the native Item screen (.native-item), with member rows
+   (text, not buttons) and spare-weapon buttons (js/native-equip.js,
+   <html data-native-equip-on>). The known member's row is highlighted. */
+.ne-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ne-member[data-chosen] { background: #ffd47933; }

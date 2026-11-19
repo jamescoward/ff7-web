@@ -86,3 +86,15 @@ export const ITEM_SCREEN_ACTIONS = Object.freeze({
   select: Object.freeze({ id: 'select', button: 'circle' }),
   back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
 });
+
+/**
+ * Native Equip screen actions (#121, Labs flag `native-equip`). A tap on
+ * the first spare weapon presses `select` twice (the Weapon slot, then the
+ * list's first entry; save-boot-15c, semantic/equip-screen.js). Back
+ * presses Cross, the menus' cancel button; where it goes from the Equip
+ * screen is not measured.
+ */
+export const EQUIP_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});

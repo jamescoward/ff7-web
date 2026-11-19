@@ -351,6 +351,8 @@ body {
 .field-action { flex: 1; min-height: 60px; }
 .field-back { min-height: 48px; align-self: center; padding: 0 12px; }
 .field-on { background: var(--btn-on); }
+/* #25 (Labs flag interact-label): nothing in range. Still tappable. */
+.field-dim:not(.field-on) { opacity: 0.55; }
 .field-cue {
   position: absolute;
   width: 14px;

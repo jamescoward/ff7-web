@@ -8,6 +8,7 @@ import { createBorderCrop, CROP_FLAG } from './border-crop.js';
 import { cropAspect } from './crop.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
+import { createInteractLabel, INTERACT_FLAG } from './interact-label.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
@@ -138,6 +139,18 @@ labs.registerFlag(TAPS_FLAG, {
     'Flag off: tapping the picture does nothing.',
   ],
 });
+labs.registerFlag(INTERACT_FLAG, {
+  label: 'Context Interact label',
+  description: 'With drag-to-walk on, the Interact button says Talk when a person is in reach, Exit at an exit, and dims when nothing is in reach. It still presses Circle. It stays plain until the game reads behind it are confirmed.',
+  pr: 217,
+  checklist: [
+    'Walk up to a person and face them: does Interact say Talk, and does a tap talk?',
+    'Stand on an exit line: does it say Exit? Walk away: does it dim?',
+    'Does the label flicker or lag while walking?',
+    'A dimmed Interact still presses Circle (examine, save point).',
+    'Flag off: the button always says Interact; the classic pad still works.',
+  ],
+});
 labs.registerFlag(PANEL_FLAG, {
   label: 'Tap-to-select main menu',
   description: 'In the field main menu, a panel below the picture lists the ten commands. Tap one: the cursor moves there and Circle is pressed. Back and Close press Triangle. Portrait only.',
@@ -262,6 +275,7 @@ const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), togg
 const autoControls = createAutoControls({ controls, labs });
 const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
+const interactLabel = createInteractLabel({ fieldRoot: $('field'), labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
@@ -334,6 +348,7 @@ const backendReady = createWorkerBackend({
     borderCrop.setGate(gate);
     battleHud.setGate(gate);
     dialogueTaps.setGate(gate);
+    interactLabel.setGate(gate);
     menuPanel.setGate(gate);
     battlePanel.setGate(gate);
     itemScreen.setGate(gate);
@@ -353,6 +368,7 @@ const backendReady = createWorkerBackend({
   borderCrop.setBackend(b);
   battleHud.setBackend(b);
   dialogueTaps.setBackend(b);
+  interactLabel.setBackend(b);
   menuPanel.setBackend(b);
   battlePanel.setBackend(b);
   itemScreen.setBackend(b);
@@ -486,6 +502,7 @@ window.ff7web = {
   borderCrop,
   battleHud,
   dialogueTaps,
+  interactLabel,
   menuPanel,
   itemScreen,
   equipScreen,

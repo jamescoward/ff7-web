@@ -129,23 +129,27 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
   }
   function pressFor(button) {
     mixer.set(SOURCE, PAD[button]);
-    pressing = timers.setTimeout(() => { pressing = null; mixer.set(SOURCE, 0); }, PRESS_MS);
+    pressing = timers.setTimeout(() => { pressing = null; mixer.set(SOURCE, 0); render(); }, PRESS_MS);
+    render();
   }
 
   function render() {
     const page = view?.page ?? null;
+    // While a plan runs or a press is held, a tap would be dropped (startPlan
+    // needs idle()), so the rows say so instead of looking tappable (#25 CI).
+    const ready = idle();
     root.dataset.page = page ?? '';
     for (const b of root.querySelectorAll('.ni-item')) {
       const r = rows[Number(b.dataset.row)];
       b.textContent = r ? itemRowLabel(r.item) : '—';
-      b.disabled = !(page === 'list' && r?.item);
+      b.disabled = !(ready && page === 'list' && r?.item);
       b.toggleAttribute('data-cursor', page === 'list' && view.listRow === Number(b.dataset.row));
       b.toggleAttribute('data-chosen', page === 'target' && chosen !== null && r?.slot === chosen.slot);
     }
     for (const b of root.querySelectorAll('.ni-member')) {
       const slot = Number(b.dataset.slot);
       b.textContent = memberLabel(slot, party[slot]);
-      b.disabled = !(page === 'target' && party[slot]);
+      b.disabled = !(ready && page === 'target' && party[slot]);
       b.toggleAttribute('data-cursor', page === 'target' && view.targetSlot === slot);
     }
   }
@@ -282,6 +286,7 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     check = null;
     run = { exec: createPlanExecutor(plan), kind, to, ...extra, busy: false, lastFrame: null, loop: null };
     run.loop = timers.setInterval(turn, LOOP_MS);
+    render();
     turn();
   }
 

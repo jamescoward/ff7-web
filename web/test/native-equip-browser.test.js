@@ -19,6 +19,7 @@ after(() => server?.close());
 
 const CROSS = 1 << 0;
 const CIRCLE = 1 << 8;
+const TRIANGLE = 1 << 9;
 
 async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, party = [0, null, null] } = {}) {
   const context = await browser.newContext({ ...(pw.devices[device] ?? {}) });
@@ -183,13 +184,19 @@ for (const name of BROWSERS) {
         await page.waitForTimeout(2500);
         assert.equal(await enabled(page, 0), false, 'party pick not read');
         assert.match(await page.locator('#native-equip .ne-msg').textContent(), /party pick/);
-        // One-member party, but the player moves on the Equip screen with the classic pad.
+        // One-member party, but the player presses a classic-pad button on the
+        // Equip screen. Triangle does nothing in the simulator, so the screen
+        // stays open and only the mixer listener can end the opening state.
         await page.evaluate(() => { window.sim.party = [0, null, null]; });
+        await page.waitForTimeout(600);
+        assert.equal(await page.evaluate(() => window.ff7web.equipScreen.pristine), true, 'still the opening state before the press');
         await page.evaluate(() => { window.pads.length = 0; });
-        const cross = await page.locator('[data-btn="cross"]').boundingBox();
-        await page.touchscreen.tap(cross.x + cross.width / 2, cross.y + cross.height / 2);
-        await until(async () => (await pads(page)).includes(CROSS), { timeout: 2000, what: 'classic pad Cross' });
+        const tri = await page.locator('[data-btn="triangle"]').boundingBox();
+        await page.touchscreen.tap(tri.x + tri.width / 2, tri.y + tri.height / 2);
+        await until(async () => (await pads(page)).includes(TRIANGLE), { timeout: 2000, what: 'classic pad Triangle' });
         await page.waitForTimeout(2500);
+        assert.equal(await page.evaluate(() => window.sim.open), true, 'the Equip screen is still open');
+        assert.equal(await visible(page), true);
         assert.equal(await page.evaluate(() => window.ff7web.equipScreen.pristine), false);
         assert.equal(await enabled(page, 0), false, 'not the opening state');
         assert.deepEqual(errors, []);

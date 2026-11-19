@@ -71,5 +71,5 @@ Design is the agent default recorded on #121 (Trip mode rule 11). Everything is 
 - **Not measured:** how long the screen takes to settle on the device after the panel first sees overlay 4 (the 120 frames count from the panel's first poll, which is at or after the overlay was asked for, so it is at least 15c's wait); where Back goes from the Equip screen.
 
 ### Follow-ups
-- The main-menu party-pick cursor (a hypothesis: `g_PartyMenuTables[1]`'s row, next to the confirmed `menuCursor`), so the panel works for a three-member party.
-- The Equip-screen slot and list cursors, and the list order beyond its first entry (no source; a RAM-diff method needs its own contract).
+- #215: the main-menu party-pick cursor (a hypothesis: `g_PartyMenuTables[1]`'s row, next to the confirmed `menuCursor`), so the panel works for a three-member party.
+- #216: the Equip-screen slot and list cursors, and the list order beyond its first entry (no source; a RAM-diff method needs its own contract).

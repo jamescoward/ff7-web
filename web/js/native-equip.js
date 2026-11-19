@@ -87,6 +87,8 @@ export function buildEquipScreen(root) {
 }
 
 export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz = EQUIP_HZ, semanticFor = createSemantic }) {
+  // Without a way to see other input, the opening state can't be trusted: never pristine.
+  const canWatch = typeof mixer.onChange === 'function';
   let gateActive = false;
   let backend = null;
   let source = null; // tests: { equipScreen(), equipment(slot), inventory(), frame }
@@ -236,7 +238,6 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
         open = true;
         openFrame = frameNow();
         pristine = canWatch;
-        armed = false;
         last = null;
         armed = (mixer.mask & ~ours) === 0;
       }
@@ -324,8 +325,6 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     else if (b.dataset.action) tapAction(b.dataset.action);
   });
   labs.onChange((name) => { if (name === EQUIP_FLAG) sync(); });
-  // Without a way to see other input, the opening state can't be trusted: never pristine.
-  const canWatch = typeof mixer.onChange === 'function';
   if (canWatch) mixer.onChange(onPad);
   show(false);
   return {

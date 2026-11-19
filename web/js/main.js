@@ -142,7 +142,7 @@ labs.registerFlag(TAPS_FLAG, {
 labs.registerFlag(INTERACT_FLAG, {
   label: 'Context Interact label',
   description: 'With drag-to-walk on, the Interact button says Talk when a person is in reach, Exit at an exit, and dims when nothing is in reach. It still presses Circle. It stays plain until the game reads behind it are confirmed.',
-  pr: 0,
+  pr: 217,
   checklist: [
     'Walk up to a person and face them: does Interact say Talk, and does a tap talk?',
     'Stand on an exit line: does it say Exit? Walk away: does it dim?',

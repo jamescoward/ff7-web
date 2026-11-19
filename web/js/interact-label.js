@@ -47,9 +47,12 @@ export function createInteractLabel({ fieldRoot, labs, timers = globalThis, hz =
     return semantic;
   };
   const shouldRun = () => flagOn() && gateActive && (source !== null || backend !== null);
+  // Flag off or stopped: the button as field-controls.js made it.
   const reset = () => {
     const b = button();
-    if (b) renderInteract(b, interactLabel(null));
+    if (!b) return;
+    renderInteract(b, interactLabel(null));
+    delete b.dataset.interact;
   };
 
   async function tick() {

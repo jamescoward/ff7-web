@@ -378,6 +378,23 @@ const ITEM_MENU_ENTRIES = [
   },
 ];
 
+// The menu's overlay bookkeeping (#135 part 2): which menu overlay was last
+// asked for. The native Item screen is shown only while it names the Item
+// overlay, so the overlay variables above are never read for another page.
+/** menuOverlay value for the Item screen (ITEMMENU_Init is entry 1 of the init table). */
+export const MENU_OVERLAY_ITEM = 1;
+const MENU_OVERLAY_ENTRIES = [
+  {
+    name: 'menuOverlay',
+    address: 0x80062dd4,
+    type: 'u32',
+    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c)`,
+    status: 'hypothesis',
+    values: Object.freeze({ 1: 'item' }),
+  },
+];
+
 const INVENTORY_ENTRIES = [
   {
     name: 'inventorySlot',
@@ -643,5 +660,6 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
   ...ITEM_MENU_ENTRIES,
+  ...MENU_OVERLAY_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

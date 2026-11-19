@@ -72,3 +72,16 @@ export const BATTLE_PANEL_ACTIONS = Object.freeze({
 
 /** The targeting buttons, in screen order. */
 export const BATTLE_TARGET_ACTIONS = Object.freeze(['prev', 'next', 'confirm', 'back']);
+
+/**
+ * Native Item screen actions (#135, Labs flag `native-item`). An item tap
+ * moves the list cursor there with the menu planner, then presses `select`;
+ * a party tap does the same with the party cursor. Back presses Cross, the
+ * menus' cancel button (as the field Back, FIELD_ACTIONS): on the target
+ * page it returns to the list, on the list it leaves the Item screen.
+ * What Cross does on each page is checked by save-boot-14d/14e (#135).
+ */
+export const ITEM_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});

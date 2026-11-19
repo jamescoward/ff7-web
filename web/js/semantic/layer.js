@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -102,6 +102,9 @@ export function pushMovieSample(samples, frame, value) {
 
 /** Raw g_GameState in battle (#76). */
 const BATTLE_GAME_STATE = 2;
+const MENU_GAME_STATE = 5;
+/** itemMenuScreen values the native Item screen acts on (#135): confirmed in Tier 2. */
+const ITEM_PAGES = Object.freeze({ 1: 'list', 2: 'target' });
 
 /**
  * Character records 0-8 (Cloud ... Cid). Party character IDs 0-8 name the
@@ -432,6 +435,38 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         if (it) value.push({ slot, ...it });
       });
       return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #135: the game's Item screen. { value: { page, listRow, listOffset, targetSlot } }.
+     * page: 'list' (choosing an item) or 'target' (choosing a party slot),
+     * null on any other page or when the Item screen is not open. The Item
+     * screen's variables live in a menu overlay and hold other data whenever
+     * another page is loaded, so they are read only in a confirmed menu mode
+     * while menuOverlay names the Item overlay. Every field is null unless
+     * that chain and the field's own entry are confirmed.
+     */
+    async itemScreen() {
+      const none = { page: null, listRow: null, listOffset: null, targetSlot: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_ITEM) return { value: none, confirmed: true, reason: 'not the Item screen' };
+      const s = await read(['itemMenuScreen']);
+      if (!s.values) return fail(s);
+      const page = s.confirmed ? ITEM_PAGES[s.values.itemMenuScreen] ?? null : null;
+      if (page === null) return { value: none, confirmed: s.confirmed };
+      const one = async (name) => {
+        const r = await read([name]);
+        return r.values && r.confirmed ? r.values[name] : null;
+      };
+      const value = { page, listRow: null, listOffset: await one('itemListOffset'), targetSlot: null };
+      if (page === 'list') value.listRow = await one('itemListRow');
+      else value.targetSlot = await one('itemTargetSlot');
+      return { value, confirmed: true };
     },
 
     /** #117: the materia inventory. { value: [{ slot, id, ap }] } for each non-empty slot, in slot order. */

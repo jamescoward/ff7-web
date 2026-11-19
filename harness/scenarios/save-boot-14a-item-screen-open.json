@@ -33,22 +33,22 @@
     "item_screen": {
       "addr": "0x801d3e48",
       "type": "u32",
-      "description": "itemMenuScreen (hypothesis, #135): g_ItemMenuCurrentScreen, an Item-menu overlay variable: 1 the item list, 2 picking a party member. Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt, src/menu/itemmenu.c"
+      "description": "itemMenuScreen (confirmed, #135): g_ItemMenuCurrentScreen, an Item-menu overlay variable: 1 the item list, 2 picking a party member. Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt, src/menu/itemmenu.c"
     },
     "list_row": {
       "addr": "0x801d3df9",
       "type": "u8",
-      "description": "itemListRow (hypothesis, #135): g_ItemMenuWidgets[1] (0x801D3DDC + 0x12) + 0x0B row, the item list cursor on the page. Xeeynamo/ff7-decomp@33ce78c (reference only, no code) include/game.h MenuTable"
+      "description": "itemListRow (confirmed, #135): g_ItemMenuWidgets[1] (0x801D3DDC + 0x12) + 0x0B row, the item list cursor on the page. Xeeynamo/ff7-decomp@33ce78c (reference only, no code) include/game.h MenuTable"
     },
     "list_off": {
       "addr": "0x801d3df0",
       "type": "u16",
-      "description": "itemListOffset (hypothesis, #135): g_ItemMenuWidgets[1] + 0x02 rowOffset, the slot on the top row. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)"
+      "description": "itemListOffset (confirmed, #135): g_ItemMenuWidgets[1] + 0x02 rowOffset, the slot on the top row. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)"
     },
     "party_row": {
       "addr": "0x801d3e0b",
       "type": "u8",
-      "description": "itemTargetSlot (hypothesis, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)"
+      "description": "itemTargetSlot (confirmed, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)"
     },
     "menu_ovl": {
       "addr": "0x80062dd4",

@@ -51,22 +51,22 @@ const MEMORY = {
   item_screen: {
     addr: hex(entry('itemMenuScreen').address),
     type: 'u32',
-    description: `itemMenuScreen (hypothesis, #135): g_ItemMenuCurrentScreen, an Item-menu overlay variable: 1 the item list, 2 picking a party member. ${DECOMP} config/symbols.itemmenu.us.txt, src/menu/itemmenu.c`,
+    description: `itemMenuScreen (confirmed, #135): g_ItemMenuCurrentScreen, an Item-menu overlay variable: 1 the item list, 2 picking a party member. ${DECOMP} config/symbols.itemmenu.us.txt, src/menu/itemmenu.c`,
   },
   list_row: {
     addr: hex(entry('itemListRow').address),
     type: 'u8',
-    description: `itemListRow (hypothesis, #135): g_ItemMenuWidgets[1] (0x801D3DDC + 0x12) + 0x0B row, the item list cursor on the page. ${DECOMP} include/game.h MenuTable`,
+    description: `itemListRow (confirmed, #135): g_ItemMenuWidgets[1] (0x801D3DDC + 0x12) + 0x0B row, the item list cursor on the page. ${DECOMP} include/game.h MenuTable`,
   },
   list_off: {
     addr: hex(entry('itemListOffset').address),
     type: 'u16',
-    description: `itemListOffset (hypothesis, #135): g_ItemMenuWidgets[1] + 0x02 rowOffset, the slot on the top row. ${DECOMP}`,
+    description: `itemListOffset (confirmed, #135): g_ItemMenuWidgets[1] + 0x02 rowOffset, the slot on the top row. ${DECOMP}`,
   },
   party_row: {
     addr: hex(entry('itemTargetSlot').address),
     type: 'u8',
-    description: `itemTargetSlot (hypothesis, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. ${DECOMP}`,
+    description: `itemTargetSlot (confirmed, #135): g_ItemMenuWidgets[2] (0x801D3DDC + 0x24) + 0x0B row, the party cursor. ${DECOMP}`,
   },
   menu_ovl: {
     addr: '0x80062dd4',
@@ -190,7 +190,59 @@ export function itemUseScenarios() {
     ],
     metrics: ['load_done', 'scr1_wait', 'w_list', 'w_target', 'use_wait', 'count_ok', 'hp_ok', 'match'],
   };
-  return [diag, accept, diagPress];
+  // Part 2 (the native-item screen) needs to know when the Item screen is
+  // NOT open, so the screen is never shown over another page. Diagnostics:
+  // what menu_ovl and item_screen read after Cross on the item list (once,
+  // twice), and after choosing a different main-menu row. Checks are only
+  // what holds whatever the answer (the field ID is unchanged).
+  const OPEN_ITEM = [
+    ...OPEN_MENU.map(({ metric, ...step }) => step),
+    { wait: { until: { mem: 'row0', equals: 0 }, timeout: 1 } },
+    { wait: { until: { mem: 'menu_ovl', equals: 1 }, timeout: 600, press: { buttons: ['circle'], every: 60, hold: 4 } }, metric: 'ovl_wait' },
+    { wait: { frames: 120 } },
+  ];
+  const leaveMetrics = ['load_done', 'ovl_wait', 'menu_ovl', 'item_screen', 'list_row', 'row0', 'game_state', 'frames'];
+  const leaveOnce = {
+    $schema: '../schema/scenario.schema.json',
+    format: 2,
+    tier: 2,
+    name: 'save-boot-14d-item-screen-cross',
+    description: `#135 part 2 (diagnostic): what the Item screen's variables read after leaving the item list. As 14c (Circle until menu_ovl reads 1, then 120 frames), then one Cross press and 120 frames with no checks. Reports the raw menu_ovl, item_screen, list_row, row0 (main-menu cursor) and game_state. Check: the field ID is unchanged.`,
+    boot: { disc: 1, save: SAVE, slot: 1 },
+    memory: MEMORY,
+    input: [...OPEN_ITEM, PRESS('cross'), { wait: { frames: 120 } }],
+    assert: [{ expect: { mem: 'map_cur', equals: 116 } }],
+    metrics: leaveMetrics,
+  };
+  const leaveTwice = {
+    ...leaveOnce,
+    name: 'save-boot-14e-item-screen-cross-twice',
+    description: `#135 part 2 (diagnostic): as 14d, but Cross twice, 60 frames apart, then 120 frames. Reports the raw menu_ovl, item_screen, list_row, row0 and game_state. Check: the field ID is unchanged.`,
+    input: [...OPEN_ITEM, PRESS('cross'), { wait: { frames: 60 } }, PRESS('cross'), { wait: { frames: 120 } }],
+  };
+  const otherRow = {
+    $schema: '../schema/scenario.schema.json',
+    format: 2,
+    tier: 2,
+    name: 'save-boot-14f-other-submenu',
+    description: `#135 part 2 (diagnostic): what menu_ovl and item_screen read when a main-menu row other than Item is chosen. Open the field menu (as 14a), Down twice (wait until row0 reads 2), wait 60 frames, Circle once, then 300 frames with no checks. Reports the raw menu_ovl, item_screen, row0 and game_state. Check: the field ID is unchanged.`,
+    boot: { disc: 1, save: SAVE, slot: 1 },
+    memory: MEMORY,
+    input: [
+      ...OPEN_MENU.map(({ metric, ...step }) => step),
+      { wait: { until: { mem: 'row0', equals: 0 }, timeout: 1 } },
+      PRESS('down'),
+      { wait: { frames: 8 } },
+      PRESS('down'),
+      { wait: { until: { mem: 'row0', equals: 2 }, timeout: 60 }, metric: 'row_wait' },
+      { wait: { frames: 60 } },
+      PRESS('circle'),
+      { wait: { frames: 300 } },
+    ],
+    assert: [{ expect: { mem: 'map_cur', equals: 116 } }],
+    metrics: ['load_done', 'row_wait', 'menu_ovl', 'item_screen', 'row0', 'game_state', 'frames'],
+  };
+  return [diag, accept, diagPress, leaveOnce, leaveTwice, otherRow];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

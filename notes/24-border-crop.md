@@ -1,5 +1,34 @@
 # #24: automatic picture crop (reclaim black borders)
 
+> **Attempt 2 (2026-11-19, PR for branch `issue-24-mode-gated-crop`): mode-gated crop.** Sections 1–4 below are attempt 1 (PR #72, closed unmerged, parked by the owner on 2026-11-05). What changed is in section 0. Where section 0 disagrees with sections 2–3, section 0 wins.
+
+## 0. Attempt 2: the mode gate
+
+**Why:** a pixel-only crop can't tell borders from scenes where black is the picture (text on black, a dialogue box on black). Now that `mode()` is reliable (#81), the crop runs only in modes where that risk is small.
+
+- **`semantic/regions.js`** (platform-neutral, copied to `web/js/semantic/`) holds `CROP_REGIONS`, one row per `mode()` label. A row is either `null` or `{ detect: true, maxInsets }`, with `maxInsets` in PS1 framebuffer pixels. It also holds `cropFor(mode, confirmed, w, h)`. Only `confirmed === true` field and battle crop. Insets are capped at 25 % of the frame.
+  - **Agent default** (Trip mode rule 11): field may lose up to 48 px top/bottom and 64 px left/right; battle up to 16 px top/bottom and nothing at the sides. This is a **hypothesis, not measured on the disc**. Tier 3, or a later Tier 2 probe returning only the rectangle, would check it.
+- **`web/js/crop.js`** is PR #72's generic detector, unchanged except for the new `maxInsets` option. It holds no FF7 facts.
+- **`web/js/border-crop.js`** polls `mode()` at 4 Hz, using the same read-only view as `auto-controls.js`. It has its own poll, because auto-controls' poll runs only under its own flag. The detector runs on every posted frame, but only while the mode is allowed. When the mode changes, the tracker is dropped and the page redraws the last frame in full straight away, even while paused. Re-entering an allowed mode starts again from the full frame and needs ~1 s to narrow.
+  - **Known gap:** the poll is 4 Hz. For up to 250 ms after a switch into the menu (or a movie), the old crop can still apply. "Widen at once" still holds in that window, so any lit pixel outside the crop widens it on that frame.
+- **The detector runs in the page, not the worker** (a change from PR #72). The worker, renderer and input path are untouched. With the flag off, nothing runs and the draw path is the same as on main.
+- **Display:** `main.js` draws only the crop and sets `--screen-aspect` on `.stage`. `<html data-border-crop-on>` caps the landscape width, as in PR #72. With the flag off, neither is set, and the CSS falls back to `4 / 3`.
+- **Toggle:** the Labs flag replaces PR #72's top-bar Crop button.
+
+### Tests (attempt 2)
+- `runner/test/unit/semantic-regions.test.js`: every mode label × confirmed/unconfirmed (6 values) × 7 display sizes; labels outside the table; bad sizes; caps; the table is frozen.
+- `web/test/crop-unit.test.js` (PR #72's 15 cases, plus one for `maxInsets`).
+- `web/test/border-crop-browser.test.js` (iPhone 14 Pro profile, stubbed backend with synthetic frames, fake `mode()` source):
+  - flag off: no poll, full frame, 4:3;
+  - field: full frame, then the box after ~1 s; widening is immediate;
+  - battle: the limits apply;
+  - menu, movie, world, unknown, unconfirmed field and a failed read: the full frame at once, then the crop again on return to the field;
+  - switching the flag off: the full frame at once;
+  - portrait letterbox: same width, shorter box;
+  - landscape: stays in the viewport.
+- `web/test/iphone-profile.test.js` picks the new flag up automatically, so the layout checks run with it on.
+- **Not ported:** the `border-box` real-core fixture test. With the mode gate a homebrew has no FF7 mode (the hash gate is closed), so it would test only the stub path. The synthetic-frame browser tests cover the display path. Follow-up issue if wanted.
+
 ## 1. The core's own options (source survey, pinned commit `7b0e8f8`)
 
 I read `frontend/libretro_core_options.h`, `frontend/libretro.c`, `plugins/gpulib/gpu.c` (`update_width`, `update_height`) and `plugins/gpulib/vout_pl.c` (`check_mode_change`).

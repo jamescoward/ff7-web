@@ -16,6 +16,7 @@ export function createFieldControls(root, { onChange }) {
     b.type = 'button';
     b.className = `btn field-${a.kind}`;
     b.dataset.action = a.button;
+    b.dataset.id = a.id;
     b.textContent = a.label;
     actions.append(b);
   }

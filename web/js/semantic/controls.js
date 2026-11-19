@@ -7,6 +7,7 @@
 // notes/108-dialogue-state.md). The choice panel is not here yet (needs #168).
 // The field buttons are the ones #23 put on the touch layout (Circle talks
 // and examines, Triangle opens the menu, Cross cancels); #146 moved them here.
+// #25 adds the context-aware Interact label (interactLabel), over #112 nearby().
 // Original project code, GPL-2.0-or-later.
 
 /**
@@ -98,3 +99,41 @@ export const EQUIP_SCREEN_ACTIONS = Object.freeze({
   select: Object.freeze({ id: 'select', button: 'circle' }),
   back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
 });
+
+/**
+ * Context-aware Interact labels (#25, Labs flag `interact-label`). The
+ * Interact button still presses Circle; only its label changes, from a
+ * nearby() result (semantic/layer.js, #112).
+ */
+export const INTERACT_LABELS = Object.freeze({
+  talk: Object.freeze({ id: 'talk', label: 'Talk ○' }),
+  exit: Object.freeze({ id: 'exit', label: 'Exit ○' }),
+});
+
+/**
+ * What the Interact button should say for a nearby() result:
+ * { id, label, dim }. id is 'talk', 'exit' or 'interact' (the plain label,
+ * FIELD_ACTIONS). Pure: no DOM.
+ *
+ * - A failed read, a result with a reason (not in a settled field) or an
+ *   unconfirmed result says nothing either way: the plain label, not dimmed.
+ *   nearby() is unconfirmed while fieldZ, fieldTalkOff and fieldTalkRange are
+ *   hypotheses (notes/112-field-interactables.md), so until #112's talk rule
+ *   is confirmed in Tier 2 the label never changes in a real game.
+ * - Confirmed, an NPC in range: Talk. Circle talks to an NPC in range, so
+ *   Talk wins over an exit in range (agent default, #25).
+ * - Confirmed, an exit in range and no NPC: Exit.
+ * - Confirmed, nothing in range: the plain label, dimmed (agent default,
+ *   #25: dimmed, not hidden, so the layout never shifts).
+ */
+export function interactLabel(sample) {
+  const plain = FIELD_ACTIONS.find((a) => a.id === 'interact');
+  const list = sample?.value;
+  if (!Array.isArray(list) || sample.reason || sample.confirmed !== true) {
+    return { id: plain.id, label: plain.label, dim: false };
+  }
+  const inRange = (kind) => list.some((e) => e?.kind === kind && e.inRange === true);
+  if (inRange('npc')) return { ...INTERACT_LABELS.talk, dim: false };
+  if (inRange('exit')) return { ...INTERACT_LABELS.exit, dim: false };
+  return { id: plain.id, label: plain.label, dim: true };
+}

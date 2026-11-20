@@ -8,8 +8,9 @@
 // 0xFFFF, bits processed most-significant first, no reflection, result
 // inverted (XOR 0xFFFF), over savemap bytes 0x0004 to the end. In CRC
 // catalogue terms this is CRC-16/GENIBUS. The unit test checks it against
-// that catalogue's published check value; whether the game accepts it is for
-// a Tier 2 scenario to show.
+// that catalogue's published check value. Tier 2: the game accepts saves
+// generated with it (#38, save-boot-1), and a save the game wrote itself
+// reads back right with it (#226, save-boot-20a: savegen/read.js).
 
 import { CHECKSUM_START, SAVEMAP_SIZE } from './layout.js';
 

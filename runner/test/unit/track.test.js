@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
-import { playScript, trackMatches, trackNarrow } from '../../format2.js';
+import { TRACK_COUNT_CAP, TRACK_WINDOWS, playScript, trackMatches, trackNarrow, trackWindows } from '../../format2.js';
 import { validate } from '../../schema.js';
 import { SCHEMA_PATH, loadScenario } from '../../scenario.js';
 
@@ -35,7 +35,7 @@ describe('track checks: schema and loader (#216)', () => {
     const d = base();
     assert.deepEqual(validate(schema, d), []);
     const sc = loadScenario(d);
-    assert.deepEqual(sc.asserts[0], { kind: 'track', from: 0x800f0000, bytes: 16, marks: ['a', 'b', 'c'], values: [40, 50, 60], found: ['at1', 'at2'], metric: 'n' });
+    assert.deepEqual(sc.asserts[0], { kind: 'track', from: 0x800f0000, bytes: 16, marks: ['a', 'b', 'c'], values: [40, 50, 60], found: ['at1', 'at2'], mayMiss: false, metric: 'n' });
   });
 
   test('found is optional; metric is required', () => {
@@ -106,6 +106,7 @@ describe('track checks: narrowing (#216)', () => {
   test('matches: the count, and the first n offsets in order', () => {
     const cand = Uint8Array.of(0, 1, 1, 0, 1, 1, 1);
     assert.deepEqual(trackMatches(cand, 2), { count: 5, first: [1, 2] });
+    assert.deepEqual(trackMatches(Uint8Array.of(1, 1, 1, 1), 4), { count: 4, first: [0, 1, 2, 3] });
     assert.deepEqual(trackMatches(cand, 0), { count: 5, first: [] });
     assert.deepEqual(trackMatches(null, 3), { count: 0, first: [] });
   });
@@ -140,5 +141,69 @@ describe('track checks: narrowing (#216)', () => {
     });
     assert.deepEqual(seen, marks);
     assert.deepEqual(trackMatches(cand, 4), { count: 1, first: [0x10] });
+  });
+});
+
+describe('track checks: hardening (#221)', () => {
+  const tier2 = () => {
+    const file = new URL('../../../harness/scenarios/save-boot-17a-equip-slot-track.json', import.meta.url);
+    return JSON.parse(readFileSync(file, 'utf8'));
+  };
+  const load2 = (d) => loadScenario(d, { allowTier2: true });
+
+  test('the count is capped at 5; the found addresses are not affected', () => {
+    assert.equal(TRACK_COUNT_CAP, 5);
+    const cand = new Uint8Array(1000).fill(1);
+    assert.deepEqual(trackMatches(cand, 4), { count: 5, first: [0, 1, 2, 3] });
+    const six = Uint8Array.of(0, 1, 1, 1, 1, 1, 1);
+    assert.equal(trackMatches(six, 0).count, 5);
+    assert.equal(trackMatches(six.subarray(0, 6), 0).count, 5);
+    assert.equal(trackMatches(six.subarray(0, 5), 0).count, 4);
+  });
+
+  test('the windows: the overlay area for every scenario, pad-echo only for fixture boots', () => {
+    assert.deepEqual(TRACK_WINDOWS.map((w) => [w.name, w.from, w.from + w.bytes]), [['overlay', 0x1d0000, 0x200000], ['pad-echo', 0xf0000, 0xf0100]]);
+    assert.deepEqual(trackWindows(false).map((w) => w.name), ['overlay']);
+    assert.deepEqual(trackWindows(true).map((w) => w.name), ['overlay', 'pad-echo']);
+  });
+
+  test('a game scenario may search only inside the overlay window', () => {
+    assert.equal(load2(tier2()).asserts[0].from, 0x801d0000);
+    const cases = {
+      'main data (the old 17a second range)': ['0x80060000', 0x40000],
+      'the pad-echo window, without a fixture boot': ['0x800f0000', 16],
+      'one byte before the overlay area': ['0x801cffff', 16],
+      'the overlay area in KUSEG': ['0x001d0000', 16],
+    };
+    for (const [what, [from, bytes]] of Object.entries(cases)) {
+      const d = tier2();
+      Object.assign(d.assert[0].track, { from, bytes });
+      if (what.includes('KUSEG')) {
+        // Another CPU view of the same bytes is the same window.
+        assert.equal(load2(d).asserts[0].from, 0x001d0000, what);
+        continue;
+      }
+      assert.throws(() => load2(d), /outside every search window \(overlay\)/, what);
+    }
+  });
+
+  test('a fixture boot also gets the pad-echo window, and no more', () => {
+    assert.equal(loadScenario(base()).asserts[0].from, 0x800f0000);
+    const d = base();
+    Object.assign(d.assert[0].track, { from: '0x800f00f8', bytes: 16 });
+    assert.throws(() => loadScenario(d), /outside every search window \(overlay, pad-echo\)/);
+    const low = base();
+    low.assert[0].track.from = '0x80000000';
+    assert.throws(() => loadScenario(low), /outside every search window/);
+  });
+
+  test('mayMiss is an optional boolean, false unless set', () => {
+    assert.equal(loadScenario(base()).asserts[0].mayMiss, false);
+    const d = base();
+    d.assert[0].track.mayMiss = true;
+    assert.deepEqual(validate(schema, d), []);
+    assert.equal(loadScenario(d).asserts[0].mayMiss, true);
+    d.assert[0].track.mayMiss = 1;
+    assert.notDeepEqual(validate(schema, d), []);
   });
 });

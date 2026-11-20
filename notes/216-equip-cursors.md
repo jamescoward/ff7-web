@@ -7,15 +7,15 @@ The EQIPMENU overlay is not decompiled in Xeeynamo/ff7-decomp@33ce78c (`notes/12
 `{ "track": { "from", "bytes", "marks", "values", "found" }, "metric" }` in `assert` (`runner/format2.js`, `harness/schema/scenario.schema.json`).
 
 - Inside the run, the main run's script reads `[from, from + bytes)` at each listed mark, and keeps the offsets whose byte equals that mark's value at every mark.
-- Reported: the number of matches (`metric`) and the addresses of the first up to 4 matches (`found`), as metrics. No memory value leaves; the values are the ones the scenario chose.
+- Reported: the number of matches (`metric`, capped at 5 since #221) and the addresses of the first up to 4 matches (`found`), as metrics. No memory value leaves; the values are the ones the scenario chose.
 - Bounds:
   - at most 256 KiB;
   - 3 to 16 marks;
-  - values 0 to 63, with at least two different, so it can't ask "where are the zero bytes" (or any constant);
-  - in main RAM only (the loader checks the range).
+  - values 0 to 63, with at least two different, so it can't ask "where are the zero bytes" (or any constant) in one snapshot. That does **not** stop a scenario from locating a value: with marks before and after a load, a sequence such as `[0, 0, v]` still finds where value v sits in the newly loaded content (corrected by #221);
+  - in main RAM only (the loader checks the range), and since #221 inside a named search window: the menu overlay area 0x801D0000 to the end of RAM (`TRACK_WINDOWS` in `runner/format2.js`).
 - The check passes when at least one byte matches. A stopped run, a timed-out wait or a missed mark gives 0 matches.
 
-Security: this is an oracle for "which bytes in a range read this sequence of small numbers at these moments". Its output is addresses and a count, inside the existing caps (128 scenarios × 8 metrics, `docs/SECURITY.md`). An `expect` check on one address already gives the same 1/0 information per address; the search just covers a range in one scenario.
+Security: this is an oracle for "which bytes in a range read this sequence of small numbers at these moments". Its output is addresses and a count, inside the existing caps (128 scenarios × 8 metrics, `docs/SECURITY.md`). An `expect` check on one address already gives the same 1/0 information per address; the search just covers a range in one scenario. Refusing constant sequences is not a defence against locating a value (see the bounds above). What limits the search is the window list, the count cap and the per-run metric caps (#221).
 
 ## Attempt 1, step 1: search scenarios (`runner/test/unit/equip-cursor-scenarios.js`)
 - Save `harness/saves/disc1-md1stin-equip12.json`: Cloud alone (weapon 0), spare weapons 1-12, one each, in inventory slots 0-11. All author-chosen. That Cloud can equip all of them is a **hypothesis**: weapon 1 is confirmed (#121); #215 saw 17 and 33 go to Tifa and Barret.

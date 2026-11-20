@@ -354,14 +354,19 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
       for (const m of t.marks) if (!marks.has(m)) fail(`${where}.track: no mark step named "${m}" in the script`);
       if (new Set(t.marks).size !== t.marks.length) fail(`${where}.track: a mark is named twice`);
       const from = Number.parseInt(t.from, 16);
+      let off;
       try {
-        ramOffset(from, t.bytes);
+        off = ramOffset(from, t.bytes);
       } catch (e) {
         fail(`${where}.track: ${e.message}`);
       }
+      const windows = trackWindows(source?.fixture !== undefined);
+      if (!windows.some((w) => off >= w.from && off + t.bytes <= w.from + w.bytes)) {
+        fail(`${where}.track: 0x${(from >>> 0).toString(16)}+${t.bytes} is outside every search window (${windows.map((w) => w.name).join(', ')})`);
+      }
       const found = t.found ?? [];
       found.forEach((k, j) => name(k, `${where}.track.found[${j}]`));
-      return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, metric: a.metric };
+      return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, mayMiss: t.mayMiss === true, metric: a.metric };
     }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
@@ -405,6 +410,32 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
 }
 
 /**
+ * Where a track check may search (#221), as main-RAM offsets. A search must
+ * lie inside one window, so a scenario cannot sweep arbitrary game memory.
+ *   overlay   0x801D0000 to the end of RAM: the menu overlays load here
+ *             (#135), and #216 found the Equip cursors in it.
+ *   pad-echo  0x800F0000, 256 bytes: the homebrew fixture's counter. Only
+ *             for scenarios that boot a fixture, where no game is in memory.
+ * Add a window only with a reason recorded here and in the issue.
+ */
+export const TRACK_WINDOWS = Object.freeze([
+  Object.freeze({ name: 'overlay', from: 0x1d0000, bytes: 0x30000, fixtureOnly: false }),
+  Object.freeze({ name: 'pad-echo', from: 0x0f0000, bytes: 0x100, fixtureOnly: true }),
+]);
+
+/** The windows open to a scenario: fixture-only windows need a fixture boot. */
+export function trackWindows(fixtureBoot) {
+  return TRACK_WINDOWS.filter((w) => fixtureBoot || !w.fixtureOnly);
+}
+
+/**
+ * A track check reports at most this many matches as its count (#221), so
+ * the count can't serve as a histogram of a range: 0 to 4 exactly, then 5
+ * for "5 or more".
+ */
+export const TRACK_COUNT_CAP = 5;
+
+/**
  * A track check (#216): narrow its candidates with the bytes read at one of
  * its marks. cand is null before the first mark (every offset a candidate)
  * and a Uint8Array of 0/1 flags after; returns the new flags. Only offsets
@@ -416,7 +447,10 @@ export function trackNarrow(cand, bytes, value) {
   return out;
 }
 
-/** The offsets still flagged, in order: { count, first: the first n offsets }. */
+/**
+ * The offsets still flagged, in order: { count, first: the first n offsets }.
+ * count is capped at TRACK_COUNT_CAP (#221); first is not affected.
+ */
 export function trackMatches(cand, n) {
   let count = 0;
   const first = [];
@@ -427,7 +461,7 @@ export function trackMatches(cand, n) {
       if (first.length < n) first.push(i);
     }
   }
-  return { count, first };
+  return { count: Math.min(count, TRACK_COUNT_CAP), first };
 }
 
 /** Stops a run at its current stage. */
@@ -960,7 +994,9 @@ export async function runScenario2(sc, opts = {}) {
       const m = ok(st.seen === a.marks.length) ? trackMatches(st.cand, a.found.length) : { count: 0, first: [] };
       return {
         track: { from: `0x${(a.from >>> 0).toString(16).padStart(8, '0')}`, bytes: a.bytes, marks: a.marks, values: a.values },
-        pass: m.count > 0,
+        // mayMiss (#221): no match is a passing record, not a failure. A
+        // stopped run or a missed mark still fails.
+        pass: m.count > 0 || (a.mayMiss && ok(st.seen === a.marks.length)),
         count: m.count,
         found: a.found.map((_, j) => (j < m.first.length ? a.from + m.first[j] : 0)),
       };

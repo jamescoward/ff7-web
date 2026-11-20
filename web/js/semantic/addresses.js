@@ -637,6 +637,15 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     status: 'confirmed',
     scenario: SC('reactor-mode-2d-cursor-sequence'),
   },
+  {
+    name: 'partyPick',
+    address: 0x8009a0e5,
+    type: 's8',
+    meaning: 'main-menu party pick: the party slot (0-2) highlighted after Circle on a main-menu row that asks for a member (Equip), and the member whose Equip screen then opens (the row of g_PartyMenuTables[1]). Only the party pick and the Equip screen are checked; elsewhere it may hold a stale value',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_PartyMenuTables at 0x8009A0C8) and include/game.h (MenuTable, size 0x12, row at +0x0B): table 1's row. Tier 2 (#215, notes/215-party-pick.md): from a generated save with party Cloud, Barret, Tifa, after the planned move to Equip and Circle, Down 0, 1 or 2 times reads 0, 1 or 2 (save-boot-16a to 16d); Circle then opens the Equip screen (menuOverlay 4) for that slot's member, and Circle, Circle changes only that member's weapon; it still reads the slot on the Equip screen; table 2's row stays 0; a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-16c-party-pick-slot1'),
+  },
   ...[0, 1, 2].map((i) => ({
     name: `partySlot${i}`,
     address: 0x8009c6e4 + 0x4f8 + i,

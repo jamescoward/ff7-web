@@ -1,0 +1,166 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-19b-window1-circle",
+  "description": "#224 (acceptance: window 1 closes on Circle). As save-boot-19a up to window 1 in state 6, then Circle (4 frames): wait until the state leaves 6 (left_wait, timeout 120), then press Circle every 30 frames (4 held) until it reads 0 (close_wait, timeout 1800; a message may have more than one page). Checks window 1 and window 0 read 0, field mode, and that a rerun matches. Reports window 3's raw state.",
+  "boot": {
+    "disc": 1,
+    "save": "disc1-mds7st1",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field."
+    },
+    "w0": {
+      "addr": "0x800832a0",
+      "type": "u16",
+      "description": "g_WindowData[0].state (s16 as u16; window 0 of 4, stride 0x30): 0 closed, 6 text done and waiting for Circle. Confirmed #108. Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData and WindowState."
+    },
+    "w1": {
+      "addr": "0x800832d0",
+      "type": "u16",
+      "description": "g_WindowData[1].state (s16 as u16; window 1 of 4, stride 0x30): 0 closed, 6 text done and waiting for Circle. Hypothesis (#224). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData and WindowState."
+    },
+    "w2": {
+      "addr": "0x80083300",
+      "type": "u16",
+      "description": "g_WindowData[2].state (s16 as u16; window 2 of 4, stride 0x30): 0 closed, 6 text done and waiting for Circle. Hypothesis (#224). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData and WindowState."
+    },
+    "w3": {
+      "addr": "0x80083330",
+      "type": "u16",
+      "description": "g_WindowData[3].state (s16 as u16; window 3 of 4, stride 0x30): 0 closed, 6 text done and waiting for Circle. Hypothesis (#224). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData and WindowState."
+    },
+    "ptr1": {
+      "addr": "0x800832be",
+      "type": "u8",
+      "description": "g_WindowData[1].pointerEnabled (+0x1A): 1 while a choice waits in state 6, 0 for a plain message (hypothesis; window 0's is #168's). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_WindowData (0xC0), include/game.h WindowData and WindowState, src/field/field_dialog.c FieldDialogAskUpdateStates."
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 300
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "w1",
+          "equals": 6
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "w1",
+          "differs": 6
+        },
+        "timeout": 120
+      },
+      "metric": "left_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "w1",
+          "equals": 0
+        },
+        "timeout": 1800,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      },
+      "metric": "close_wait"
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "w1",
+        "equals": 0
+      },
+      "metric": "closed"
+    },
+    {
+      "expect": {
+        "mem": "w0",
+        "equals": 0
+      },
+      "metric": "w0_closed"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      },
+      "metric": "field_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "left_wait",
+    "close_wait",
+    "closed",
+    "w0_closed",
+    "field_ok",
+    "match",
+    "w3"
+  ]
+}

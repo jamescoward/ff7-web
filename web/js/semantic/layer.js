@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -360,7 +360,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
     },
 
     /**
-     * #108: message window 0. { value: { open, waiting, choice: null | { row } } }.
+     * #108: the message windows. { value: { open, waiting, choice: null | { row } } }.
      * open: a window shows (state not 0). waiting: it waits for Circle (the
      * text has finished, not still typing). choice: a choice window waiting
      * for a pick, with row = the pointer's line in the window (0 = the
@@ -368,14 +368,19 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
      * As in partyStatus, choice is reported only from confirmed entries:
      * until dialogPointer and dialogPointerY are confirmed (#168) it is
      * always null, and a choice window reads as a plain waiting message.
-     * confirmed: the state read is a confirmed value (0 closed, 6 done).
+     * confirmed: every state read is a confirmed value (0 closed, 6 done).
+     * #224: windows 1-3 are read too once their state entry is confirmed
+     * (a field script names the window it opens); open and waiting then hold
+     * when any read window is. choice still comes from window 0 only.
      */
     async dialogue() {
-      const s = await read(['dialogState']);
+      const names = DIALOG_STATE_ENTRIES.filter((n, i) => i === 0 || entries.get(n)?.status === 'confirmed');
+      const s = await read(names);
       if (!s.values) return fail(s);
-      const raw = s.values.dialogState;
-      const open = raw !== 0;
-      const waiting = WINDOW_WAITING_STATES.includes(raw);
+      const raws = names.map((n) => s.values[n]);
+      const raw = raws[0];
+      const open = raws.some((r) => r !== 0);
+      const waiting = raws.some((r) => WINDOW_WAITING_STATES.includes(r));
       let choice = null;
       const pointerConfirmed = ['dialogPointer', 'dialogPointerY'].every((n) => entries.get(n)?.status === 'confirmed');
       if (raw === WINDOW_TXT_DONE && pointerConfirmed) {

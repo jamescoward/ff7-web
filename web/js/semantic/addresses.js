@@ -259,7 +259,30 @@ const WINDOW_ENTRIES = [
     source: `${WINDOW_SOURCE}. Not seen in Tier 2 yet: no choice window has been reached (#168)`,
     status: 'hypothesis',
   },
+  // #224: windows 1-3 (notes/224-window1-state.md). A field script names the
+  // window it opens; #168 saw a message in window 1 with window 0 closed.
+  ...[1, 2, 3].map((i) => ({
+    name: `dialogState${i}`,
+    address: WINDOW_DATA + i * WINDOW_SIZE + 0x2c,
+    type: 's16',
+    meaning: `state of message window ${i} (g_WindowData[${i}].state), with the same values as dialogState (window 0)`,
+    values: WINDOW_STATES,
+    ...(i === 1
+      ? {
+        source: `${WINDOW_SOURCE}. Tier 2 (#224, notes/224-window1-state.md): in mds7st1 (disc1-mds7st1), after Down 300 frames and one Circle press, it reads 6 28 frames later with window 0 at 0 and pointerEnabled 0, a plain message (save-boot-19a); one more Circle takes it out of 6 and it reads 0 three frames after (save-boot-19b); reruns match. With the walk alone and no Circle it stays 0, so the Circle talk opens it. Only 0 and 6 are confirmed values`,
+        status: 'confirmed',
+        scenario: SC('save-boot-19a-window1-open'),
+        confirmedValues: Object.freeze({ 0: SC('save-boot-19b-window1-circle'), 6: SC('save-boot-19a-window1-open') }),
+      }
+      : {
+        source: `${WINDOW_SOURCE}. Not seen open in Tier 2 (#168 and #224 read 0 in every diagnostic)`,
+        status: 'hypothesis',
+      }),
+  })),
 ];
+
+/** Message windows dialogue() may read, in order: window 0, then 1-3 (#224). */
+export const DIALOG_STATE_ENTRIES = Object.freeze(['dialogState', 'dialogState1', 'dialogState2', 'dialogState3']);
 
 /**
  * #110: the battle menu (notes/110-battle-input.md). Candidates from

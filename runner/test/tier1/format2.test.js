@@ -194,10 +194,12 @@ describe('card checks (#226)', () => {
   };
 
   test('a program that never writes the card: no slot changed, so the check fails with zeros', async () => {
-    const r = await runScenario(loadScenario(withCard()));
+    const d = withCard();
+    d.metrics = ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'release_wait', 'counter_wait']; // with the example script's wait metrics
+    const r = await runScenario(loadScenario(d));
     assert.equal(r.status, 'fail');
     assert.deepEqual(r.assertions, [{ card: {}, pass: false, changed: 0, slot: 0, checksum: 0, module: 0, location: 0 }]);
-    assert.deepEqual(r.metrics, { card_ok: 0, c_n: 0, c_slot: 0, c_sum: 0, c_mod: 0, c_loc: 0, failed_assertions: 1 });
+    assert.deepEqual(r.metrics, { card_ok: 0, c_n: 0, c_slot: 0, c_sum: 0, c_mod: 0, c_loc: 0, release_wait: 1, counter_wait: 21 });
   });
 
   test('a timed-out wait fails the card check and reports zeros', async () => {

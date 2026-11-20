@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-20c-world-menu-state",
-  "description": "#226 attempt 2 diagnostic: what one Triangle press does on the world map. Load disc1-wm1-kalm and close the entry window as save-boot-20a does, then one Triangle press (4 frames) and 120 frames still. Reported at the end: g_GameState (game_state: 5 if the menu module took over), the world loop state (wl_state: 2 if the menu runs inside the world loop), window 0's state (win0), the world button flag (btn_ok: 1 if the pad is live), the main-menu cursor (row0) and the menu overlay id (menu_ovl). match: a rerun from the same snapshot. Only numbers leave.",
+  "description": "#226 attempt 3 diagnostic: what one Triangle press does on the world map, given time. Load disc1-wm1-kalm and close the entry window as save-boot-20a does, mark \"pre\", one Triangle press (4 frames), 600 frames still, one Up (4 frames), 60 frames still. Reported at the end: g_GameState (game_state: 5 if the menu module took over), the world loop state (wl_state) and the sign of its change since \"pre\" (wl_dir: 1 if it was below its end value before the Triangle), the world button flag (btn_ok), the main-menu cursor (row0: 9 if Up moved it from 0) and the menu overlay id (menu_ovl). match: a rerun from the same snapshot. Only numbers leave.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -111,6 +111,9 @@
       }
     },
     {
+      "mark": "pre"
+    },
+    {
       "buttons": [
         "triangle"
       ],
@@ -118,11 +121,30 @@
     },
     {
       "wait": {
-        "frames": 120
+        "frames": 600
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
       }
     }
   ],
   "assert": [
+    {
+      "change": {
+        "mem": "wl_state",
+        "is": "changed",
+        "since": "pre"
+      },
+      "metric": "wl_dir"
+    },
     {
       "sameState": "rerun",
       "metric": "match"
@@ -131,7 +153,7 @@
   "metrics": [
     "game_state",
     "wl_state",
-    "win0",
+    "wl_dir",
     "btn_ok",
     "row0",
     "menu_ovl",

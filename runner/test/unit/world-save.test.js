@@ -34,7 +34,7 @@ describe('#226 world-map save scenarios', () => {
   });
 
   test('the save scenarios (20a, 20b) end in a card check for a world map save; the diagnostic (20c) has none', () => {
-    assert.deepEqual(SAVES_SC.map((s) => s.name), ['save-boot-20a-world-save-circle', 'save-boot-20b-world-save-file2']);
+    assert.deepEqual(SAVES_SC.map((s) => s.name), ['save-boot-20a-world-save-circle', 'save-boot-20b-world-save-cross']);
     for (const s of SAVES_SC) {
       const sc = loadScenario(s, { allowTier2: true });
       assert.equal(sc.asserts[0].kind, 'card');

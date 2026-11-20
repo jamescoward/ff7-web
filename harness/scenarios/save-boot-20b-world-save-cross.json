@@ -2,8 +2,8 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "save-boot-20b-world-save-file2",
-  "description": "#226 attempt 2: an in-game save from the world map. Load disc1-wm1-kalm (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads 2 (the menu, hypothesis; menu_wait), 60 frames, move the main-menu cursor to Save (row 9) with the menu planner (one Up: the menu wraps), then Circle twice, 90 frames apart (Save, the first card), Down once (file 2, empty), then Circle 6 times, 90 frames apart, and 120 frames still. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.",
+  "name": "save-boot-20b-world-save-cross",
+  "description": "#226 attempt 3: an in-game save from the world map. Load disc1-wm1-kalm (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads 2 (menu_wait), then no input until g_GameState reads 5 (the menu module; gs_wait, up to 1200 frames), 60 frames, move the main-menu cursor to Save (row 9) with the menu planner (one Up: the menu wraps), with three Cross presses a second apart before the Triangle (#140 save-boot-7k: they turned the world button flag on), then as 20a: Circle 8 times, 90 frames apart, and 120 frames still. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod: its savemap module (the location is not reported: 8-metric limit). match: a rerun from the same snapshot. Only numbers leave.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -101,6 +101,39 @@
       }
     },
     {
+      "buttons": [
+        "cross"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "buttons": [
+        "cross"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "buttons": [
+        "cross"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
       "wait": {
         "until": {
           "mem": "wl_state",
@@ -116,6 +149,16 @@
         }
       },
       "metric": "menu_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 1200
+      },
+      "metric": "gs_wait"
     },
     {
       "wait": {
@@ -162,17 +205,6 @@
     {
       "wait": {
         "frames": 90
-      }
-    },
-    {
-      "buttons": [
-        "down"
-      ],
-      "frames": 4
-    },
-    {
-      "wait": {
-        "frames": 30
       }
     },
     {
@@ -255,8 +287,7 @@
           "changed": "c_n",
           "slot": "c_slot",
           "checksum": "c_sum",
-          "module": "c_mod",
-          "location": "c_loc"
+          "module": "c_mod"
         }
       },
       "metric": "card_ok"
@@ -268,12 +299,12 @@
   ],
   "metrics": [
     "menu_wait",
+    "gs_wait",
     "card_ok",
     "c_n",
     "c_slot",
     "c_sum",
     "c_mod",
-    "c_loc",
     "match"
   ]
 }

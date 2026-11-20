@@ -33,10 +33,16 @@ const DECOMP = 'Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/sym
 export const SAVE = 'disc1-wm1-kalm';
 export const SAVE_ROW = 9; // semantic/menus.js MENUS.main.labels: 'Save' is row 9 (labels are a hypothesis; the row count and wrapping are confirmed)
 export const WORLD = 3; // g_GameState world map (confirmed #80)
-// The world map runs the menu inside its own loop: WmUpdateWorldState's
-// state 2 is "the menu" (#140's sources), so g_GameState stays 3 (attempt 1:
-// Triangle every 60 frames never made it read 5). Hypothesis (#226 attempt 2).
+// The world map handles Triangle inside its own loop: WmUpdateWorldState's
+// state 2 is "the menu" (#140's sources). Attempt 1: Triangle every 60 frames
+// for 600 frames never made g_GameState read 5. Attempt 2: the loop state reads
+// 2 one frame into the presses, but 120 frames after one press g_GameState
+// still reads 3 and the main-menu cursor does not follow Up. Hypothesis for
+// attempt 3: state 2 is the hand-over, and g_GameState reads 5 once the menu
+// module has loaded (a longer wait), possibly only with the world button flag
+// back on (#140: Circle then Cross presses turned it on).
 export const WORLD_MENU = 2;
+export const MENU = 5; // g_GameState menu (confirmed #76)
 
 const MEMORY = {
   game_state: { addr: '0x8009c560', type: 'u16', description: `g_GameState (s16 as u16): world 3 (confirmed #80), menu 5 (confirmed #76). ${DECOMP}` },
@@ -86,10 +92,19 @@ const LOAD_AND_CLOSE = () => [
   wait(60),
 ];
 
-/** Then open the menu (Triangle until the world loop reads the menu state) and move to Save. */
-const TO_SAVE_ROW = () => [
+/** #140 save-boot-7k: three Cross presses after the Circles turned the world button flag on. */
+const CROSSES = () => Array.from({ length: 3 }, () => [{ buttons: ['cross'], frames: 4 }, wait(56)]).flat();
+
+/**
+ * Then open the menu: Triangle until the world loop reads the menu state
+ * (menu_wait), then no input until g_GameState reads 5 (gs_wait, up to 1200
+ * frames), 60 frames, and the planned move to Save.
+ */
+const TO_SAVE_ROW = (extra = []) => [
   ...LOAD_AND_CLOSE(),
+  ...extra,
   { wait: { until: { mem: 'wl_state', equals: WORLD_MENU }, timeout: 600, press: { buttons: ['triangle'], every: 60, hold: 4 } }, metric: 'menu_wait' },
+  { wait: { until: { mem: 'game_state', equals: MENU }, timeout: 1200 }, metric: 'gs_wait' },
   wait(60),
   ...scriptFromPlan(savePlan(), 'row0'),
   wait(30),
@@ -103,9 +118,10 @@ const SEQUENCES = {
     what: 'then Circle 8 times, 90 frames apart (Save, the first card, the first file, then any prompt\'s default), and 120 frames still',
     input: [...circles(8), wait(120)],
   },
-  'save-boot-20b-world-save-file2': {
-    what: 'then Circle twice, 90 frames apart (Save, the first card), Down once (file 2, empty), then Circle 6 times, 90 frames apart, and 120 frames still',
-    input: [...circles(2), { buttons: ['down'], frames: 4 }, wait(30), ...circles(6), wait(120)],
+  'save-boot-20b-world-save-cross': {
+    extra: CROSSES,
+    what: 'with three Cross presses a second apart before the Triangle (#140 save-boot-7k: they turned the world button flag on), then as 20a: Circle 8 times, 90 frames apart, and 120 frames still',
+    input: [...circles(8), wait(120)],
   },
 };
 
@@ -114,29 +130,33 @@ const SAVE_SCENARIOS = Object.entries(SEQUENCES).map(([name, s]) => ({
   format: 2,
   tier: 2,
   name,
-  description: `#226 attempt 2: an in-game save from the world map. Load ${SAVE} (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads ${WORLD_MENU} (the menu, hypothesis; menu_wait), 60 frames, move the main-menu cursor to Save (row ${SAVE_ROW}) with the menu planner (one Up: the menu wraps), ${s.what}. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.`,
+  description: `#226 attempt 3: an in-game save from the world map. Load ${SAVE} (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads ${WORLD_MENU} (menu_wait), then no input until g_GameState reads ${MENU} (the menu module; gs_wait, up to 1200 frames), 60 frames, move the main-menu cursor to Save (row ${SAVE_ROW}) with the menu planner (one Up: the menu wraps), ${s.what}. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod: its savemap module (the location is not reported: 8-metric limit). match: a rerun from the same snapshot. Only numbers leave.`,
   boot: { disc: 1, save: SAVE, slot: 1 },
   memory: MEMORY,
-  input: [...TO_SAVE_ROW(), ...s.input],
+  input: [...TO_SAVE_ROW(s.extra ? s.extra() : []), ...s.input],
   assert: [
-    { card: { module: WORLD, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc' } }, metric: 'card_ok' },
+    { card: { module: WORLD, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod' } }, metric: 'card_ok' },
     { sameState: 'rerun', metric: 'match' },
   ],
-  metrics: ['menu_wait', 'card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'match'],
+  metrics: ['menu_wait', 'gs_wait', 'card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'match'],
 }));
 
-/** Attempt 2's diagnostic: one Triangle after the window is closed, then where everything stands. */
+/**
+ * Attempt 3's diagnostic: one Triangle after the window is closed, a long
+ * still wait, then one Up; where everything stands, and whether the world loop
+ * state changed since just before the Triangle (attempt 2 read 2 only after it).
+ */
 const DIAG = {
   $schema: '../schema/scenario.schema.json',
   format: 2,
   tier: 2,
   name: 'save-boot-20c-world-menu-state',
-  description: `#226 attempt 2 diagnostic: what one Triangle press does on the world map. Load ${SAVE} and close the entry window as save-boot-20a does, then one Triangle press (4 frames) and 120 frames still. Reported at the end: g_GameState (game_state: 5 if the menu module took over), the world loop state (wl_state: ${WORLD_MENU} if the menu runs inside the world loop), window 0's state (win0), the world button flag (btn_ok: 1 if the pad is live), the main-menu cursor (row0) and the menu overlay id (menu_ovl). match: a rerun from the same snapshot. Only numbers leave.`,
+  description: `#226 attempt 3 diagnostic: what one Triangle press does on the world map, given time. Load ${SAVE} and close the entry window as save-boot-20a does, mark "pre", one Triangle press (4 frames), 600 frames still, one Up (4 frames), 60 frames still. Reported at the end: g_GameState (game_state: 5 if the menu module took over), the world loop state (wl_state) and the sign of its change since "pre" (wl_dir: 1 if it was below its end value before the Triangle), the world button flag (btn_ok), the main-menu cursor (row0: 9 if Up moved it from 0) and the menu overlay id (menu_ovl). match: a rerun from the same snapshot. Only numbers leave.`,
   boot: { disc: 1, save: SAVE, slot: 1 },
   memory: { ...MEMORY, ...DIAG_MEMORY },
-  input: [...LOAD_AND_CLOSE(), { buttons: ['triangle'], frames: 4 }, wait(120)],
-  assert: [{ sameState: 'rerun', metric: 'match' }],
-  metrics: ['game_state', 'wl_state', 'win0', 'btn_ok', 'row0', 'menu_ovl', 'match'],
+  input: [...LOAD_AND_CLOSE(), { mark: 'pre' }, { buttons: ['triangle'], frames: 4 }, wait(600), { buttons: ['up'], frames: 4 }, wait(60)],
+  assert: [{ change: { mem: 'wl_state', is: 'changed', since: 'pre' }, metric: 'wl_dir' }, { sameState: 'rerun', metric: 'match' }],
+  metrics: ['game_state', 'wl_state', 'wl_dir', 'btn_ok', 'row0', 'menu_ovl', 'match'],
 };
 
 export const SCENARIOS = [...SAVE_SCENARIOS, DIAG];

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { TRACK_WINDOWS } from '../../format2.js';
 import { loadScenario } from '../../scenario.js';
 import { CANDIDATES, EQUIP_ROW, ITEMS, LIST_DOWNS, LIST_PAGE, MAIN_RANGE, OVERLAY_RANGE, PAGE_SIZES, SAVE, SCROLL_DOWNS, UP_DOWN, WEAPON_AT_INDEX, equipCursorScenarios, offsetAfter } from './equip-cursor-scenarios.js';
 import { SCENARIO_DIR, serialise } from './planner-scenarios.js';
@@ -33,6 +34,9 @@ describe('#216 Equip-cursor scenarios', () => {
 
   test('the ranges stay in main RAM: the overlay area to its end, and main data', () => {
     assert.equal(OVERLAY_RANGE.from + OVERLAY_RANGE.bytes, 0x80200000);
+    // #221: the overlay range is exactly the overlay search window.
+    const w = TRACK_WINDOWS.find((x) => x.name === 'overlay');
+    assert.deepEqual([w.from, w.bytes], [OVERLAY_RANGE.from & 0x1fffff, OVERLAY_RANGE.bytes]);
     assert.ok(MAIN_RANGE.from <= 0x80062dd4 && 0x8009a0c8 < MAIN_RANGE.from + MAIN_RANGE.bytes);
   });
 

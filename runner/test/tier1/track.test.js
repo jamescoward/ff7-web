@@ -41,6 +41,26 @@ describe('track checks on pad-echo (#216)', () => {
     assert.deepEqual(r.metrics, { n: 0, at1: 0, at2: 0 });
   });
 
+  test('mayMiss (#221): no match passes as a record, with n 0', async () => {
+    const d = doc();
+    d.assert[0].track.values = [40, 51, 60];
+    d.assert[0].track.mayMiss = true;
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'pass', JSON.stringify(r));
+    assert.deepEqual(r.metrics, { n: 0, at1: 0, at2: 0 });
+  });
+
+  test('mayMiss (#221) does not excuse a missed mark', async () => {
+    const d = doc();
+    d.assert[0].track.mayMiss = true;
+    d.input.splice(5, 0, { wait: { until: { mem: 'counter', equals: 0 }, timeout: 3 } });
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail');
+    assert.equal(r.metrics.n, 0);
+    // The track check itself fails, not only the timed-out wait.
+    assert.equal(r.assertions[0].pass, false, JSON.stringify(r));
+  });
+
   test('a mark after a timed-out wait is not reached: no matches, fail', async () => {
     const d = doc();
     d.input.splice(5, 0, { wait: { until: { mem: 'counter', equals: 0 }, timeout: 3 } });

@@ -1,0 +1,319 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-party3",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it)."
+    },
+    "row0": {
+      "addr": "0x8009a0d3",
+      "type": "u8",
+      "description": "menuCursor (confirmed #78): the main-menu cursor, row 0 = Item; the row of g_PartyMenuTables[0]."
+    },
+    "pick": {
+      "addr": "0x8009a0e5",
+      "type": "u8",
+      "description": "Candidate party-pick cursor (#215, hypothesis): the row (+0x0B) of g_PartyMenuTables[1] (0x8009A0C8 + 0x12). Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt, include/game.h (MenuTable, 0x12 bytes)."
+    },
+    "t2row": {
+      "addr": "0x8009a0f7",
+      "type": "u8",
+      "description": "The row (+0x0B) of g_PartyMenuTables[2] (0x8009A0C8 + 0x24), read alongside the candidate. Xeeynamo/ff7-decomp@33ce78c (reference only, no code)."
+    },
+    "menu_ovl": {
+      "addr": "0x80062dd4",
+      "type": "u32",
+      "description": "menuOverlay (confirmed #135, #121): 4 = the Equip screen."
+    },
+    "weapon0": {
+      "addr": "0x8009c754",
+      "type": "u8",
+      "description": "characterWeapon[record 0] (confirmed #117): the equipped weapon of party slot 0's member, 0-127."
+    },
+    "weapon1": {
+      "addr": "0x8009c7d8",
+      "type": "u8",
+      "description": "characterWeapon[record 1] (confirmed #117): the equipped weapon of party slot 1's member, 0-127."
+    },
+    "weapon2": {
+      "addr": "0x8009c85c",
+      "type": "u8",
+      "description": "characterWeapon[record 2] (confirmed #117): the equipped weapon of party slot 2's member, 0-127."
+    }
+  },
+  "name": "save-boot-16c-party-pick-slot1",
+  "description": "#215 (acceptance, party slot 1): as 16a, but Down 1 time(s) (30 frames each) in the party pick, then wait until pick reads 1 (pick_wait; timeout 30, so the script stops here if the candidate is wrong). Then Circle every 60 frames until menu_ovl reads 4 (ovl_wait; timeout 600), 120 frames, mark, Circle (the Weapon slot), 60 frames, Circle (the first list entry), 60 frames. Checks: pick reads 1 (pick_wait); still the Equip overlay in the menu; weapon1 (record 1, party slot 1's member) changed since the mark (w_chg); weapon0 and weapon2 unchanged; a rerun matches (match). Reports the raw weapon1, to see which spare weapon (1, 17 or 33, author-chosen) the member took. Only frame counts, 1/0 and these values leave.",
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 3
+        },
+        "timeout": 30
+      },
+      "metric": "row_wait"
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "pick",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "pick_wait"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "menu_ovl",
+          "equals": 4
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "ovl_wait"
+    },
+    {
+      "wait": {
+        "frames": 120
+      }
+    },
+    {
+      "mark": "before-equip"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "menu_ovl",
+        "equals": 4
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "change": {
+        "mem": "weapon1",
+        "is": "changed",
+        "since": "before-equip"
+      },
+      "metric": "w_chg"
+    },
+    {
+      "change": {
+        "mem": "weapon0",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "change": {
+        "mem": "weapon2",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "row_wait",
+    "pick_wait",
+    "ovl_wait",
+    "w_chg",
+    "weapon1",
+    "pick",
+    "match"
+  ]
+}

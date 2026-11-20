@@ -8,7 +8,9 @@
 // Only what Tier 2 showed is offered (#121 part 1, save-boot-15c): from the
 // screen's opening state, with one party member, Circle and then Circle 60
 // frames later equips the first weapon in the game's list. So the first
-// spare weapon is tappable only when exactly one party slot is occupied,
+// spare weapon is tappable only when exactly one party slot is occupied
+// (with more, the main-menu party pick marks the chosen member, #215, but
+// the game's list holds only that member's weapons, which is not read),
 // the screen has been open EQUIP_SETTLE_FRAMES, and no other input has been
 // seen since it opened (the opening Circle's release aside). The tap presses
 // Circle, waits EQUIP_STEP_FRAMES game frames, presses Circle, then reads
@@ -26,7 +28,7 @@
 import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { EQUIP_SCREEN_ACTIONS } from './semantic/controls.js';
 import {
-  EQUIP_FIRST_WEAPON_PRESSES, EQUIP_PARTY_SLOTS, equipMemberLabel, equipMemberSlot, equipOutcome,
+  EQUIP_FIRST_WEAPON_PRESSES, EQUIP_PARTY_SLOTS, equipChosenSlot, equipMemberLabel, equipMemberSlot, equipOutcome,
   equipTapAllowed, spareWeaponLabel, spareWeapons,
 } from './semantic/equip-screen.js';
 import { createSemantic } from './semantic/layer.js';
@@ -44,7 +46,7 @@ export const WEAPON_ROWS = 6;
 const SOURCE = 'native-equip';
 
 const REASON_TEXT = Object.freeze({
-  'party pick not read': 'Equip with the pad: the party pick is not read yet',
+  'party pick not read': 'Equip with the pad: with more than one member, the weapon list for the party pick is not read',
   'not the opening state': 'Equip with the pad: close and reopen Equip to use the panel again',
   'list order not read': '',
   settling: '',
@@ -101,6 +103,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
   let armed = false; // the opening press has been released, so later input counts
   let ours = 0; // the mask this screen holds in the mixer
   let members = [null, null, null];
+  let pick = null; // partyPick() while the Equip screen is open (#215), or null
   let weapons = [];
   let peek = false;
   let run = null; // { loop, start, next, memberSlot, wanted, before } while a tap's presses run
@@ -156,6 +159,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     check = null;
     weapons = [];
     members = [null, null, null];
+    pick = null;
   }
 
   /**
@@ -177,7 +181,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     for (const d of root.querySelectorAll('.ne-member')) {
       const slot = Number(d.dataset.slot);
       d.textContent = equipMemberLabel(slot, members[slot]);
-      d.toggleAttribute('data-chosen', st.memberSlot === slot);
+      d.toggleAttribute('data-chosen', equipChosenSlot(members, pick) === slot);
     }
     let why = null;
     for (const b of root.querySelectorAll('.ne-weapon')) {
@@ -199,6 +203,12 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
       out.push(r?.confirmed === true ? r.value ?? null : null);
     }
     return out;
+  }
+  async function readPick(sem) {
+    if (typeof sem.partyPick !== 'function') return null;
+    let r;
+    try { r = await sem.partyPick(); } catch { r = null; }
+    return r?.confirmed === true && Number.isInteger(r.value) ? r.value : null;
   }
   async function readInventory(sem) {
     let r;
@@ -242,6 +252,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
         armed = (mixer.mask & ~ours) === 0;
       }
       members = await readMembers(sem);
+      pick = await readPick(sem);
       const inv = await readInventory(sem);
       if (inv) weapons = spareWeapons(inv).slice(0, WEAPON_ROWS);
       if (check) confirmChange();

@@ -486,6 +486,23 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       return { value: { open: o.values.menuOverlay === MENU_OVERLAY_EQUIP }, confirmed: true };
     },
 
+    /**
+     * #215: the main menu's party pick, the party slot (0-2) whose screen a
+     * member row (Equip) opens. { value: slot | null }. Read only in a
+     * confirmed menu mode; it is checked in the party pick and on the Equip
+     * screen, and may be stale elsewhere, so callers use it only there.
+     * null when out of range or not in the menu.
+     */
+    async partyPick() {
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: null, confirmed: g.confirmed, reason: 'not in menu' };
+      const r = await read(['partyPick']);
+      if (!r.values) return fail(r);
+      const v = r.values.partyPick;
+      return { value: Number.isInteger(v) && v >= 0 && v < 3 ? v : null, confirmed: r.confirmed };
+    },
+
     /** #117: the materia inventory. { value: [{ slot, id, ap }] } for each non-empty slot, in slot order. */
     async materia() {
       const e = entries.get('materiaSlot');

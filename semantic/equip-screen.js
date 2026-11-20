@@ -9,9 +9,11 @@
 // screen opens on the Weapon slot; for a one-member party, Circle 120
 // frames after the overlay is asked for, then Circle 60 frames later,
 // equips the first weapon in the list, which was the first spare weapon in
-// inventory slot order. No Equip-screen cursor, list order beyond that
-// entry, or main-menu party pick is read, so only that opening-state move
-// is offered.
+// inventory slot order. The main-menu party pick names the member for a
+// party of two or three (#215, save-boot-16a to 16d), shown by
+// equipChosenSlot. No Equip-screen cursor or list order beyond that entry
+// is read, so only that opening-state move is offered, and only for a
+// one-member party.
 // Original project code, GPL-2.0-or-later.
 
 /** Frames the Equip screen must have been open before the first press (save-boot-15c: 120). */
@@ -43,14 +45,30 @@ export function spareWeapons(inventory) {
 /**
  * The party slot whose Equip screen this is, when it is known: the only
  * occupied slot. `members` holds one equipment() value (or null for an
- * empty or unread slot) per party slot. With more than one member the
- * party pick is not read, so it gives null.
+ * empty or unread slot) per party slot. With more than one member it gives
+ * null: the tap rule can't tell the game's list order then (see
+ * equipChosenSlot).
  */
 export function equipMemberSlot(members) {
   if (!Array.isArray(members)) return null;
   const occupied = [];
   members.forEach((m, slot) => { if (m) occupied.push(slot); });
   return occupied.length === 1 ? occupied[0] : null;
+}
+
+/**
+ * The party slot whose Equip screen is open, for display (#215): the
+ * confirmed party pick when it names an occupied slot, else the
+ * one-member rule (equipMemberSlot). `pick` is the partyPick() value
+ * (0-2, or null when unread). The tap rule still uses equipMemberSlot:
+ * the game's list holds only the weapons the member can equip, which is
+ * kernel data and not read, so for a larger party the first spare weapon
+ * in inventory order need not be the first list entry (save-boot-16c:
+ * Barret took weapon 33 from inventory slot 2).
+ */
+export function equipChosenSlot(members, pick) {
+  if (Array.isArray(members) && Number.isInteger(pick) && pick >= 0 && pick < members.length && members[pick]) return pick;
+  return equipMemberSlot(members);
 }
 
 /**

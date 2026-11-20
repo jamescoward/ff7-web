@@ -1,6 +1,6 @@
 # #226: an in-game save from the world map writes a valid card
 
-Status (2026-11-20): **fresh attempt 1 passes**: a pad-input save from the world map writes a card whose new save has a right checksum (save-boot-20a). The confirmation run (20b dropped) is pending.
+Status (2026-11-20): **fresh attempt 1 passes**: a pad-input save from the world map writes a card whose new save has a right checksum (save-boot-20a). Confirmed by a second Tier 2 run at `7e0b524` (95 pass, 0 fail; 20a identical).
 
 ## Why the world map
 #131 wants a save at the first save point. No reachable source places that save point (#38, #80), and the route to it from md1_1 is #120's open blocker. FF7 lets the player save anywhere on the world map, and `disc1-wm1-kalm` (#80) boots there with the map live (#140). So this slice proves that the card the game writes is valid, without a save point (agent default, Trip mode rule 11, recorded on #226).
@@ -108,9 +108,12 @@ Reading:
 
 Reading:
 - **The save works.** From the world map, after Triangle, 600 frames, one planned Up to Save and Circle ×8, exactly one card slot changed: slot 1, the generated save's slot, overwritten. Its directory entry and `SC` block are valid, and its savemap holds module 3 (world map) at location 2 (wm1, "Outside Kalm"), the save's own entry point. A rerun matches.
-- **The checksum is confirmed independently.** The game computed this save's checksum itself, and `savemapChecksum` (CRC-16/GENIBUS over 0x0004 to the end, low 16 bits) agrees with it. Until now the only evidence was that the game accepts our generated saves (#38).
+- **The checksum, from the game's side.** After the save, the rewritten slot reads back right with `savemapChecksum` (CRC-16/GENIBUS over 0x0004 to the end, low 16 bits). Until now the only evidence was that the game accepts our generated saves (#38). Caveat (reviewer, PR #227): a slot counts as changed if only its directory frame changed, and slot 1 already held a generated world-map save with the same module and location. So that the game rewrote the savemap bytes and computed this checksum itself is very likely, but not shown. A "savemap bytes changed" metric would settle it.
 - So the default answer to every prompt on the save screens (card 1, file 1, overwrite) is "yes". Which Circle did what is not measured.
 - **20b wrote nothing.** Down after the second Circle, then Circles, never saved. Down probably acted on a screen where the cursor wasn't (or moved off the save target onto something Circle cancels). Not investigated further: 20a is the acceptance. 20b is dropped; its definition is in `24c784e`.
 
 ### Confirmation run plan
 20a and 20c only, unchanged; expect the same metrics. Then the reviewer, and merge.
+
+### Confirmation run (`7e0b524`, tier2: 95 pass, 0 fail)
+save-boot-20a: card_ok 1, c_n 1, c_slot 1, c_sum 1, c_mod 3, c_loc 2, menu_wait 1, match 1, identical to fresh attempt 1. save-boot-20c unchanged. The acceptance ("twice with the same metrics") is met.

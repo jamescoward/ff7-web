@@ -8,14 +8,14 @@
 // message window (#108, save-boot-12c), opens the menu with Triangle, moves
 // the main-menu cursor to Save with the menu planner (semantic/menus.js
 // `main`: 10 rows that wrap, so row 0 → 9 is one Up), and presses through the
-// save screens. A format 2 "card" check then reads the slot 1 card inside
-// the sandbox (runner/savegen/read.js). Only numbers leave.
+// save screens with Circle ×8: the first card and the first file,
+// overwriting the generated save in file 1, with every prompt answered by its
+// default. A format 2 "card" check then reads the slot 1 card inside the
+// sandbox (runner/savegen/read.js). Only numbers leave.
 //
-// The save screens' cursors and prompts have no source here, so attempt 1
-// tries two button sequences (one scenario each): Circle only (the first
-// card and the first file, overwriting the generated save in file 1, with
-// any prompt answered by its default), and Down once in the file list (file
-// 2, which is empty).
+// save-boot-20a is the acceptance (Tier 2 green twice, notes/226-world-save-card.md);
+// save-boot-20c records how the world map's menu opens. Variants that did not
+// save (Down to file 2) are in the notes, not here.
 // Original project code, GPL-2.0-or-later.
 
 import { writeFileSync } from 'node:fs';
@@ -34,13 +34,10 @@ export const SAVE = 'disc1-wm1-kalm';
 export const SAVE_ROW = 9; // semantic/menus.js MENUS.main.labels: 'Save' is row 9 (labels are a hypothesis; the row count and wrapping are confirmed)
 export const WORLD = 3; // g_GameState world map (confirmed #80)
 // The world map handles Triangle inside its own loop: WmUpdateWorldState's
-// state 2 is "the menu" (#140's sources). Attempt 1: Triangle every 60 frames
-// for 600 frames never made g_GameState read 5. Attempt 2: the loop state reads
-// 2 one frame into the presses, but 120 frames after one press g_GameState
-// still reads 3 and the main-menu cursor does not follow Up. Hypothesis for
-// attempt 3: state 2 is the hand-over, and g_GameState reads 5 once the menu
-// module has loaded (a longer wait), possibly only with the world button flag
-// back on (#140: Circle then Cross presses turned it on).
+// state 2 is "the menu" (#140's sources). Tier 2 (#226): Triangle moves the
+// loop state to 2 (save-boot-20c, wl_dir 1) while g_GameState stays 3 (no 5
+// within 1200 frames, with or without Cross presses first), and the main menu
+// takes input once it has had time to open (MENU_OPEN_FRAMES).
 export const WORLD_MENU = 2;
 
 const MEMORY = {

@@ -50,9 +50,25 @@ export const MAIN_RANGE = Object.freeze({ from: 0x80060000, bytes: 0x40000 });
 export const UP_DOWN = Object.freeze({ presses: ['down', 'down', 'up', 'up'], values: [0, 1, 2, 1, 0] });
 /** 17c: Down presses before each mark (cumulative), and the page sizes tried. */
 export const SCROLL_DOWNS = Object.freeze([0, 4, 5, 6, 7, 8, 9, 10]);
-export const PAGE_SIZES = Object.freeze([6, 7, 8]);
+// Attempt 1 (0bc1fb7) also tried pages of 6 and 7 rows, and main data for 17a/17b: no byte matched
+// (notes/216-equip-cursors.md). The scenarios keep only the searches that matched, as records.
+export const PAGE_SIZES = Object.freeze([8]);
 /** The list offset after d Downs from the top, if the list shows `page` rows and scrolls by one at the bottom. */
 export const offsetAfter = (d, page, length = ITEMS.length) => Math.min(Math.max(0, d - (page - 1)), length - page);
+
+/**
+ * Candidates from attempt 1 (tier2 on 0bc1fb7, notes/216-equip-cursors.md):
+ * the only byte in each search that followed the expected sequence. They sit
+ * like the Item overlay's MenuTables (#135: 0x12 bytes, rowOffset at +0x02,
+ * row at +0x0B): slot row, list row 0x12 later, list rowOffset 9 before it.
+ */
+export const CANDIDATES = Object.freeze({ slot: 0x801d8aab, listRow: 0x801d8abd, listOffset: 0x801d8ab4 });
+/** The list shows 8 rows (17c: only the page-8 offset hypothesis matched). */
+export const LIST_PAGE = 8;
+/** 18b: Downs in the Weapon list, then Circle equips the entry at that index (row + offset). */
+export const LIST_DOWNS = 9;
+/** Hypothesis: the list holds the spare weapons in inventory order, so index 9 is weapon 10. */
+export const WEAPON_AT_INDEX = (i) => ITEMS[i].index - 128;
 
 const MEMORY = {
   game_state: { addr: '0x8009c560', type: 'u16', description: 'g_GameState (s16 as u16; confirmed #76): field 1, menu 5.' },
@@ -60,6 +76,9 @@ const MEMORY = {
   loading: { addr: '0x800965e8', type: 'u16', description: 'g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it).' },
   row0: { addr: '0x8009a0d3', type: 'u8', description: 'menuCursor (confirmed #78): the main-menu cursor, row 0 = Item.' },
   menu_ovl: { addr: hex(entry('menuOverlay').address), type: 'u32', description: 'menuOverlay (confirmed; 4 = the Equip screen, #121).' },
+  slot: { addr: hex(CANDIDATES.slot), type: 'u8', description: 'Equip screen slot cursor (candidate, #216): 0 Weapon, 1 Armor, 2 Accessory. In the EQIPMENU overlay; meaningful only while menuOverlay reads 4.' },
+  l_row: { addr: hex(CANDIDATES.listRow), type: 'u8', description: 'Equip screen list cursor (candidate, #216): the highlighted row on the page, 0-7.' },
+  l_off: { addr: hex(CANDIDATES.listOffset), type: 'u8', description: 'Equip screen list offset (candidate, #216): the index of the list entry on the top row.' },
   weapon0: { addr: hex(entry('characterWeapon').address + CHARACTER_RECORD_SIZE * 0), type: 'u8', description: 'characterWeapon[record 0] (confirmed #117).' },
 };
 
@@ -94,26 +113,25 @@ export function equipCursorScenarios() {
   const marks = (p) => UP_DOWN.values.map((_, i) => `${p}${i}`);
   const searches = (p, prefix) => [
     { track: { ...range(OVERLAY_RANGE), marks: marks(p), values: [...UP_DOWN.values], found: [`${prefix}_a1`, `${prefix}_a2`, `${prefix}_a3`] }, metric: `${prefix}_n`, note: 'overlay range' },
-    { track: { ...range(MAIN_RANGE), marks: marks(p), values: [...UP_DOWN.values], found: ['m_a1'] }, metric: 'm_n', note: 'main data range' },
   ];
   const what = `Only match counts and addresses leave the run (track checks, #216).`;
 
   const slot = {
     ...base,
     name: 'save-boot-17a-equip-slot-track',
-    description: `#216 (diagnostic): candidates for the Equip screen's slot cursor (Weapon, Armor, Accessory). Load harness/saves/${SAVE}.json (Cloud alone, spare weapons 1-12), open the field menu, plan the main-menu cursor 0 to ${EQUIP_ROW} (semantic/menu-panel.js), Circle every 60 frames until menu_ovl reads ${OVERLAY_EQUIP} (ovl_wait), 120 frames (the screen opens on the Weapon slot, #121). Then mark, and Down, Down, Up, Up, each followed by ${SETTLE} frames and a mark. Hypothesis: the slot cursor reads 0, 1, 2, 1, 0 at the marks. Searches the overlay range (${hex(OVERLAY_RANGE.from)}, ${hex(OVERLAY_RANGE.bytes)} bytes; s_n matches, s_a1-s_a3 the first three) and main data (${hex(MAIN_RANGE.from)}, ${hex(MAIN_RANGE.bytes)} bytes; m_n, m_a1 the first). ${what}`,
+    description: `#216 (diagnostic): candidates for the Equip screen's slot cursor (Weapon, Armor, Accessory). Load harness/saves/${SAVE}.json (Cloud alone, spare weapons 1-12), open the field menu, plan the main-menu cursor 0 to ${EQUIP_ROW} (semantic/menu-panel.js), Circle every 60 frames until menu_ovl reads ${OVERLAY_EQUIP} (ovl_wait), 120 frames (the screen opens on the Weapon slot, #121). Then mark, and Down, Down, Up, Up, each followed by ${SETTLE} frames and a mark. Hypothesis: the slot cursor reads 0, 1, 2, 1, 0 at the marks. Searches the overlay range (${hex(OVERLAY_RANGE.from)}, ${hex(OVERLAY_RANGE.bytes)} bytes; s_n matches, s_a1-s_a3 the first three). (Attempt 1 also searched main data, ${hex(MAIN_RANGE.from)} for ${hex(MAIN_RANGE.bytes)} bytes: no match.) ${what}`,
     input: [...openEquip, ...upDown('s')],
     assert: searches('s', 's'),
-    metrics: ['load_done', 'ovl_wait', 's_n', 's_a1', 's_a2', 's_a3', 'm_n', 'm_a1'],
+    metrics: ['load_done', 'ovl_wait', 's_n', 's_a1', 's_a2', 's_a3'],
   };
 
   const list = {
     ...base,
     name: 'save-boot-17b-equip-list-track',
-    description: `#216 (diagnostic): candidates for the Equip screen's list cursor. As 17a to the open screen, then Circle (opens the Weapon list, #121 15c) and 60 frames. Then mark, and Down, Down, Up, Up, each followed by ${SETTLE} frames and a mark. Hypothesis: the list cursor reads 0, 1, 2, 1, 0 at the marks (the slot cursor stays 0, so it does not match). Searches the overlay range (l_n, l_a1-l_a3) and main data (m_n, m_a1) as 17a. ${what}`,
+    description: `#216 (diagnostic): candidates for the Equip screen's list cursor. As 17a to the open screen, then Circle (opens the Weapon list, #121 15c) and 60 frames. Then mark, and Down, Down, Up, Up, each followed by ${SETTLE} frames and a mark. Hypothesis: the list cursor reads 0, 1, 2, 1, 0 at the marks (the slot cursor stays 0, so it does not match). Searches the overlay range as 17a (l_n, l_a1-l_a3). ${what}`,
     input: [...openEquip, PRESS('circle'), { wait: { frames: 60 } }, ...upDown('l')],
     assert: searches('l', 'l'),
-    metrics: ['load_done', 'ovl_wait', 'l_n', 'l_a1', 'l_a2', 'l_a3', 'm_n', 'm_a1'],
+    metrics: ['load_done', 'ovl_wait', 'l_n', 'l_a1', 'l_a2', 'l_a3'],
   };
 
   const scrollInput = [...openEquip, PRESS('circle'), { wait: { frames: 60 } }];
@@ -125,7 +143,7 @@ export function equipCursorScenarios() {
   const scroll = {
     ...base,
     name: 'save-boot-17c-equip-list-offset-track',
-    description: `#216 (diagnostic): candidates for the Equip list's scroll offset. As 17b to the open Weapon list, then Down presses (each followed by ${SETTLE} frames) with a mark after ${SCROLL_DOWNS.join(', ')} presses in all. Hypothesis: the list shows P rows and, with ${ITEMS.length} entries, its offset after d presses is min(max(0, d - (P - 1)), ${ITEMS.length} - P). One search of the overlay range per P in ${PAGE_SIZES.join(', ')} (o<P>_n matches, o<P>_a the first). ${what}`,
+    description: `#216 (diagnostic): candidates for the Equip list's scroll offset. As 17b to the open Weapon list, then Down presses (each followed by ${SETTLE} frames) with a mark after ${SCROLL_DOWNS.join(', ')} presses in all. Hypothesis: the list shows P rows and, with ${ITEMS.length} entries, its offset after d presses is min(max(0, d - (P - 1)), ${ITEMS.length} - P). One search of the overlay range per P in ${PAGE_SIZES.join(', ')} (o<P>_n matches, o<P>_a the first). Attempt 1 also tried pages of 6 and 7 rows: no match. ${what}`,
     input: scrollInput,
     assert: PAGE_SIZES.map((P) => ({
       track: { ...range(OVERLAY_RANGE), marks: SCROLL_DOWNS.map((d) => `d${d}`), values: SCROLL_DOWNS.map((d) => offsetAfter(d, P)), found: [`o${P}_a`] },
@@ -134,7 +152,71 @@ export function equipCursorScenarios() {
     })),
     metrics: ['load_done', 'ovl_wait', ...PAGE_SIZES.flatMap((P) => [`o${P}_n`, `o${P}_a`])],
   };
-  return [slot, list, scroll];
+  // Acceptance: each candidate reads the expected index after known presses,
+  // checked with plain waits on the candidate address.
+  const until = (mem, equals, metric, timeout = SETTLE) => ({ wait: { until: { mem, equals }, timeout }, ...(metric ? { metric } : {}) });
+  /** Frames after a value is seen before the next press, as the menu planner's gap. */
+  const GAP = { wait: { frames: 10 } };
+  const slotAccept = {
+    ...base,
+    name: 'save-boot-18a-equip-slot-cursor',
+    description: `#216 (acceptance): the slot cursor candidate ${hex(CANDIDATES.slot)} follows Down and Up on the Equip screen. As 17a to the open screen; slot reads 0; then Down (slot 1, w_s1), Down (2, w_s2), Up (1, w_u1), Up (0, w_u0), each a 4-frame press, a wait of at most ${SETTLE} frames for the value, then 10 frames. Checks: the list cursor and offset candidates read 0, still on the Equip overlay in the menu, a rerun matches (match). Reports the raw slot at the end. Only frame counts, 1/0 and indices leave.`,
+    input: [
+      ...openEquip,
+      until('slot', 0, undefined, 1),
+      PRESS('down'), until('slot', 1, 'w_s1'), GAP,
+      PRESS('down'), until('slot', 2, 'w_s2'), GAP,
+      PRESS('up'), until('slot', 1, 'w_u1'), GAP,
+      PRESS('up'), until('slot', 0, 'w_u0'),
+      { wait: { frames: SETTLE } },
+    ],
+    assert: [
+      { expect: { mem: 'slot', equals: 0 } },
+      { expect: { mem: 'l_row', equals: 0 } },
+      { expect: { mem: 'l_off', equals: 0 } },
+      { expect: { mem: 'menu_ovl', equals: OVERLAY_EQUIP } },
+      { expect: { mem: 'game_state', equals: 5 } },
+      { sameState: 'rerun', metric: 'match' },
+    ],
+    metrics: ['load_done', 'ovl_wait', 'w_s1', 'w_s2', 'w_u1', 'w_u0', 'slot', 'match'],
+  };
+
+  const listSteps = [];
+  for (let k = 1; k <= LIST_DOWNS; k++) {
+    listSteps.push(PRESS('down'));
+    if (k < LIST_PAGE) listSteps.push(until('l_row', k, k === LIST_PAGE - 1 ? 'w_row7' : undefined));
+    else listSteps.push(until('l_off', k - (LIST_PAGE - 1), k === LIST_DOWNS ? 'w_off2' : undefined));
+    listSteps.push(GAP);
+  }
+  const index = LIST_PAGE - 1 + (LIST_DOWNS - (LIST_PAGE - 1));
+  const weaponAfter = WEAPON_AT_INDEX(index);
+  const listAccept = {
+    ...base,
+    name: 'save-boot-18b-equip-list-cursor',
+    description: `#216 (acceptance): the list cursor ${hex(CANDIDATES.listRow)} and list offset ${hex(CANDIDATES.listOffset)} candidates follow Down in the Weapon list, and the entry they point at is the one Circle equips. As 17b to the open Weapon list; row and offset read 0; Down ${LIST_DOWNS} times (4-frame presses, each followed by a wait of at most ${SETTLE} frames for the value, then 10 frames): the row reads 1 to ${LIST_PAGE - 1} after the first ${LIST_PAGE - 1} (w_row7 for the last), then the offset reads 1 and 2 (w_off2 for the last) while the row stays ${LIST_PAGE - 1}. Then mark, Circle, and wait until weapon0 changes (eq_wait). Hypothesis (list order): the entry at index ${index} is weapon ${weaponAfter} (inventory slot ${index}). Checks: weapon0 ${weaponAfter} (w_idx) and changed since the mark; the slot cursor reads 0; still on the Equip overlay in the menu; a rerun matches. Reports the raw weapon0 (an author-chosen weapon number).`,
+    input: [
+      ...openEquip,
+      PRESS('circle'), { wait: { frames: 60 } },
+      until('l_row', 0, undefined, 1),
+      until('l_off', 0, undefined, 1),
+      ...listSteps,
+      { wait: { until: { mem: 'l_row', equals: LIST_PAGE - 1 }, timeout: 1 } },
+      { mark: 'before-equip' },
+      PRESS('circle'),
+      { wait: { until: { mem: 'weapon0', differs: 0 }, timeout: 120 }, metric: 'eq_wait' },
+      { wait: { frames: SETTLE } },
+    ],
+    assert: [
+      { expect: { mem: 'weapon0', equals: weaponAfter }, metric: 'w_idx' },
+      { change: { mem: 'weapon0', is: 'changed', since: 'before-equip' } },
+      { expect: { mem: 'slot', equals: 0 } },
+      { expect: { mem: 'menu_ovl', equals: OVERLAY_EQUIP } },
+      { expect: { mem: 'game_state', equals: 5 } },
+      { sameState: 'rerun', metric: 'match' },
+    ],
+    metrics: ['load_done', 'ovl_wait', 'w_row7', 'w_off2', 'eq_wait', 'w_idx', 'weapon0', 'match'],
+  };
+  return [slot, list, scroll, slotAccept, listAccept];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -9,7 +9,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { loadScenario } from '../../scenario.js';
-import { EQUIP_ROW, ITEMS, MAIN_RANGE, OVERLAY_RANGE, PAGE_SIZES, SAVE, SCROLL_DOWNS, UP_DOWN, equipCursorScenarios, offsetAfter } from './equip-cursor-scenarios.js';
+import { CANDIDATES, EQUIP_ROW, ITEMS, LIST_DOWNS, LIST_PAGE, MAIN_RANGE, OVERLAY_RANGE, PAGE_SIZES, SAVE, SCROLL_DOWNS, UP_DOWN, WEAPON_AT_INDEX, equipCursorScenarios, offsetAfter } from './equip-cursor-scenarios.js';
 import { SCENARIO_DIR, serialise } from './planner-scenarios.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -27,7 +27,7 @@ describe('#216 Equip-cursor scenarios', () => {
     for (const s of equipCursorScenarios()) {
       const sc = loadScenario(JSON.parse(readFileSync(path.join(SCENARIO_DIR, `${s.name}.json`), 'utf8')), { allowTier2: true });
       assert.ok(sc.metrics.length <= 8, s.name);
-      assert.ok(sc.asserts.every((a) => a.kind === 'track'), s.name);
+      if (s.name.startsWith('save-boot-17')) assert.ok(sc.asserts.every((a) => a.kind === 'track'), s.name);
     }
   });
 
@@ -59,5 +59,27 @@ describe('#216 Equip-cursor scenarios', () => {
     assert.deepEqual(save.party, [0, 255, 255]);
     assert.equal(save.equipment[0].weapon, 0);
     assert.deepEqual(save.items, ITEMS);
+  });
+
+  test('the candidates sit like MenuTables: list table 0x12 after the slot table, rowOffset 9 before row', () => {
+    assert.equal(CANDIDATES.listRow - CANDIDATES.slot, 0x12);
+    assert.equal(CANDIDATES.listRow - CANDIDATES.listOffset, 0x0b - 0x02);
+    assert.ok(CANDIDATES.slot >= OVERLAY_RANGE.from && CANDIDATES.listRow < OVERLAY_RANGE.from + OVERLAY_RANGE.bytes);
+  });
+
+  test('18a waits for the slot candidate after Down, Down, Up, Up', () => {
+    const s = equipCursorScenarios().find((x) => x.name === 'save-boot-18a-equip-slot-cursor');
+    const tail = s.input.slice(s.input.findIndex((x) => x.wait?.until?.mem === 'slot'));
+    assert.deepEqual(tail.filter((x) => x.buttons).map((x) => x.buttons[0]), UP_DOWN.presses);
+    assert.deepEqual(tail.filter((x) => x.wait?.until?.mem === 'slot').map((x) => x.wait.until.equals), UP_DOWN.values);
+  });
+
+  test('18b: rows 1-7, then offsets 1-2 with the row at 7, then Circle equips the entry at index 9', () => {
+    const s = equipCursorScenarios().find((x) => x.name === 'save-boot-18b-equip-list-cursor');
+    const waits = s.input.filter((x) => ['l_row', 'l_off'].includes(x.wait?.until?.mem)).map((x) => `${x.wait.until.mem}=${x.wait.until.equals}`);
+    assert.deepEqual(waits, ['l_row=0', 'l_off=0', ...[1, 2, 3, 4, 5, 6, 7].map((k) => `l_row=${k}`), 'l_off=1', 'l_off=2', 'l_row=7']);
+    assert.equal(LIST_PAGE - 1 + (LIST_DOWNS - (LIST_PAGE - 1)), 9);
+    assert.equal(WEAPON_AT_INDEX(9), 10);
+    assert.deepEqual(s.assert[0], { expect: { mem: 'weapon0', equals: 10 }, metric: 'w_idx' });
   });
 });

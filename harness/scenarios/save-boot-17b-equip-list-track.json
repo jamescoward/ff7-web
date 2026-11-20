@@ -33,6 +33,21 @@
       "type": "u32",
       "description": "menuOverlay (confirmed; 4 = the Equip screen, #121)."
     },
+    "slot": {
+      "addr": "0x801d8aab",
+      "type": "u8",
+      "description": "Equip screen slot cursor (candidate, #216): 0 Weapon, 1 Armor, 2 Accessory. In the EQIPMENU overlay; meaningful only while menuOverlay reads 4."
+    },
+    "l_row": {
+      "addr": "0x801d8abd",
+      "type": "u8",
+      "description": "Equip screen list cursor (candidate, #216): the highlighted row on the page, 0-7."
+    },
+    "l_off": {
+      "addr": "0x801d8ab4",
+      "type": "u8",
+      "description": "Equip screen list offset (candidate, #216): the index of the list entry on the top row."
+    },
     "weapon0": {
       "addr": "0x8009c754",
       "type": "u8",
@@ -40,7 +55,7 @@
     }
   },
   "name": "save-boot-17b-equip-list-track",
-  "description": "#216 (diagnostic): candidates for the Equip screen's list cursor. As 17a to the open screen, then Circle (opens the Weapon list, #121 15c) and 60 frames. Then mark, and Down, Down, Up, Up, each followed by 30 frames and a mark. Hypothesis: the list cursor reads 0, 1, 2, 1, 0 at the marks (the slot cursor stays 0, so it does not match). Searches the overlay range (l_n, l_a1-l_a3) and main data (m_n, m_a1) as 17a. Only match counts and addresses leave the run (track checks, #216).",
+  "description": "#216 (diagnostic): candidates for the Equip screen's list cursor. As 17a to the open screen, then Circle (opens the Weapon list, #121 15c) and 60 frames. Then mark, and Down, Down, Up, Up, each followed by 30 frames and a mark. Hypothesis: the list cursor reads 0, 1, 2, 1, 0 at the marks (the slot cursor stays 0, so it does not match). Searches the overlay range as 17a (l_n, l_a1-l_a3). Only match counts and addresses leave the run (track checks, #216).",
   "input": [
     {
       "wait": {
@@ -285,31 +300,6 @@
       },
       "metric": "l_n",
       "note": "overlay range"
-    },
-    {
-      "track": {
-        "from": "0x80060000",
-        "bytes": 262144,
-        "marks": [
-          "l0",
-          "l1",
-          "l2",
-          "l3",
-          "l4"
-        ],
-        "values": [
-          0,
-          1,
-          2,
-          1,
-          0
-        ],
-        "found": [
-          "m_a1"
-        ]
-      },
-      "metric": "m_n",
-      "note": "main data range"
     }
   ],
   "metrics": [
@@ -318,8 +308,6 @@
     "l_n",
     "l_a1",
     "l_a2",
-    "l_a3",
-    "m_n",
-    "m_a1"
+    "l_a3"
   ]
 }

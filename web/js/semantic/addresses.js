@@ -259,7 +259,23 @@ const WINDOW_ENTRIES = [
     source: `${WINDOW_SOURCE}. Not seen in Tier 2 yet: no choice window has been reached (#168)`,
     status: 'hypothesis',
   },
+  // #224: windows 1-3 (notes/224-window1-state.md). A field script names the
+  // window it opens; #168 saw a message in window 1 with window 0 closed.
+  ...[1, 2, 3].map((i) => ({
+    name: `dialogState${i}`,
+    address: WINDOW_DATA + i * WINDOW_SIZE + 0x2c,
+    type: 's16',
+    meaning: `state of message window ${i} (g_WindowData[${i}].state), with the same values as dialogState (window 0)`,
+    source: i === 1
+      ? `${WINDOW_SOURCE}. Tier 2 (#168, d731bc3, one run): in mds7st1 (disc1-mds7st1) after Down 300 frames and Circle, it read 6 with window 0 at 0. Acceptance pending (#224: save-boot-17a, save-boot-17b)`
+      : `${WINDOW_SOURCE}. Not seen open in Tier 2 (#168 read 0 in every diagnostic)`,
+    status: 'hypothesis',
+    values: WINDOW_STATES,
+  })),
 ];
+
+/** Message windows dialogue() may read, in order: window 0, then 1-3 (#224). */
+export const DIALOG_STATE_ENTRIES = Object.freeze(['dialogState', 'dialogState1', 'dialogState2', 'dialogState3']);
 
 /**
  * #110: the battle menu (notes/110-battle-input.md). Candidates from

@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { ADDRESS_TABLE, EXE_USA_SHA1, makeTable, validateTable } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, DIALOG_STATE_ENTRIES, EXE_USA_SHA1, makeTable, validateTable } from '../../../semantic/addresses.js';
+import { dialogueTapButton } from '../../../semantic/controls.js';
 import { createSemantic } from '../../../semantic/layer.js';
 
 const STATE = 0x832a0; // g_WindowData[0].state, 0x80083274 + 0x2C
@@ -98,5 +99,72 @@ describe('dialogue reader', () => {
     const r = await s.dialogue();
     assert.equal(r.value, null);
     assert.equal(r.reason, 'read failed');
+  });
+});
+
+// #224: windows 1-3. Window 1's state is g_WindowData[1].state, one 0x30
+// record after window 0's.
+const STATE1 = STATE + 0x30;
+const withStatus = (statuses) => makeTable(EXE_USA_SHA1, ADDRESS_TABLE.entries.map((e) => {
+  const { exe, ...rest } = e;
+  if (!(e.name in statuses)) return rest;
+  if (statuses[e.name] === 'hypothesis') { const { scenario, confirmedValues, ...h } = rest; return { ...h, status: 'hypothesis' }; }
+  return { ...rest, status: 'confirmed', scenario: 'synthetic', confirmedValues: { 0: 'synthetic', 6: 'synthetic' } };
+}));
+const WINDOW1_CONFIRMED = withStatus({ dialogState1: 'confirmed', dialogState2: 'hypothesis', dialogState3: 'hypothesis' });
+const WINDOW1_HYPOTHESIS = withStatus({ dialogState1: 'hypothesis', dialogState2: 'hypothesis', dialogState3: 'hypothesis' });
+
+function setupWindows({ state0 = 0, state1 = 0, state2 = 0, table }) {
+  const bytes = new Uint8Array(0x200000);
+  const view = new DataView(bytes.buffer);
+  view.setInt16(STATE, state0, true);
+  view.setInt16(STATE1, state1, true);
+  view.setInt16(STATE1 + 0x30, state2, true);
+  const reads = [];
+  const backend = { readMem: (a, l) => { reads.push([a, l]); return bytes.subarray(a & 0x1fffff, (a & 0x1fffff) + l); } };
+  return { s: createSemantic({ backend, exeSha1: EXE_USA_SHA1, table }), reads };
+}
+
+describe('dialogue reader, windows 1-3 (#224)', () => {
+  test('the window state entries are one 0x30 record apart, in DIALOG_STATE_ENTRIES order', () => {
+    const byName = Object.fromEntries(ADDRESS_TABLE.entries.map((e) => [e.name, e]));
+    assert.deepEqual(DIALOG_STATE_ENTRIES, ['dialogState', 'dialogState1', 'dialogState2', 'dialogState3']);
+    DIALOG_STATE_ENTRIES.forEach((n, i) => assert.equal(byName[n].address, 0x800832a0 + i * 0x30, n));
+  });
+
+  test('window 1 waiting with window 0 closed: waiting, and window 1 is read', async () => {
+    const { s, reads } = setupWindows({ state1: 6, table: WINDOW1_CONFIRMED });
+    assert.deepEqual(await s.dialogue(), { value: { open: true, waiting: true, choice: null }, confirmed: true });
+    assert.deepEqual(reads, [[0x800832a0, 2], [0x800832d0, 2]]);
+  });
+
+  test('window 1 typing: open, not waiting, not confirmed (only 0 and 6 are)', async () => {
+    const r = await setupWindows({ state1: 2, table: WINDOW1_CONFIRMED }).s.dialogue();
+    assert.deepEqual(r.value, { open: true, waiting: false, choice: null });
+    assert.equal(r.confirmed, false);
+  });
+
+  test('both closed: not open, confirmed', async () => {
+    assert.deepEqual(await setupWindows({ table: WINDOW1_CONFIRMED }).s.dialogue(), { value: { open: false, waiting: false, choice: null }, confirmed: true });
+  });
+
+  test('window 0 typing while window 1 waits: waiting (a tap advances window 1)', async () => {
+    assert.equal((await setupWindows({ state0: 2, state1: 6, table: WINDOW1_CONFIRMED }).s.dialogue()).value.waiting, true);
+  });
+
+  test('a hypothesis window entry is not read: window 1 waiting is invisible then', async () => {
+    const { s, reads } = setupWindows({ state1: 6, table: WINDOW1_HYPOTHESIS });
+    assert.deepEqual((await s.dialogue()).value, { open: false, waiting: false, choice: null });
+    assert.deepEqual(reads, [[0x800832a0, 2]]);
+  });
+
+  test('window 2 stays unread while it is a hypothesis, even with window 1 confirmed', async () => {
+    const { s, reads } = setupWindows({ state2: 6, table: WINDOW1_CONFIRMED });
+    assert.equal((await s.dialogue()).value.open, false);
+    assert.ok(!reads.some(([a]) => a === 0x80083300));
+  });
+
+  test('a waiting window 1 gives the dialogue tap its Circle', async () => {
+    assert.equal(dialogueTapButton(await setupWindows({ state1: 6, table: WINDOW1_CONFIRMED }).s.dialogue()), 'circle');
   });
 });

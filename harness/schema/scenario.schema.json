@@ -660,6 +660,34 @@
           }
         },
         {
+          "description": "The memory card in slot 1 at the end of the script against the card at its start (#226), read inside the run: passes when at least one save slot (1-15) changed and the first changed slot holds a save whose checksum is right (and, if module is given, whose savemap module equals it). Only numbers leave the run, as report metrics: changed (slots changed), slot (the first changed slot, 0 if none), checksum (1 right, else 0), module and location (that save's savemap 0x0B94 and 0x0B96, 0 if none). Needs a boot point with a memory card, so not a named snapshot. metric: 1 if it passes, else 0.",
+          "type": "object",
+          "required": ["card", "metric"],
+          "additionalProperties": false,
+          "properties": {
+            "card": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "module": { "description": "The module the new save must hold (1 field, 3 world map).", "type": "integer", "minimum": 0, "maximum": 65535 },
+                "report": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "changed": { "$ref": "#/$defs/metricName" },
+                    "slot": { "$ref": "#/$defs/metricName" },
+                    "checksum": { "$ref": "#/$defs/metricName" },
+                    "module": { "$ref": "#/$defs/metricName" },
+                    "location": { "$ref": "#/$defs/metricName" }
+                  }
+                }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "The script is played again and must end in the same state (main RAM and picture, compared by hash inside the run): \"rerun\" from the same start point, \"boot\" after a fresh boot through the boot point with no snapshot. metric: 1 if the states match, else 0.",
           "type": "object",
           "required": ["sameState"],

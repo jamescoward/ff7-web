@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-20b-world-save-file2",
-  "description": "#226 attempt 1: an in-game save from the world map. Load disc1-wm1-kalm (Circle every 30 frames until g_GameState 3), close the entry message window (as save-boot-12c: wait for state 0, then open, then 6; Circle; wait for 0), press Triangle every 60 frames until g_GameState 5 (menu_wait), move the main-menu cursor to Save (row 9) with the menu planner (one Up: the menu wraps), then Circle twice, 90 frames apart (Save, the first card), Down once (file 2, empty), then Circle 6 times, 90 frames apart, and 120 frames still. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.",
+  "description": "#226 attempt 2: an in-game save from the world map. Load disc1-wm1-kalm (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads 2 (the menu, hypothesis; menu_wait), 60 frames, move the main-menu cursor to Save (row 9) with the menu planner (one Up: the menu wraps), then Circle twice, 90 frames apart (Save, the first card), Down once (file 2, empty), then Circle 6 times, 90 frames apart, and 120 frames still. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.",
   "boot": {
     "disc": 1,
     "save": "disc1-wm1-kalm",
@@ -24,6 +24,11 @@
       "addr": "0x8009a0d3",
       "type": "u8",
       "description": "menuCursor (confirmed #78): the main-menu cursor row. Xeeynamo/ff7-decomp@9411173 (reference only, no code) config/symbols.main.us.txt, include/game.h MenuTable"
+    },
+    "wl_state": {
+      "addr": "0x800e566c",
+      "type": "u16",
+      "description": "World overlay D_800E566C (s32, low half): the world loop state, 1 = playing (#140 attempt 1); 2 = the menu (hypothesis). Xeeynamo/ff7-decomp@9411173 (reference only, no code) src/world/world.c WmUpdateWorldState."
     }
   },
   "input": [
@@ -45,32 +50,7 @@
     },
     {
       "wait": {
-        "until": {
-          "mem": "win0",
-          "equals": 0
-        },
-        "timeout": 600
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "win0",
-          "in": [
-            1,
-            14
-          ]
-        },
-        "timeout": 1200
-      }
-    },
-    {
-      "wait": {
-        "until": {
-          "mem": "win0",
-          "equals": 6
-        },
-        "timeout": 1200
+        "frames": 600
       }
     },
     {
@@ -78,6 +58,33 @@
         "circle"
       ],
       "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 56
+      }
     },
     {
       "wait": {
@@ -90,14 +97,14 @@
     },
     {
       "wait": {
-        "frames": 30
+        "frames": 60
       }
     },
     {
       "wait": {
         "until": {
-          "mem": "game_state",
-          "equals": 5
+          "mem": "wl_state",
+          "equals": 2
         },
         "timeout": 600,
         "press": {
@@ -112,7 +119,7 @@
     },
     {
       "wait": {
-        "frames": 30
+        "frames": 60
       }
     },
     {

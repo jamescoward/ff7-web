@@ -1,6 +1,6 @@
 # #226: an in-game save from the world map writes a valid card
 
-Status (2026-11-20): attempt 1 pushed, Tier 2 pending.
+Status (2026-11-20): attempt 1 failed before the save screens (menu never detected); attempt 2 pushed, Tier 2 pending.
 
 ## Why the world map
 #131 wants a save at the first save point. No reachable source places that save point (#38, #80), and the route to it from md1_1 is #120's open blocker. FF7 lets the player save anywhere on the world map, and `disc1-wm1-kalm` (#80) boots there with the map live (#140). So this slice proves that the card the game writes is valid, without a save point (agent default, Trip mode rule 11, recorded on #226).
@@ -30,4 +30,25 @@ What decides attempt 2:
 - `c_sum` 0 with `c_n` ≥ 1: the game wrote something our reader calls wrong, so the reader (or the checksum hypothesis) is wrong for game-written saves. Investigate before going further.
 
 ## Results
-_pending_
+
+### Attempt 1 (`9ec5c45`, tier2: 93 pass, 2 fail; the fails are 20a and 20b)
+| scenario | metrics |
+|---|---|
+| save-boot-20a-world-save-circle | menu_wait 0, card_ok 0, c_n 0, c_slot 0, c_sum 0, c_mod 0, c_loc 0, match 0 |
+| save-boot-20b-world-save-file2 | the same |
+| every other scenario | pass, unchanged |
+
+Reading:
+- A wait timed out at or before `menu_wait` (it reads 0, and a timeout stops the script, so the card check never ran). The earlier waits are unnamed, so which one is not known directly.
+- The window close copied save-boot-12c (wait for 0, then open, then 6, then Circle). 12c passed in the same run (close_wait 3), so the close most likely worked and the **Triangle wait for g_GameState 5** timed out.
+- #140's sources say why that is plausible: WmUpdateWorldState's state **2 is the menu**. The world map seems to run the menu inside its own loop, so g_GameState stays 3. #140 also found the world button flag off until the entry window is closed (Circle ×3 in save-boot-7).
+
+### Attempt 2 plan (`see the branch`)
+- The close copies save-boot-7-world-kalm exactly (600 frames, Circle ×3 a second apart; Tier 2 green since #140), then waits for window 0 to read 0, then 60 frames.
+- 20a/20b: Triangle every 60 frames until the **world loop state `D_800E566C` reads 2** (menu_wait), 60 frames, then as attempt 1 (planned Up to row 9, the two save sequences, the card check).
+- New diagnostic `save-boot-20c-world-menu-state`: the same close, one Triangle press, 120 frames; it reports game_state, wl_state, win0, btn_ok, row0, menu_ovl and match. It tells "menu in the world loop" (wl_state 2) from "menu module" (game_state 5) from "Triangle ignored" (both unchanged, btn_ok 0).
+
+What decides attempt 3 (the last):
+- 20a or 20b `card_ok 1`: confirm with a second run, drop the other variant and 20c.
+- `menu_wait` > 0 but `c_n` 0: the menu opens and the save screens need another sequence. 20c's row0/menu_ovl show where the cursor is.
+- `menu_wait` 0: read 20c. game_state 5 → wait for that instead (with the close fixed); wl_state another value → wait for it; nothing changed → the pad is still held (btn_ok 0), so find what re-enables it.

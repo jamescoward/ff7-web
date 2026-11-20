@@ -487,6 +487,36 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
     },
 
     /**
+     * #216: the Equip screen's cursors. { value: { slot, listRow, listOffset } }.
+     * slot: 0 Weapon, 1 Armor, 2 Accessory. listRow (0-7) and listOffset
+     * point at list entry listRow + listOffset while the list is open; no
+     * page variable is read, so callers track whether the list is open. The
+     * variables live in the Equip overlay, so they are read only in a
+     * confirmed menu mode while a confirmed menuOverlay names the Equip
+     * overlay. Each field is null unless that chain and its own entry are
+     * confirmed, or when out of range.
+     */
+    async equipCursors() {
+      const none = { slot: null, listRow: null, listOffset: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_EQUIP) return { value: none, confirmed: true, reason: 'not the Equip screen' };
+      const r = await read(['equipSlotCursor', 'equipListRow', 'equipListOffset']);
+      if (!r.values) return fail(r);
+      const inRange = (v, hi) => (r.confirmed && Number.isInteger(v) && v >= 0 && v <= hi ? v : null);
+      const value = {
+        slot: inRange(r.values.equipSlotCursor, 2),
+        listRow: inRange(r.values.equipListRow, 7),
+        listOffset: inRange(r.values.equipListOffset, 0x7fff),
+      };
+      return { value, confirmed: r.confirmed };
+    },
+
+    /**
      * #215: the main menu's party pick, the party slot (0-2) whose screen a
      * member row (Equip) opens. { value: slot | null }. Read only in a
      * confirmed menu mode; it is checked in the party pick and on the Equip

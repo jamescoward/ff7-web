@@ -31,6 +31,7 @@ import { RAM_SIZE, ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { BaselineError, baselineFromDisc } from './savegen/baseline.js';
 import { descriptionProblems, generateCard } from './savegen/index.js';
+import { cardOutcome } from './savegen/read.js';
 import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
@@ -66,6 +67,8 @@ export const BUILTIN_METRICS_2 = [
 ];
 
 const NUMERIC = new Set(['u8', 'u16', 'u32']);
+/** What a card check (#226) may report as metrics (savegen/read.js cardOutcome). */
+export const CARD_REPORT = ['changed', 'slot', 'checksum', 'module', 'location'];
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 /** Normalise a condition; throws ScenarioError. */
@@ -367,6 +370,18 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
       const found = t.found ?? [];
       found.forEach((k, j) => name(k, `${where}.track.found[${j}]`));
       return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, mayMiss: t.mayMiss === true, metric: a.metric };
+    }
+    if ('card' in a) {
+      // A card check (#226) reads the slot 1 card the scenario's own boot
+      // point puts in (card "blank"), so it can't start from a named
+      // snapshot, whose card is not known here.
+      if (bootPoint === null || bootPoint.card !== 'blank') {
+        fail(`${where}.card: the scenario must start from a boot point with a memory card (card "blank"), not ${named ? `snapshot "${fromSnapshot}"` : `"${doc.boot.from ?? SAVE_BOOT_POINT}"`}`);
+      }
+      const c = a.card;
+      const report = c.report ?? {};
+      for (const k of CARD_REPORT) if (report[k] !== undefined) name(report[k], `${where}.card.report.${k}`);
+      return { kind: 'card', ...(c.module !== undefined ? { module: c.module } : {}), report, metric: a.metric };
     }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
@@ -765,6 +780,9 @@ export async function runScenario2(sc, opts = {}) {
       }
     : null;
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
+  const cardChecks = sc.asserts.filter((a) => a.kind === 'card');
+  let cardBefore = null; // the slot 1 card at the start and end of the main run (#226), in memory only
+  let cardAfter = null;
   const wantParts = (sc.parts ?? []).length > 0;
   let mainParts = null; // part -> hash at the end of the main run, for same_PART
   const partsSame = new Map(); // part -> boolean, against the "boot" replay
@@ -885,7 +903,9 @@ export async function runScenario2(sc, opts = {}) {
         const loc = sc.memory[a.mem];
         startValues.set(a, readLoc(main.backend, loc));
       }
+      if (cardChecks.length) cardBefore = main.backend.getCard();
       const p = play(main.backend, onMark);
+      if (cardChecks.length) cardAfter = main.backend.getCard();
       ({ run, digest } = p);
       for (const a of sc.asserts) {
         // "since": the value at the mark step, if the script reached it.
@@ -1001,6 +1021,16 @@ export async function runScenario2(sc, opts = {}) {
         found: a.found.map((_, j) => (j < m.first.length ? a.from + m.first[j] : 0)),
       };
     }
+    if (a.kind === 'card') {
+      const have = cardBefore !== null && cardAfter !== null;
+      const out = have ? cardOutcome(cardBefore, cardAfter, { module: a.module }) : null;
+      const zero = Object.fromEntries(CARD_REPORT.map((k) => [k, 0]));
+      return {
+        card: a.module !== undefined ? { module: a.module } : {},
+        pass: ok(have && out.holds),
+        ...(ok(have) ? Object.fromEntries(CARD_REPORT.map((k) => [k, out[k]])) : zero),
+      };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -1019,6 +1049,9 @@ export async function runScenario2(sc, opts = {}) {
       a.found.forEach((k, j) => namedMetrics.set(k, assertions[i].found[j]));
       namedMetrics.set(a.metric, assertions[i].count);
       return;
+    }
+    if (a.kind === 'card') {
+      for (const k of CARD_REPORT) if (a.report[k] !== undefined) namedMetrics.set(a.report[k], assertions[i][k]);
     }
     if (a.metric === undefined) return;
     namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' || a.kind === 'near' ? assertions[i].sign : assertions[i].pass ? 1 : 0);

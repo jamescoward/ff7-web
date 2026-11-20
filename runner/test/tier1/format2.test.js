@@ -184,6 +184,34 @@ describe('change checks (#77)', () => {
   });
 });
 
+describe('card checks (#226)', () => {
+  const withCard = () => {
+    const d = example();
+    d.boot = { fixture: 'pad-echo', from: 'pad-echo-ready-card' };
+    d.assert = [{ card: { report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc' } }, metric: 'card_ok' }];
+    d.metrics = ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'failed_assertions'];
+    return d;
+  };
+
+  test('a program that never writes the card: no slot changed, so the check fails with zeros', async () => {
+    const d = withCard();
+    d.metrics = ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'release_wait', 'counter_wait']; // with the example script's wait metrics
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail');
+    assert.deepEqual(r.assertions, [{ card: {}, pass: false, changed: 0, slot: 0, checksum: 0, module: 0, location: 0 }]);
+    assert.deepEqual(r.metrics, { card_ok: 0, c_n: 0, c_slot: 0, c_sum: 0, c_mod: 0, c_loc: 0, release_wait: 1, counter_wait: 21 });
+  });
+
+  test('a timed-out wait fails the card check and reports zeros', async () => {
+    const d = withCard();
+    d.input = [{ wait: { until: { mem: 'buttons', equals: '0x0000' }, timeout: 5 } }];
+    const r = await runScenario(loadScenario(d));
+    assert.equal(r.status, 'fail');
+    assert.equal(r.metrics.card_ok, 0);
+    assert.equal(r.metrics.c_n, 0);
+  });
+});
+
 describe('compare checks and deref locations (#112)', () => {
   test('compare reports the sign of a - (b >> shift); a deref location is read through its pointer', async () => {
     const d = example();

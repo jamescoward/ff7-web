@@ -46,3 +46,25 @@ What this shows:
 The three diagnostics keep only the searches that matched, so they pass as records of attempt 1. Two acceptances read the candidates with plain waits:
 - **18a:** the slot cursor reads 0, then 1, 2, 1, 0 after Down, Down, Up, Up. The list row and offset read 0 throughout.
 - **18b:** in the Weapon list, the row reads 1 to 7 after 7 Downs. Two more Downs move the offset to 1 and 2 while the row stays at 7. Circle then equips the entry at index 9. That it is weapon 10 is a list-order **hypothesis** (inventory order).
+
+### Attempt 1, step 2 results: `374cb31` (tier2 check 136100296657) and `ba00529` (136101039515), 91 pass, 0 fail each
+The scenario files are the same in both commits. Every 17/18 metric is identical across the two runs:
+| scenario | metrics |
+|---|---|
+| 17a slot-track | s_n 1, s_a1 0x801D8AAB |
+| 17b list-track | l_n 1, l_a1 0x801D8ABD |
+| 17c list-offset-track | o8_n 2, o8_a 0x801D8AB4 |
+| 18a slot-cursor | w_s1 1, w_s2 1, w_u1 1, w_u0 1, slot 0, match 1 |
+| 18b list-cursor | w_row7 1, w_off2 1, eq_wait 1, w_idx 1, weapon0 10, match 1 |
+
+What this shows:
+- **The three candidates are confirmed**, deterministically over two runs:
+  - the slot cursor reads each value on the first frame after its press (every wait is 1);
+  - in the list, the row reaches 7, the offset then reads 1 and 2, and Circle equips the entry at index 9;
+  - the list and offset read 0 on the slot page, and the slot reads 0 in the list and after equipping.
+- **List order is inventory order** for this save. Index 9 is weapon 10, from inventory slot 9, so all of weapons 1–10 are in Cloud's list. That is observed for this save only. #215 showed that a member's list holds only what that member can equip.
+- Entries added: `equipSlotCursor` (0x801D8AAB, s8), `equipListRow` (0x801D8ABD, s8) and `equipListOffset` (0x801D8AB4, s16). The reader is `equipCursors()`.
+
+## Follow-ups
+- The native Equip panel (`web/js/native-equip.js`, Labs `native-equip`) can plan a move to any listed entry from these cursors. It still needs the member's list contents (equip masks are kernel data), or it must confirm by reading the savemap after the press.
+- 17c's second page-8 match is unexplained; it doesn't affect the entries.

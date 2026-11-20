@@ -1,6 +1,6 @@
 # #226: an in-game save from the world map writes a valid card
 
-Status (2026-11-20): attempts 1 and 2 stopped before the save screens; attempt 3 (the last in the budget) pushed, Tier 2 pending.
+Status (2026-11-20): the first budget is used up (3/3). Attempt 3 found how the world map's menu opens. Fresh attempt 1 (agent default, Trip mode rule 11) pushed, Tier 2 pending.
 
 ## Why the world map
 #131 wants a save at the first save point. No reachable source places that save point (#38, #80), and the route to it from md1_1 is #120's open blocker. FF7 lets the player save anywhere on the world map, and `disc1-wm1-kalm` (#80) boots there with the map live (#140). So this slice proves that the card the game writes is valid, without a save point (agent default, Trip mode rule 11, recorded on #226).
@@ -75,3 +75,25 @@ Reading:
 - 20c (diagnostic): mark, one Triangle, **600 frames**, one Up, 60 frames. Reports game_state, wl_state, **wl_dir** (the sign of the loop state's change since the mark, so we see whether Triangle set it), btn_ok, row0, menu_ovl and match.
 
 After attempt 3 the budget is used up. If neither save passes, the blockers go on #226 with these readings, and the card check and reader can still land as a separate slice. Their Tier 1 tests pass, and no Tier 2 scenario has to pass for them.
+
+### Attempt 3 (`87ab588`, tier2: 94 pass, 2 fail; the fails are 20a and 20b)
+| scenario | metrics |
+|---|---|
+| save-boot-20a-world-save-circle | menu_wait 1, **gs_wait 0** (timeout), card_ok 0, c_n 0, c_slot 0, c_sum 0, c_mod 0, match 0 |
+| save-boot-20b-world-save-cross | the same |
+| save-boot-20c-world-menu-state (pass) | **wl_dir 1**, wl_state 2, game_state 3, btn_ok 0, **row0 9**, menu_ovl 0, match 1 |
+| every other scenario | pass, unchanged |
+
+Reading:
+- **Triangle opens the world map's menu inside the world loop.** The loop state was below 2 before the press and is 2 after it (wl_dir 1). g_GameState stays 3: no 5 within 1200 frames, with or without Cross presses first. So the world map's menu is not `mode()`'s menu 5; that matters for the touch layer (#113's auto-controls reads `mode()`).
+- **The main-menu cursor is menuCursor there too, and it wraps.** 600 frames after the Triangle, one Up moved it from 0 to 9. In attempt 2 the Up came 60 frames after the loop state changed, and the cursor did not move, so the menu needs time to open. How long is not measured; it is between 60 and 600 frames.
+- The world button flag stays 0 throughout, so it does not gate the menu.
+
+**The first budget is used up.** Trip mode rule 11 allows one fresh 3-attempt budget per issue after a reported stop. I took it as an agent default (recorded on #226), because attempt 3's finding gives a direct next step.
+
+### Fresh attempt 1 plan (one push)
+- 20a and 20b: as attempt 2, but with **600 frames** after the loop state reads 2 (the 20c timing), then the planned Up to row 9.
+  - 20a: Circle ×8.
+  - 20b: the file-2 variant again (Circle ×2, Down, Circle ×6), now that the save screens should be reached.
+  - Report menu_wait, card_ok, c_n, c_slot, c_sum, c_mod, c_loc and match.
+- 20c stays as a passing record of the menu reading.

@@ -54,9 +54,12 @@ describe('track checks on pad-echo (#216)', () => {
     const d = doc();
     d.assert[0].track.mayMiss = true;
     d.input.splice(5, 0, { wait: { until: { mem: 'counter', equals: 0 }, timeout: 3 } });
+    d.metrics.push('failed_assertions');
     const r = await runScenario(loadScenario(d));
     assert.equal(r.status, 'fail');
     assert.equal(r.metrics.n, 0);
+    // The timed-out wait and the track check both fail.
+    assert.equal(r.metrics.failed_assertions, 2, JSON.stringify(r));
   });
 
   test('a mark after a timed-out wait is not reached: no matches, fail', async () => {

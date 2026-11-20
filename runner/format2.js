@@ -347,6 +347,22 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
       }
       return { kind: 'near', names, shift: n.shift ?? 0, is: n.is, metric: a.metric };
     }
+    if ('track' in a) {
+      const t = a.track;
+      if (t.values.length !== t.marks.length) fail(`${where}.track: values needs one number per mark (${t.marks.length}), has ${t.values.length}`);
+      if (new Set(t.values).size < 2) fail(`${where}.track: values must hold at least two different numbers`);
+      for (const m of t.marks) if (!marks.has(m)) fail(`${where}.track: no mark step named "${m}" in the script`);
+      if (new Set(t.marks).size !== t.marks.length) fail(`${where}.track: a mark is named twice`);
+      const from = Number.parseInt(t.from, 16);
+      try {
+        ramOffset(from, t.bytes);
+      } catch (e) {
+        fail(`${where}.track: ${e.message}`);
+      }
+      const found = t.found ?? [];
+      found.forEach((k, j) => name(k, `${where}.track.found[${j}]`));
+      return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, metric: a.metric };
+    }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
 
@@ -388,6 +404,32 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
   };
 }
 
+/**
+ * A track check (#216): narrow its candidates with the bytes read at one of
+ * its marks. cand is null before the first mark (every offset a candidate)
+ * and a Uint8Array of 0/1 flags after; returns the new flags. Only offsets
+ * whose byte equals value stay candidates.
+ */
+export function trackNarrow(cand, bytes, value) {
+  const out = cand ?? new Uint8Array(bytes.length).fill(1);
+  for (let i = 0; i < bytes.length; i++) if (out[i] && bytes[i] !== value) out[i] = 0;
+  return out;
+}
+
+/** The offsets still flagged, in order: { count, first: the first n offsets }. */
+export function trackMatches(cand, n) {
+  let count = 0;
+  const first = [];
+  if (cand) {
+    for (let i = 0; i < cand.length; i++) {
+      if (!cand[i]) continue;
+      count += 1;
+      if (first.length < n) first.push(i);
+    }
+  }
+  return { count, first };
+}
+
 /** Stops a run at its current stage. */
 class StopRun extends Error {
   constructor(cause) {
@@ -411,7 +453,7 @@ function readAll(backend, memory) {
  * value)), timedOut }. A timed-out wait stops the script; marks after it
  * are not reached.
  */
-export function playScript(backend, steps, memory) {
+export function playScript(backend, steps, memory, onMark = null) {
   let frames = 0;
   const waits = new Map();
   const marks = new Map();
@@ -428,6 +470,7 @@ export function playScript(backend, steps, memory) {
   for (const s of steps) {
     if (s.kind === 'mark') {
       marks.set(s.name, readAll(backend, memory));
+      if (onMark) onMark(s.name, backend);
     } else if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
@@ -674,6 +717,19 @@ export async function runScenario2(sc, opts = {}) {
     live.delete(b);
     closeQuietly(b);
   };
+  // track checks (#216): candidate flags per check, narrowed at each of its
+  // marks in the main run only; seen counts the marks reached.
+  const tracks = new Map(sc.asserts.filter((a) => a.kind === 'track').map((a) => [a, { cand: null, seen: 0 }]));
+  const onMark = tracks.size
+    ? (mark, backend) => {
+        for (const [a, st] of tracks) {
+          const i = a.marks.indexOf(mark);
+          if (i < 0) continue;
+          st.cand = trackNarrow(st.cand, backend.readMem(a.from, a.bytes), a.values[i]);
+          st.seen += 1;
+        }
+      }
+    : null;
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
   const wantParts = (sc.parts ?? []).length > 0;
   let mainParts = null; // part -> hash at the end of the main run, for same_PART
@@ -684,10 +740,10 @@ export async function runScenario2(sc, opts = {}) {
    * parts }. parts (with same_PART metrics) hashes each part of a state
    * saved at the end, after the digest.
    */
-  const play = (backend) => {
+  const play = (backend, onMark = null) => {
     const dupes = needDigest ? backend.stats().duplicateFrames : 0;
     const t0 = performance.now();
-    const r = playScript(backend, sc.steps, sc.memory);
+    const r = playScript(backend, sc.steps, sc.memory, onMark);
     const ms = performance.now() - t0;
     const digest = needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null;
     return { run: r, ms, digest, parts: wantParts ? partDigests(backend.saveState()) : null };
@@ -795,7 +851,7 @@ export async function runScenario2(sc, opts = {}) {
         const loc = sc.memory[a.mem];
         startValues.set(a, readLoc(main.backend, loc));
       }
-      const p = play(main.backend);
+      const p = play(main.backend, onMark);
       ({ run, digest } = p);
       for (const a of sc.asserts) {
         // "since": the value at the mark step, if the script reached it.
@@ -899,6 +955,16 @@ export async function runScenario2(sc, opts = {}) {
         sign: ok(have) ? out.sign : 0,
       };
     }
+    if (a.kind === 'track') {
+      const st = tracks.get(a);
+      const m = ok(st.seen === a.marks.length) ? trackMatches(st.cand, a.found.length) : { count: 0, first: [] };
+      return {
+        track: { from: `0x${(a.from >>> 0).toString(16).padStart(8, '0')}`, bytes: a.bytes, marks: a.marks, values: a.values },
+        pass: m.count > 0,
+        count: m.count,
+        found: a.found.map((_, j) => (j < m.first.length ? a.from + m.first[j] : 0)),
+      };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -912,6 +978,12 @@ export async function runScenario2(sc, opts = {}) {
   const namedMetrics = new Map();
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
   sc.asserts.forEach((a, i) => {
+    if (a.kind === 'track') {
+      // metric: the number of matches; found: their addresses (0 past the last).
+      a.found.forEach((k, j) => namedMetrics.set(k, assertions[i].found[j]));
+      namedMetrics.set(a.metric, assertions[i].count);
+      return;
+    }
     if (a.metric === undefined) return;
     namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' || a.kind === 'near' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
   });

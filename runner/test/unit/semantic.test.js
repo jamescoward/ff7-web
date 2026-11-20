@@ -71,7 +71,7 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76, #77, #78, #99, #101, #108, #110, #112, #117, #130, #135, #171 and #215 confirmed these; everything else is still a hypothesis.
+    // #76, #77, #78, #99, #101, #108, #110, #112, #117, #130, #135, #171, #215 and #216 confirmed these; everything else is still a hypothesis.
     const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'playerModel', 'fieldX', 'fieldY', 'fieldLoading',
       'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0', 'partyHp1', 'partyHp2',
       // #130
@@ -92,7 +92,9 @@ describe('address table', () => {
       // #135 part 2
       'menuOverlay',
       // #215
-      'partyPick'];
+      'partyPick',
+      // #216
+      'equipSlotCursor', 'equipListRow', 'equipListOffset'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

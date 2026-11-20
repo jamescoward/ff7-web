@@ -389,6 +389,43 @@ export const MENU_OVERLAY_ITEM = 1;
  * party member (the id stays 0, save-boot-15a); the next Circle asks for 4.
  */
 export const MENU_OVERLAY_EQUIP = 4;
+// The Equip screen (#216). The EQIPMENU overlay is not decompiled, so these
+// have no source: they were found by track searches in the private eval
+// (notes/216-equip-cursors.md) and sit like the Item overlay's MenuTables
+// (0x12 bytes, rowOffset at +0x02, row at +0x0B): a slot table at 0x801D8AA0
+// and a list table at 0x801D8AB2. Overlay variables: read them only while a
+// confirmed menuOverlay names the Equip overlay.
+const EQUIP_MENU_SOURCE = 'no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#216): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-17a to 17c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B)';
+const EQUIP_MENU_ENTRIES = [
+  {
+    name: 'equipSlotCursor',
+    address: 0x801d8aab,
+    type: 's8',
+    meaning: 'Equip screen slot cursor: 0 Weapon, 1 Armor, 2 Accessory (the row of the slot MenuTable at 0x801D8AA0). Overlay variable: meaningless unless menuOverlay names the Equip overlay',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Equip screen opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17a, 18a); it stays 0 in the Weapon list and after a weapon is equipped (save-boot-18b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18a-equip-slot-cursor'),
+  },
+  {
+    name: 'equipListRow',
+    address: 0x801d8abd,
+    type: 's8',
+    meaning: 'Equip screen list cursor, the row on the visible page (the row of the list MenuTable at 0x801D8AB2; 8 rows a page). The list entry under the cursor is equipListRow + equipListOffset. Meaningful only while the list is open; no page variable is read, so callers track it',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Weapon list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17b); seven Downs read 1 to 7, and it stays 7 while the list scrolls (save-boot-18b); 0 on the slot page (save-boot-18a); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18b-equip-list-cursor'),
+  },
+  {
+    name: 'equipListOffset',
+    address: 0x801d8ab4,
+    type: 's16',
+    meaning: 'Equip screen list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Weapon list opens; with 12 entries, Downs 8 and 9 read 1 and 2 (save-boot-17c, 18b), and Circle then equips the entry at index 9 (row 7 + offset 2), weapon 10 from inventory slot 9 (save-boot-18b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18b-equip-list-cursor'),
+  },
+];
+
 const MENU_OVERLAY_ENTRIES = [
   {
     name: 'menuOverlay',
@@ -677,6 +714,7 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
   ...ITEM_MENU_ENTRIES,
+  ...EQUIP_MENU_ENTRIES,
   ...MENU_OVERLAY_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

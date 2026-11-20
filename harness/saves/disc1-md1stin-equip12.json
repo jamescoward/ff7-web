@@ -1,0 +1,89 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin equip12",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    255,
+    255
+  ],
+  "progress": 6,
+  "equipment": [
+    {
+      "record": 0,
+      "weapon": 0,
+      "armor": 0,
+      "accessory": 255
+    }
+  ],
+  "items": [
+    {
+      "slot": 0,
+      "index": 129,
+      "quantity": 1
+    },
+    {
+      "slot": 1,
+      "index": 130,
+      "quantity": 1
+    },
+    {
+      "slot": 2,
+      "index": 131,
+      "quantity": 1
+    },
+    {
+      "slot": 3,
+      "index": 132,
+      "quantity": 1
+    },
+    {
+      "slot": 4,
+      "index": 133,
+      "quantity": 1
+    },
+    {
+      "slot": 5,
+      "index": 134,
+      "quantity": 1
+    },
+    {
+      "slot": 6,
+      "index": 135,
+      "quantity": 1
+    },
+    {
+      "slot": 7,
+      "index": 136,
+      "quantity": 1
+    },
+    {
+      "slot": 8,
+      "index": 137,
+      "quantity": 1
+    },
+    {
+      "slot": 9,
+      "index": 138,
+      "quantity": 1
+    },
+    {
+      "slot": 10,
+      "index": 139,
+      "quantity": 1
+    },
+    {
+      "slot": 11,
+      "index": 140,
+      "quantity": 1
+    }
+  ]
+}

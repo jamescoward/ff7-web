@@ -36,11 +36,11 @@ describe('dialogue reader', () => {
     assert.equal(byName.dialogPointerY.address, 0x8008329a);
   });
 
-  test('closed window: not open, not waiting, no choice, and reads only the state', async () => {
+  test('closed window: not open, not waiting, no choice, and reads only the window states (0, and 1 since #224)', async () => {
     const { s, reads } = setup({ state: 0, pointer: 1, pointerY: 22 });
     const r = await s.dialogue();
     assert.deepEqual(r.value, { open: false, waiting: false, choice: null });
-    assert.deepEqual(reads, [[0x800832a0, 2]]);
+    assert.deepEqual(reads, [[0x800832a0, 2], [0x800832d0, 2]]);
   });
 
   test('typing (2) and closing (7) are open but not waiting', async () => {
@@ -74,13 +74,13 @@ describe('dialogue reader', () => {
     assert.equal(byName.dialogPointer.status, 'hypothesis');
     const { s, reads } = setup({ state: 6, pointer: 1, pointerY: 22 });
     assert.deepEqual(await s.dialogue(), { value: { open: true, waiting: true, choice: null }, confirmed: true });
-    assert.deepEqual(reads, [[0x800832a0, 2]], 'hypothesis pointer entries are not read');
+    assert.deepEqual(reads, [[0x800832a0, 2], [0x800832d0, 2]], 'hypothesis pointer entries are not read');
   });
 
   test('the pointer is ignored outside state 6 (it blinks while closing)', async () => {
     const { s, reads } = setup({ state: 7, pointer: 1, pointerY: 22, table: POINTER_CONFIRMED });
     assert.deepEqual((await s.dialogue()).value, { open: true, waiting: false, choice: null });
-    assert.deepEqual(reads, [[0x800832a0, 2]]);
+    assert.deepEqual(reads, [[0x800832a0, 2], [0x800832d0, 2]]);
   });
 
   test('confirmed: closed (0) and done (6) are confirmed values (#108); typing (2) is not', async () => {

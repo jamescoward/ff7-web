@@ -3,7 +3,7 @@
 //
 //   node runner/test/unit/window1-scenarios.js
 //
-// Writes harness/scenarios/save-boot-17*.json. The walk is #168's lead
+// Writes harness/scenarios/save-boot-19*.json. The walk is #168's lead
 // (notes/168-choice-cursor.md, "Attempt 3 (fresh budget) results"): from
 // harness/saves/disc1-mds7st1.json hold Down 300 frames and press Circle;
 // window 1 read 6 there with window 0 closed.
@@ -68,7 +68,7 @@ const base = (name, description) => ({
 
 export const SCENARIOS = [
   {
-    ...base('save-boot-17a-window1-open', `#224 (acceptance: window 1 state 6). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames, press Circle (4 frames), then wait until window 1's state reads 6, text shown and waiting for Circle (open_wait, timeout 300). Checks window 1 reads 6, window 0 reads 0, field mode in field ${FIELD_ID}, and that a rerun matches. Reports window 1's pointerEnabled (ptr1) and window 2's raw state.`),
+    ...base('save-boot-19a-window1-open', `#224 (acceptance: window 1 state 6). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames, press Circle (4 frames), then wait until window 1's state reads 6, text shown and waiting for Circle (open_wait, timeout 300). Checks window 1 reads 6, window 0 reads 0, field mode in field ${FIELD_ID}, and that a rerun matches. Reports window 1's pointerEnabled (ptr1) and window 2's raw state.`),
     input: [...LOAD, ...WALK, ...CIRCLE, ...OPEN],
     assert: [
       { expect: { mem: 'w1', equals: 6 }, metric: 'waiting' },
@@ -80,7 +80,7 @@ export const SCENARIOS = [
     metrics: ['load_done', 'open_wait', 'waiting', 'w0_closed', 'field_ok', 'match', 'ptr1', 'w2'],
   },
   {
-    ...base('save-boot-17b-window1-circle', `#224 (acceptance: window 1 closes on Circle). As save-boot-17a up to window 1 in state 6, then Circle (4 frames): wait until the state leaves 6 (left_wait, timeout 120), then press Circle every 30 frames (4 held) until it reads 0 (close_wait, timeout 1800; a message may have more than one page). Checks window 1 and window 0 read 0, field mode, and that a rerun matches. Reports window 3's raw state.`),
+    ...base('save-boot-19b-window1-circle', `#224 (acceptance: window 1 closes on Circle). As save-boot-19a up to window 1 in state 6, then Circle (4 frames): wait until the state leaves 6 (left_wait, timeout 120), then press Circle every 30 frames (4 held) until it reads 0 (close_wait, timeout 1800; a message may have more than one page). Checks window 1 and window 0 read 0, field mode, and that a rerun matches. Reports window 3's raw state.`),
     input: [
       ...LOAD, ...WALK, ...CIRCLE, OPEN_WAIT, ...CIRCLE,
       { wait: { until: { mem: 'w1', differs: 6 }, timeout: 120 }, metric: 'left_wait' },
@@ -93,12 +93,6 @@ export const SCENARIOS = [
       { sameState: 'rerun', metric: 'match' },
     ],
     metrics: ['load_done', 'left_wait', 'close_wait', 'closed', 'w0_closed', 'field_ok', 'match', 'w3'],
-  },
-  {
-    ...base('save-boot-17c-window1-walk-only', `#224 diagnostic (attempt 1; removed before merge). As save-boot-17a but with no Circle press: hold Down ${WALK_FRAMES} frames, then 34 frames with no input. w0..w3: raw states of the four windows. Window 1 not 0 here means the walk itself (a trigger), not a Circle talk, opens the message. Nothing waits after the load, so nothing can zero the results.`),
-    input: [...LOAD, ...WALK, { wait: { frames: 34 } }],
-    assert: [{ expect: { mem: 'map_cur', equals: FIELD_ID } }],
-    metrics: ['load_done', 'w0', 'w1', 'w2', 'w3', 'ptr1'],
   },
 ];
 

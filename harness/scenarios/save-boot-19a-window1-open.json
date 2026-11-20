@@ -2,8 +2,8 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "save-boot-17c-window1-walk-only",
-  "description": "#224 diagnostic (attempt 1; removed before merge). As save-boot-17a but with no Circle press: hold Down 300 frames, then 34 frames with no input. w0..w3: raw states of the four windows. Window 1 not 0 here means the walk itself (a trigger), not a Circle talk, opens the message. Nothing waits after the load, so nothing can zero the results.",
+  "name": "save-boot-19a-window1-open",
+  "description": "#224 (acceptance: window 1 state 6). Boot harness/saves/disc1-mds7st1.json (field 144) and load. Hold Down 300 frames, press Circle (4 frames), then wait until window 1's state reads 6, text shown and waiting for Circle (open_wait, timeout 300). Checks window 1 reads 6, window 0 reads 0, field mode in field 144, and that a rerun matches. Reports window 1's pointerEnabled (ptr1) and window 2's raw state.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",
@@ -78,25 +78,63 @@
       "frames": 300
     },
     {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
       "wait": {
-        "frames": 34
-      }
+        "until": {
+          "mem": "w1",
+          "equals": 6
+        },
+        "timeout": 300
+      },
+      "metric": "open_wait"
     }
   ],
   "assert": [
     {
       "expect": {
+        "mem": "w1",
+        "equals": 6
+      },
+      "metric": "waiting"
+    },
+    {
+      "expect": {
+        "mem": "w0",
+        "equals": 0
+      },
+      "metric": "w0_closed"
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 1
+      },
+      "metric": "field_ok"
+    },
+    {
+      "expect": {
         "mem": "map_cur",
         "equals": 144
       }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
     }
   ],
   "metrics": [
     "load_done",
-    "w0",
-    "w1",
-    "w2",
-    "w3",
-    "ptr1"
+    "open_wait",
+    "waiting",
+    "w0_closed",
+    "field_ok",
+    "match",
+    "ptr1",
+    "w2"
   ]
 }

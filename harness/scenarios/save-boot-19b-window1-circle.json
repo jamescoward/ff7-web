@@ -2,8 +2,8 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "save-boot-17b-window1-circle",
-  "description": "#224 (acceptance: window 1 closes on Circle). As save-boot-17a up to window 1 in state 6, then Circle (4 frames): wait until the state leaves 6 (left_wait, timeout 120), then press Circle every 30 frames (4 held) until it reads 0 (close_wait, timeout 1800; a message may have more than one page). Checks window 1 and window 0 read 0, field mode, and that a rerun matches. Reports window 3's raw state.",
+  "name": "save-boot-19b-window1-circle",
+  "description": "#224 (acceptance: window 1 closes on Circle). As save-boot-19a up to window 1 in state 6, then Circle (4 frames): wait until the state leaves 6 (left_wait, timeout 120), then press Circle every 30 frames (4 held) until it reads 0 (close_wait, timeout 1800; a message may have more than one page). Checks window 1 and window 0 read 0, field mode, and that a rerun matches. Reports window 3's raw state.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",

@@ -266,11 +266,18 @@ const WINDOW_ENTRIES = [
     address: WINDOW_DATA + i * WINDOW_SIZE + 0x2c,
     type: 's16',
     meaning: `state of message window ${i} (g_WindowData[${i}].state), with the same values as dialogState (window 0)`,
-    source: i === 1
-      ? `${WINDOW_SOURCE}. Tier 2 (#168, d731bc3, one run): in mds7st1 (disc1-mds7st1) after Down 300 frames and Circle, it read 6 with window 0 at 0. Acceptance pending (#224: save-boot-17a, save-boot-17b)`
-      : `${WINDOW_SOURCE}. Not seen open in Tier 2 (#168 read 0 in every diagnostic)`,
-    status: 'hypothesis',
     values: WINDOW_STATES,
+    ...(i === 1
+      ? {
+        source: `${WINDOW_SOURCE}. Tier 2 (#224, notes/224-window1-state.md): in mds7st1 (disc1-mds7st1), after Down 300 frames and one Circle press, it reads 6 28 frames later with window 0 at 0 and pointerEnabled 0, a plain message (save-boot-19a); one more Circle takes it out of 6 and it reads 0 three frames after (save-boot-19b); reruns match. With the walk alone and no Circle it stays 0, so the Circle talk opens it. Only 0 and 6 are confirmed values`,
+        status: 'confirmed',
+        scenario: SC('save-boot-19a-window1-open'),
+        confirmedValues: Object.freeze({ 0: SC('save-boot-19b-window1-circle'), 6: SC('save-boot-19a-window1-open') }),
+      }
+      : {
+        source: `${WINDOW_SOURCE}. Not seen open in Tier 2 (#168 and #224 read 0 in every diagnostic)`,
+        status: 'hypothesis',
+      }),
   })),
 ];
 

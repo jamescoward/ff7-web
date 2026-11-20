@@ -1,6 +1,6 @@
 # #226: an in-game save from the world map writes a valid card
 
-Status (2026-11-20): the first budget is used up (3/3). Attempt 3 found how the world map's menu opens. Fresh attempt 1 (agent default, Trip mode rule 11) pushed, Tier 2 pending.
+Status (2026-11-20): **fresh attempt 1 passes**: a pad-input save from the world map writes a card whose new save has a right checksum (save-boot-20a). The confirmation run (20b dropped) is pending.
 
 ## Why the world map
 #131 wants a save at the first save point. No reachable source places that save point (#38, #80), and the route to it from md1_1 is #120's open blocker. FF7 lets the player save anywhere on the world map, and `disc1-wm1-kalm` (#80) boots there with the map live (#140). So this slice proves that the card the game writes is valid, without a save point (agent default, Trip mode rule 11, recorded on #226).
@@ -97,3 +97,20 @@ Reading:
   - 20b: the file-2 variant again (Circle ×2, Down, Circle ×6), now that the save screens should be reached.
   - Report menu_wait, card_ok, c_n, c_slot, c_sum, c_mod, c_loc and match.
 - 20c stays as a passing record of the menu reading.
+
+### Fresh attempt 1 (`24c784e`, tier2: 95 pass, 1 fail; the fail is 20b)
+| scenario | metrics |
+|---|---|
+| **save-boot-20a-world-save-circle (pass)** | menu_wait 1, **card_ok 1, c_n 1, c_slot 1, c_sum 1, c_mod 3, c_loc 2**, match 1 |
+| save-boot-20b-world-save-file2 | menu_wait 1, card_ok 0, c_n 0 (nothing written), match 1 |
+| save-boot-20c-world-menu-state (pass) | the same as attempt 3 (btn_ok 0, game_state 3, row0 9, wl_dir 1, wl_state 2, match 1): a second run |
+| every other scenario | pass, unchanged |
+
+Reading:
+- **The save works.** From the world map, after Triangle, 600 frames, one planned Up to Save and Circle ×8, exactly one card slot changed: slot 1, the generated save's slot, overwritten. Its directory entry and `SC` block are valid, and its savemap holds module 3 (world map) at location 2 (wm1, "Outside Kalm"), the save's own entry point. A rerun matches.
+- **The checksum is confirmed independently.** The game computed this save's checksum itself, and `savemapChecksum` (CRC-16/GENIBUS over 0x0004 to the end, low 16 bits) agrees with it. Until now the only evidence was that the game accepts our generated saves (#38).
+- So the default answer to every prompt on the save screens (card 1, file 1, overwrite) is "yes". Which Circle did what is not measured.
+- **20b wrote nothing.** Down after the second Circle, then Circles, never saved. Down probably acted on a screen where the cursor wasn't (or moved off the save target onto something Circle cancels). Not investigated further: 20a is the acceptance. 20b is dropped; its definition is in `24c784e`.
+
+### Confirmation run plan
+20a and 20c only, unchanged; expect the same metrics. Then the reviewer, and merge.

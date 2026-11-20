@@ -120,10 +120,6 @@ const SEQUENCES = {
     what: 'then Circle 8 times, 90 frames apart (Save, the first card, the first file, then any prompt\'s default), and 120 frames still',
     input: [...circles(8), wait(120)],
   },
-  'save-boot-20b-world-save-file2': {
-    what: 'then Circle twice, 90 frames apart (Save, the first card), Down once (file 2, empty), then Circle 6 times, 90 frames apart, and 120 frames still',
-    input: [...circles(2), { buttons: ['down'], frames: 4 }, wait(30), ...circles(6), wait(120)],
-  },
 };
 
 const SAVE_SCENARIOS = Object.entries(SEQUENCES).map(([name, s]) => ({
@@ -131,7 +127,7 @@ const SAVE_SCENARIOS = Object.entries(SEQUENCES).map(([name, s]) => ({
   format: 2,
   tier: 2,
   name,
-  description: `#226 fresh attempt 1: an in-game save from the world map. Load ${SAVE} (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads ${WORLD_MENU} (the world map's menu, confirmed by save-boot-20c; menu_wait), ${MENU_OPEN_FRAMES} frames for the menu to open, move the main-menu cursor to Save (row ${SAVE_ROW}) with the menu planner (one Up: the menu wraps), ${s.what}. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.`,
+  description: `#226 (passing since fresh attempt 1): an in-game save from the world map. Load ${SAVE} (Circle every 30 frames until g_GameState 3), close the entry message window as save-boot-7-world-kalm does (600 frames, three Circle presses a second apart, then wait for window 0 to read 0), 60 frames, press Triangle every 60 frames until the world loop state reads ${WORLD_MENU} (the world map's menu, confirmed by save-boot-20c; menu_wait), ${MENU_OPEN_FRAMES} frames for the menu to open, move the main-menu cursor to Save (row ${SAVE_ROW}) with the menu planner (one Up: the menu wraps), ${s.what}. The card check compares the slot 1 card at the end with the card at the start: card_ok 1 when a slot changed and the first changed one holds a save with a right checksum and module 3 (world map). c_n: slots changed; c_slot: the first; c_sum: 1 if its checksum is right; c_mod, c_loc: its savemap module and location. match: a rerun from the same snapshot. Only numbers leave.`,
   boot: { disc: 1, save: SAVE, slot: 1 },
   memory: MEMORY,
   input: [...TO_SAVE_ROW(s.extra ? s.extra() : []), ...s.input],

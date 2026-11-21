@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ADDRESS_TABLE, CHARACTER_RECORD_SIZE, MENU_OVERLAY_EQUIP } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, CHARACTER_RECORD_SIZE, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA } from '../../../semantic/addresses.js';
 import { MATERIA, MATERIA_EMPTY, MATERIA_ROW, MATERIA_WORD, OVERLAY_MATERIA, SAVE, materiaScenarios } from './materia-scenarios.js';
 import { SCENARIO_DIR, serialise } from './planner-scenarios.js';
 import { loadScenario } from '../../scenario.js';
@@ -66,5 +66,12 @@ describe('#241 materia scenarios', () => {
     assert.equal(Number(s.memory.menu_ovl.addr), byName('menuOverlay').address);
     assert.equal(Number(s.memory.wm0.addr), byName('characterWeaponMateria').address + CHARACTER_RECORD_SIZE * 0);
     assert.equal(Number(s.memory.mat0.addr), byName('materiaSlot').address);
+  });
+
+  test('menuOverlay 3 (Materia) is confirmed by 22a, the value the scenarios wait for', () => {
+    assert.equal(MENU_OVERLAY_MATERIA, OVERLAY_MATERIA);
+    const e = byName('menuOverlay');
+    assert.equal(e.values[OVERLAY_MATERIA], 'materia');
+    assert.equal(e.confirmedValues[OVERLAY_MATERIA], 'harness/scenarios/save-boot-22a-materia-screen-open.json');
   });
 });

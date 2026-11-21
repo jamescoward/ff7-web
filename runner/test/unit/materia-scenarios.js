@@ -56,7 +56,7 @@ const MEMORY = {
   menu_ovl: {
     addr: hex(entry('menuOverlay').address),
     type: 'u32',
-    description: `menuOverlay (confirmed for 0, 1 and 4; #135, #121): D_80062DD4, the menu overlay id SysMenuLoadMenuFileById last asked for. ${OVERLAY_MATERIA} = YAMA_EQIPMENU_MATERIA is a hypothesis this run checks. ${DECOMP} src/main/1F6B4.c`,
+    description: `menuOverlay (confirmed for 0, 1 and 4, #135, #121; and ${OVERLAY_MATERIA} = YAMA_EQIPMENU_MATERIA, #241 save-boot-22a): D_80062DD4, the menu overlay id SysMenuLoadMenuFileById last asked for. ${DECOMP} src/main/1F6B4.c`,
   },
   menu_prev: {
     addr: '0x80062dd0',

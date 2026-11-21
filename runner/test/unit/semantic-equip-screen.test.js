@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { ADDRESS_TABLE, EXE_USA_SHA1, MENU_OVERLAY_EQUIP, MENU_OVERLAY_ITEM } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, EXE_USA_SHA1, MENU_OVERLAY_EQUIP, MENU_OVERLAY_ITEM, MENU_OVERLAY_MATERIA } from '../../../semantic/addresses.js';
 import { EQUIP_SCREEN_ACTIONS } from '../../../semantic/controls.js';
 import {
   EQUIP_FIRST_WEAPON_PRESSES, EQUIP_SETTLE_FRAMES, EQUIP_STEP_FRAMES, equipMemberLabel, equipMemberSlot,
@@ -37,14 +37,15 @@ describe('equipScreen reader', () => {
     assert.deepEqual(await setup().s.equipScreen(), { value: { open: true }, confirmed: true });
   });
 
-  test('menu mode with the Item overlay or the main menu: closed, confirmed', async () => {
-    for (const overlay of [MENU_OVERLAY_ITEM, 0]) {
+  test('menu mode with the Item or Materia overlay, or the main menu: closed, confirmed', async () => {
+    for (const overlay of [MENU_OVERLAY_ITEM, MENU_OVERLAY_MATERIA, 0]) {
       assert.deepEqual(await setup({ overlay }).s.equipScreen(), { value: { open: false }, confirmed: true }, `overlay ${overlay}`);
     }
   });
 
   test('an unconfirmed overlay value: closed, unconfirmed', async () => {
-    assert.deepEqual(await setup({ overlay: 3 }).s.equipScreen(), { value: { open: false }, confirmed: false });
+    // 2 (Magic in the decomp's enum YamadaOvl) has no Tier 2 reading yet; 3 was the example until #241 confirmed it.
+    assert.deepEqual(await setup({ overlay: 2 }).s.equipScreen(), { value: { open: false }, confirmed: false });
   });
 
   test('not in the menu: closed, and only gameState is read', async () => {

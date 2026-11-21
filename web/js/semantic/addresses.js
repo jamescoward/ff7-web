@@ -37,7 +37,8 @@
 // (notes/99-player-model.md). #78
 // confirmed menuCursor, partySlot0..2 and partyHp0 (notes/78-menu-party.md);
 // #101 confirmed partyHp1 and partyHp2 and saw slots 1 and 2 hold Barret and
-// Tifa (notes/101-barret-party.md).
+// Tifa (notes/101-barret-party.md). #237 confirmed fieldZ, fieldTalkOff and
+// fieldTalkRange at the mds7st1 talk (notes/237-talk-rule.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -547,8 +548,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'field Z (height) position of each field model (g_FieldEntity[i].PosZ, raw units; >> 12 for field units)',
-    source: `${ENTITY_SOURCE}: PosZ at +0x14. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: PosZ at +0x14. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) and 1-3 (TalkOff set, #168) are out of range; after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. Three runs agree; at that point the player is 224..239 field units (PosZ >> 12) above model 7, inside the 256 limit (save-boot-21a, exact in floored field units). Only one height difference was measured`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldDir',
@@ -579,8 +581,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'non-zero when a field model can not be talked to (g_FieldEntity[i].TalkOff, set by the field script)',
-    source: `${ENTITY_SOURCE}: TalkOff at +0x5B. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: TalkOff at +0x5B. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) and 1-3 (TalkOff set, #168) are out of range; after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. Three runs agree. Only 0 was seen on a model that talks; that a non-zero value blocks a talk is the reference's claim, not measured`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldTalkRange',
@@ -589,8 +592,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'talk radius of each field model (g_FieldEntity[i].TalkRange, field units)',
-    source: `${ENTITY_SOURCE}: TalkRange at +0x6E. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: TalkRange at +0x6E. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) and 1-3 (TalkOff set, #168) are out of range; after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. Three runs agree`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldTriggers',

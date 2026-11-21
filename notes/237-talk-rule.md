@@ -65,3 +65,28 @@ Reading:
 Outcome either way:
 - **h7 −1:** the rule holds at the reachable talk, and attempt 3 is the acceptance. One more push repeats it for determinism, the entries are confirmed, and the PR merges.
 - **h7 not −1:** |dz| ≥ 256 although Circle opens a message there. Then the 256 limit, the >> 12 scale for PosZ, or model 7 being the talker is wrong. The budget is used up: report on #237, keep `fieldZ` as a hypothesis, and confirm only what was shown (TalkRange and TalkOff as read, with no talk claim).
+
+### Attempt 3 (`9785d05`, tier2: 98 pass, 1 fail; every other scenario passed unchanged)
+| scenario | metrics |
+|---|---|
+| **21a-talk-rule-talker (pass)** | n7 −1, off7_ok 1, **h7 −1**, n8 1, n9 1, pm_ok 1, match 1, load_done 392 |
+| 21b-talk-rule-height (fail by design) | zs 1, b200 1, b224 1, b240 −1, b272 −1, b288 −1, b304 −1, load_done 392 |
+| 21c-talk-rule-control (pass) | unchanged |
+
+Reading:
+- **The talk rule holds at the reachable talk.** Model 7 is in range, its TalkOff is 0, and it is within 256 in height. 8 and 9 are out of range. The control talk point has no model in range, and Circle opens no window there.
+- **Height:** 224 ≤ |dz| < 240 field units, with the player above model 7. That sits under the 256 limit and fits the attempt-2 bracket of (192, 320).
+- Every distance and TalkOff value is identical across all three runs (`76c1aaa`, `3aed54f`, `9785d05`), and so is every control value.
+
+## Outcome (attempt 3, 3 of 3 used)
+- `fieldTalkRange`, `fieldTalkOff` and `fieldZ` are **confirmed** in `semantic/addresses.js`, with `save-boot-21a-talk-rule-talker` as the scenario. Each entry's source states the limits:
+  - only one talk and one no-talk point were checked;
+  - facing was not checked;
+  - TalkOff 0 was seen on a talker, but that a non-zero TalkOff blocks a talk is the reference's claim;
+  - only one height difference was measured.
+- So `nearby()` is now confirmed in a settled field. The Labs flag `interact-label` (#25, off by default) can therefore show Talk, Exit or a dimmed label in a real game. Tier 3 is deferred (#123).
+- `21b` (the diagnostic) is removed. `21a` and `21c` stay as the acceptance and control.
+- `21a` also reads element 0 of the TalkOff and TalkRange arrays, which is the address the table names. It asserts the player's own TalkOff reads 0, as #112 saw.
+- Format 2 `near.plus` stays, with its Tier 1 tests.
+
+The determinism run is the confirmation push: 21a and 21c must report the same metrics as on `9785d05`.

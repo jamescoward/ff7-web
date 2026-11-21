@@ -56,6 +56,12 @@ const MEMORY = {
   y0: pos(0, 'Y', 0x10),
   z0: pos(0, 'Z', 0x14),
   solid0: { addr: hex(ent(0, 0x6c)), type: 'u16', description: `g_FieldEntity[0].SolidRange (field units; confirmed #112 for element 0). ${DECOMP}.` },
+  // Element 0 (the player) of the TalkOff and TalkRange arrays: the address
+  // table names each array by element 0, and the layout (stride 0x84) is what
+  // #237 confirms through element 7. off0 is checked (the player's own TalkOff
+  // reads 0, as #112 saw at md1stin); talk0 is only read.
+  off0: { addr: hex(ent(0, 0x5b)), type: 'u8', description: `g_FieldEntity[0].TalkOff, the player's (element 0 of fieldTalkOff). ${DECOMP}.` },
+  talk0: { addr: hex(ent(0, 0x6e)), type: 'u16', description: `g_FieldEntity[0].TalkRange, the player's (element 0 of fieldTalkRange; read, not checked). ${DECOMP}.` },
 };
 for (const k of [1, 2, 3, ...UNWATCHED]) {
   MEMORY[`x${k}`] = pos(k, 'X', 0x0c);
@@ -107,12 +113,10 @@ const base = (name, description) => ({
 
 const WALK = [{ buttons: ['down'], frames: WALK_FRAMES }];
 const K = TALKER;
-/** Attempt 3's height brackets, field units (attempt 2: 192 < |dz| < 320). */
-export const BRACKETS = [200, 224, 240, 272, 288, 304];
 
 export const SCENARIOS = [
   {
-    ...base('save-boot-21a-talk-rule-talker', `#237 acceptance (attempt 3). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model ${K} is within talk range (ground distance < TalkRange + the player's SolidRange, n${K} -1), its TalkOff reads 0, its height is within 256 field units of the player's (h${K}: field units, range plus 256), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0, and that a rerun matches.`),
+    ...base('save-boot-21a-talk-rule-talker', `#237 acceptance (attempt 3). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model ${K} is within talk range (ground distance < TalkRange + the player's SolidRange, n${K} -1), its TalkOff reads 0, its height is within 256 field units of the player's (h${K}: field units, range plus 256), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0 and its own TalkOff reads 0, and that a rerun matches.`),
     input: [...LOAD, ...WALK],
     assert: [
       ...SETTLED,
@@ -122,19 +126,10 @@ export const SCENARIOS = [
       near(8, 'outside', 'n8'),
       near(9, 'outside', 'n9'),
       { expect: { mem: 'pm', equals: 0 }, metric: 'pm_ok' },
+      { expect: { mem: 'off0', equals: 0 } },
       { sameState: 'rerun', metric: 'match' },
     ],
     metrics: [`n${K}`, `off${K}_ok`, `h${K}`, 'n8', 'n9', 'pm_ok', 'load_done', 'match'],
-  },
-  {
-    ...base('save-boot-21b-talk-rule-height', `#237 attempt 3 (diagnostic). As save-boot-21a. Brackets the height difference between the player and model ${K} in field units with the near check and a constant range (each -1 means |dz| below the bound): b200, b224, b240, b272, b288, b304; zs is the sign of z0 - z${K} (signed). Attempt 2 put |dz| in (192, 320). Fails by design where a bound does not hold.`),
-    input: [...LOAD, ...WALK],
-    assert: [
-      ...SETTLED,
-      { compare: { mem: 'z0', with: `z${K}`, is: 'unequal', signed: true }, metric: 'zs' },
-      ...BRACKETS.map((b) => height(K, `b${b}`, 12, 0, b)),
-    ],
-    metrics: ['zs', ...BRACKETS.map((b) => `b${b}`), 'load_done'],
   },
   {
     ...base('save-boot-21c-talk-rule-control', `#237 control (attempts 1-2). Boot and load as save-boot-21a, hold Down ${CONTROL_FRAMES} frames (half the route), press Circle (4 frames) and wait 60 frames. Checks windows 0-3 read 0 and models 7-9 are outside talk range (n7..n9 signs), and that a rerun matches.`),

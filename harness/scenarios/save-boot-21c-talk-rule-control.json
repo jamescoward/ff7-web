@@ -75,6 +75,16 @@
       "type": "u16",
       "description": "g_FieldEntity[0].SolidRange (field units; confirmed #112 for element 0). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_FieldEntity, include/game.h FieldEntity."
     },
+    "off0": {
+      "addr": "0x80074eff",
+      "type": "u8",
+      "description": "g_FieldEntity[0].TalkOff, the player's (element 0 of fieldTalkOff). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_FieldEntity, include/game.h FieldEntity."
+    },
+    "talk0": {
+      "addr": "0x80074f12",
+      "type": "u16",
+      "description": "g_FieldEntity[0].TalkRange, the player's (element 0 of fieldTalkRange; read, not checked). Xeeynamo/ff7-decomp@2c9239a (reference only, no code) config/symbols.main.us.txt g_FieldEntity, include/game.h FieldEntity."
+    },
     "x1": {
       "addr": "0x80074f34",
       "type": "u32",

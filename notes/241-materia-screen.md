@@ -37,7 +37,9 @@ What this shows:
 
   So, **for this save**, the Materia screen opens with the cursor on weapon slot 0, and the list's first entry is inventory slot 0. No Materia-screen cursor address is read.
 
-### Confirmation push (determinism run)
+### Confirmation push (determinism run): `f30a7ff`, tier2 check 136985713201 (100 pass, 0 fail; eval job 136985637062)
+22a and 22b report **identical metrics** to attempt 1, field for field, and 22b's rerun matched. So the overlay id and the materia equip are deterministic over two runs. The reviewer passed it on `f30a7ff`, and it merged as PR #242 (`982cd0b`).
+
 - `semantic/addresses.js` gains:
   - `MENU_OVERLAY_MATERIA = 3`;
   - `values[3] = 'materia'`;

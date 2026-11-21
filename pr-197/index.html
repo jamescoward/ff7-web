@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="color-scheme" content="dark">
+  <title>ff7-web</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <!-- ff7-web browser wrapper (issue #7). GPL-2.0-or-later.
+       The core is PCSX ReARMed (GPL-2.0): core/COPYING.pcsx_rearmed.txt.
+       Files you choose are read locally in this browser; nothing is uploaded. -->
+  <header class="bar">
+    <label class="btn primary" id="load-label">
+      <input type="file" id="file-input" multiple hidden>
+      Load disc
+    </label>
+    <button type="button" class="btn" id="mute-btn" aria-pressed="false">Sound on</button>
+    <button type="button" class="btn" id="controls-btn" aria-pressed="false" aria-controls="pad field">Drag to walk</button>
+    <button type="button" class="btn" id="speed-btn" aria-label="Game speed" hidden>1x</button>
+    <button type="button" class="btn" id="debug-btn" aria-pressed="false" aria-controls="debug" hidden disabled>Debug</button>
+    <button type="button" class="btn" id="labs-btn" aria-expanded="false" aria-controls="labs-panel">Labs</button>
+    <button type="button" class="btn primary" id="resume-btn" hidden>Resume</button>
+    <button type="button" class="btn" id="fresh-btn" hidden>Start fresh</button>
+    <details class="menu">
+      <summary class="btn">Card</summary>
+      <div class="menu-body">
+        <button type="button" class="btn" id="card-export">Export card</button>
+        <label class="btn">
+          <input type="file" id="card-input" accept=".mcr,.mcd,.mc,.srm" hidden>
+          Import card
+        </label>
+        <p class="hint">Your memory card is kept in this browser, which can clear it. Export a copy now and then.</p>
+      </div>
+    </details>
+  </header>
+  <div class="labs-panel" id="labs-panel" role="group" aria-label="Labs: experimental features" hidden>
+    <div class="labs-list"></div>
+    <button type="button" class="btn labs-reset">Reset all flags</button>
+    <p class="hint">Experimental. Everything here is off until you switch it on, and stays as you leave it.</p>
+  </div>
+
+  <main class="stage">
+    <div class="screen">
+      <canvas id="screen" width="320" height="240" aria-label="Game picture"></canvas>
+      <div class="debug" id="debug" aria-label="Debug overlay: live game state" hidden></div>
+      <p class="status" id="status" role="status">Choose a disc image (.cue with its .bin files, .chd, .pbp, .iso) or a PS-X EXE. It stays on this device.</p>
+    </div>
+    <div class="hud" id="hud" aria-label="Battle status" hidden></div>
+    <div class="menu-panel" id="menu-panel" aria-label="Main menu" hidden></div>
+    <div class="battle-panel" id="battle-panel" aria-label="Battle commands" hidden></div>
+    <div class="pad" id="pad"></div>
+    <div class="pad" id="field" aria-label="Drag to walk" hidden></div>
+  </main>
+</body>
+</html>

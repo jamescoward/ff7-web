@@ -2,8 +2,8 @@
   "$schema": "../schema/scenario.schema.json",
   "format": 2,
   "tier": 2,
-  "name": "save-boot-21a-talk-rule-unwatched",
-  "description": "#237 attempt 1 (diagnostic). Boot harness/saves/disc1-mds7st1.json (field 144) and load. Hold Down 300 frames (save-boot-19a's route) and stop before Circle. For models 7-9 (not watched by #168) reports the near sign of ground distance against TalkRange + the player's SolidRange (n7..n9; -1 within) and raw TalkOff (off7..off9); also the player model (pm). Fails by design where a model is not within.",
+  "name": "save-boot-21a-talk-rule-talker",
+  "description": "#237 acceptance (attempt 2). Boot harness/saves/disc1-mds7st1.json (field 144) and load. Hold Down 300 frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model 7 is within talk range (ground distance < TalkRange + the player's SolidRange, n7 -1), its TalkOff reads 0, its height is within 256 field units of the player's (h7: shift 18, range 4), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0, and that a rerun matches.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",
@@ -288,6 +288,28 @@
       "metric": "n7"
     },
     {
+      "expect": {
+        "mem": "off7",
+        "equals": 0
+      },
+      "metric": "off7_ok"
+    },
+    {
+      "near": {
+        "x": "z0",
+        "y": "map_cur",
+        "toX": "z7",
+        "toY": "map_cur",
+        "range": [
+          "loading",
+          "loading"
+        ],
+        "shift": 18,
+        "is": "within"
+      },
+      "metric": "h7"
+    },
+    {
       "near": {
         "x": "x0",
         "y": "y0",
@@ -298,7 +320,7 @@
           "solid0"
         ],
         "shift": 12,
-        "is": "within"
+        "is": "outside"
       },
       "metric": "n8"
     },
@@ -313,19 +335,30 @@
           "solid0"
         ],
         "shift": 12,
-        "is": "within"
+        "is": "outside"
       },
       "metric": "n9"
+    },
+    {
+      "expect": {
+        "mem": "pm",
+        "equals": 0
+      },
+      "metric": "pm_ok"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
     }
   ],
   "metrics": [
     "n7",
+    "off7_ok",
+    "h7",
     "n8",
     "n9",
-    "off7",
-    "off8",
-    "off9",
-    "pm",
-    "load_done"
+    "pm_ok",
+    "load_done",
+    "match"
   ]
 }

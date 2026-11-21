@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
-import { SCENARIOS, UNWATCHED, FIELD_ENTITY_SIZE } from './talk-rule-scenarios.js';
+import { SCENARIOS, UNWATCHED, FIELD_ENTITY_SIZE, TALKER, heightBound } from './talk-rule-scenarios.js';
 import { loadScenario } from '../../scenario.js';
 import { nearOutcome } from '../../format2.js';
 
@@ -49,20 +49,28 @@ describe('#237 talk-rule scenarios', () => {
     assert.equal(Number(m.w0.addr), byName('dialogState').address);
   });
 
-  test('the height check holds only when |dz| < 256 field units (shift 19, range 2, y difference 0)', () => {
-    const chk = SCENARIOS[1].assert.find((a) => a.metric === 'h7').near;
-    assert.equal(chk.shift, 19);
-    assert.equal(chk.y, chk.toY);
+  test('every height check holds only when |dz| is below its stated bound (y difference 0, range 2 per location)', () => {
     const u32 = { type: 'u32' };
     const u16 = { type: 'u16' };
-    const locs = [u32, u16, u32, u16, u16];
-    const run = (z0fu, zkfu) => nearOutcome({ shift: 19, is: 'within' }, locs, [(z0fu * 4096) >>> 0, 144, (zkfu * 4096) >>> 0, 144, 2]);
-    // Sufficient: every pair the check accepts is less than 256 field units apart.
-    for (const [a, b] of [[0, 0], [0, 255], [-100, 100], [127, -128], [-300, -200], [1000, 1200]]) {
-      const out = run(a, b);
-      if (out.holds) assert.ok(Math.abs(a - b) < 256, `${a},${b}`);
+    const checks = SCENARIOS.flatMap((s) => s.assert).filter((a) => a.near && a.near.x === 'z0');
+    assert.ok(checks.length >= 6);
+    for (const { near, metric } of checks) {
+      assert.equal(near.y, near.toY, metric);
+      assert.ok(near.range.every((r) => r === 'loading'), metric);
+      const bound = heightBound(near.shift, near.range.length);
+      const locs = [u32, u16, u32, u16, ...near.range.map(() => u16)];
+      const run = (a, b) => nearOutcome({ shift: near.shift, is: 'within' }, locs, [(a * 4096) >>> 0, 144, (b * 4096) >>> 0, 144, ...near.range.map(() => 2)]);
+      for (const a of [-700, -300, -129, -1, 0, 1, 50, 127, 128, 255, 400]) {
+        for (const d of [0, 1, 15, 31, 32, 63, 64, 127, 128, 255, 256, 511, 512, 600]) {
+          for (const sgn of [1, -1]) {
+            const out = run(a, a + sgn * d);
+            if (out.holds) assert.ok(d < bound, `${metric}: ${a}, ${a + sgn * d} within but |dz| ${d} >= ${bound}`);
+          }
+        }
+      }
+      assert.equal(run(10, 10).holds, true, metric);
     }
-    for (const [a, b] of [[0, 256], [-128, 128], [0, -300], [500, 0]]) assert.equal(run(a, b).holds, false, `${a},${b}`);
-    assert.equal(run(10, 20).holds, true);
+    const h = SCENARIOS[0].assert.find((a) => a.metric === `h${TALKER}`).near;
+    assert.equal(heightBound(h.shift, h.range.length), 256);
   });
 });

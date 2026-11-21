@@ -68,13 +68,21 @@ for (const k of [1, 2, 3, ...UNWATCHED]) {
 /** sign of ground distance - (TalkRange_k + SolidRange_0), field units: -1 = the talk rule's distance part holds. */
 const near = (k, is, metric) => ({ near: { x: 'x0', y: 'y0', toX: `x${k}`, toY: `y${k}`, range: [`talk${k}`, 'solid0'], shift: 12, is }, metric });
 /**
- * Height part of the rule, |dz| < 256 field units, with the near check: both
- * y coordinates are the same location (difference 0), the shift is 19 (units
- * of 128 field units) and the range is g_IsFieldLoading, asserted to read 2.
- * floor(z0 >> 19) and floor(zk >> 19) less than 2 apart implies |dz| < 256
- * field units (sufficient, not necessary).
+ * Height bound with the near check: both y coordinates are the same location
+ * (difference 0), both z coordinates are shifted right by `shift`, and the
+ * range is g_IsFieldLoading (asserted to read 2) taken `times` times, so
+ * r = 2 * times. Within means floor(z0 >> shift) and floor(zk >> shift) are
+ * less than r apart, which implies |dz| < r * 2^shift raw units, i.e.
+ * r * 2^(shift - 12) field units (sufficient, not necessary).
+ * Attempt 1 used shift 19, times 1 (|dz| < 256 field units).
  */
-const height = (k, metric) => ({ near: { x: 'z0', y: 'map_cur', toX: `z${k}`, toY: 'map_cur', range: ['loading'], shift: 19, is: 'within' }, metric });
+export const heightBound = (shift, times) => 2 * times * 2 ** (shift - 12);
+const height = (k, metric, shift = 19, times = 1) => ({
+  near: { x: 'z0', y: 'map_cur', toX: `z${k}`, toY: 'map_cur', range: Array(times).fill('loading'), shift, is: 'within' },
+  metric,
+});
+/** The talker found by attempt 1: the only model within range after the down walk (n7 -1, off7 0). */
+export const TALKER = 7;
 
 const LOAD = [
   { wait: { until: { mem: 'game_state', equals: 1 }, timeout: 3600, press: { buttons: ['circle'], every: 30, hold: 4 } } },
@@ -96,26 +104,41 @@ const base = (name, description) => ({
   memory: MEMORY,
 });
 
+const WALK = [{ buttons: ['down'], frames: WALK_FRAMES }];
+const K = TALKER;
+
 export const SCENARIOS = [
   {
-    ...base('save-boot-21a-talk-rule-unwatched', `#237 attempt 1 (diagnostic). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames (save-boot-19a's route) and stop before Circle. For models 7-9 (not watched by #168) reports the near sign of ground distance against TalkRange + the player's SolidRange (n7..n9; -1 within) and raw TalkOff (off7..off9); also the player model (pm). Fails by design where a model is not within.`),
-    input: [...LOAD, { buttons: ['down'], frames: WALK_FRAMES }],
-    assert: [...SETTLED, ...UNWATCHED.map((k) => near(k, 'within', `n${k}`))],
-    metrics: ['n7', 'n8', 'n9', 'off7', 'off8', 'off9', 'pm', 'load_done'],
-  },
-  {
-    ...base('save-boot-21b-talk-rule-height', `#237 attempt 1 (diagnostic). As save-boot-21a. Reports the height part of the rule for models 7-9 (h7..h9; -1 means floor(z >> 19) values less than 2 apart, so |dz| < 256 field units), the near sign for models 1-3 (TalkOff set per #168), and whether a rerun matches. Fails by design where a check does not hold.`),
-    input: [...LOAD, { buttons: ['down'], frames: WALK_FRAMES }],
+    ...base('save-boot-21a-talk-rule-talker', `#237 acceptance (attempt 2). Boot harness/saves/disc1-mds7st1.json (field ${FIELD_ID}) and load. Hold Down ${WALK_FRAMES} frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model ${K} is within talk range (ground distance < TalkRange + the player's SolidRange, n${K} -1), its TalkOff reads 0, its height is within 256 field units of the player's (h${K}: shift 18, range 4), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0, and that a rerun matches.`),
+    input: [...LOAD, ...WALK],
     assert: [
       ...SETTLED,
-      ...UNWATCHED.map((k) => height(k, `h${k}`)),
-      ...[1, 2, 3].map((k) => near(k, 'outside', `n${k}`)),
+      near(K, 'within', `n${K}`),
+      { expect: { mem: `off${K}`, equals: 0 }, metric: `off${K}_ok` },
+      height(K, `h${K}`, 18, 2),
+      near(8, 'outside', 'n8'),
+      near(9, 'outside', 'n9'),
+      { expect: { mem: 'pm', equals: 0 }, metric: 'pm_ok' },
       { sameState: 'rerun', metric: 'match' },
     ],
-    metrics: ['h7', 'h8', 'h9', 'n1', 'n2', 'n3', 'load_done', 'match'],
+    metrics: [`n${K}`, `off${K}_ok`, `h${K}`, 'n8', 'n9', 'pm_ok', 'load_done', 'match'],
   },
   {
-    ...base('save-boot-21c-talk-rule-control', `#237 attempt 1 (control). Boot and load as save-boot-21a, hold Down ${CONTROL_FRAMES} frames (half the route), press Circle (4 frames) and wait 60 frames. Checks windows 0-3 read 0 and models 7-9 are outside talk range (n7..n9 signs), and that a rerun matches.`),
+    ...base('save-boot-21b-talk-rule-height', `#237 attempt 2 (diagnostic). As save-boot-21a. Bounds the height difference between the player and model ${K} at several resolutions with the near check (each -1 means |dz| below the bound, in field units): b32, b64, b128 (shift 16, range 2, 4, 8), b256 (shift 18, range 4), b512 (shift 19, range 4); zs is the sign of z0 - z${K} (signed). Fails by design where a bound does not hold.`),
+    input: [...LOAD, ...WALK],
+    assert: [
+      ...SETTLED,
+      { compare: { mem: 'z0', with: `z${K}`, is: 'unequal', signed: true }, metric: 'zs' },
+      height(K, 'b32', 16, 1),
+      height(K, 'b64', 16, 2),
+      height(K, 'b128', 16, 4),
+      height(K, 'b256', 18, 2),
+      height(K, 'b512', 19, 2),
+    ],
+    metrics: ['zs', 'b32', 'b64', 'b128', 'b256', 'b512', 'load_done'],
+  },
+  {
+    ...base('save-boot-21c-talk-rule-control', `#237 control (attempts 1-2). Boot and load as save-boot-21a, hold Down ${CONTROL_FRAMES} frames (half the route), press Circle (4 frames) and wait 60 frames. Checks windows 0-3 read 0 and models 7-9 are outside talk range (n7..n9 signs), and that a rerun matches.`),
     input: [...LOAD, { buttons: ['down'], frames: CONTROL_FRAMES }, { buttons: ['circle'], frames: 4 }, { wait: { frames: 60 } }],
     assert: [
       ...SETTLED,

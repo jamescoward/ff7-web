@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-21c-talk-rule-control",
-  "description": "#237 attempt 1 (control). Boot and load as save-boot-21a, hold Down 150 frames (half the route), press Circle (4 frames) and wait 60 frames. Checks windows 0-3 read 0 and models 7-9 are outside talk range (n7..n9 signs), and that a rerun matches.",
+  "description": "#237 control (attempts 1-2). Boot and load as save-boot-21a, hold Down 150 frames (half the route), press Circle (4 frames) and wait 60 frames. Checks windows 0-3 read 0 and models 7-9 are outside talk range (n7..n9 signs), and that a rerun matches.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",

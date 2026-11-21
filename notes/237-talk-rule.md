@@ -20,3 +20,26 @@ What decides attempt 2:
 - **Exactly one k in 7-9 with n −1, off 0 and h −1, and the control passes.** The rule's distance, TalkOff and height parts are borne out. Attempt 2 turns 21a/21b into passing acceptance scenarios for that k (and drops the others), repeats the run, and confirms the entries.
 - **No model within range.** The talk is not a model's (a field line, or a model index ≥ 10 is impossible with cnt 10). Record that and close with the entries still hypotheses, as the contract says.
 - **Several within range.** Facing decides. Attempt 2 adds the player's Dir and the direction to each candidate.
+
+## Results
+
+### Attempt 1 (`76c1aaa`, tier2: 97 pass, 2 fail; every earlier scenario passed unchanged)
+| scenario | metrics |
+|---|---|
+| 21a-talk-rule-unwatched (fail by design) | n7 **−1**, n8 1, n9 1, off7 0, off8 0, off9 0, pm 0, load_done 392 |
+| 21b-talk-rule-height (fail by design) | h7 0, h8 0, h9 0, n1 1, n2 1, n3 1, match 1, load_done 392 |
+| 21c-talk-rule-control (pass) | w1_closed 1, w0 0, w3 0, n7 1, n8 1, n9 1, match 1, load_done 392 |
+
+Reading:
+- **Model 7 is the only model in range** after the down walk: its ground distance is below its TalkRange plus the player's SolidRange. Models 8 and 9 are out of range, and so are 1–3 (which have TalkOff set, per #168) and 4–6 (#168). Models 7, 8 and 9 all read TalkOff 0. The player is model 0.
+- So the stated rule (distance and TalkOff) names exactly one candidate on the route where Circle opens a message (19a). On the control route (Down 150 frames), no model is in range, and Circle opens no window.
+- **Height: inconclusive.** h7..h9 are 0, so floor(z >> 19) for the player and for each model are exactly 2 apart. That makes |dz| between 128 and 384 field units, which straddles the 256 limit. All three being 0 suggests models 7–9 share a height band and the player sits in another one.
+
+## Attempt 2 plan (`talk-rule-scenarios.js`, 3 scenarios)
+- `save-boot-21a-talk-rule-talker` becomes the acceptance scenario for model 7. It checks: n7 within, off7 0, the height within 256 (shift 18, range 4, so floor values less than 4 apart in 64-unit steps), n8 and n9 outside, the player is model 0, and a rerun match. It passes only if the height part also holds.
+- `save-boot-21b-talk-rule-height` (diagnostic) brackets |dz| with bounds of 32, 64, 128, 256 and 512 field units, and gives the sign of z0 − z7.
+- `save-boot-21c-talk-rule-control`: unchanged.
+
+What decides attempt 3:
+- **21a passes and 21b brackets |dz| below 256.** The rule holds at the one reachable talk. The second run then confirms `fieldTalkRange` and `fieldTalkOff` (value 0), and `fieldZ` as far as this height difference goes. `nearby()` can then report `confirmed: true`.
+- **|dz| ≥ 256.** Either the game's height limit is not 256 field units in these units (for example raw >> 12 is not the right scale for z), or model 7 is not the talker. Attempt 3 then checks facing, or a walk that brings model 8 or 9 into range.

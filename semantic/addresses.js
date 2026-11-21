@@ -413,6 +413,12 @@ export const MENU_OVERLAY_ITEM = 1;
  * party member (the id stays 0, save-boot-15a); the next Circle asks for 4.
  */
 export const MENU_OVERLAY_EQUIP = 4;
+/**
+ * menuOverlay value for the Materia screen (#241; enum YamadaOvl,
+ * YAMA_EQIPMENU_MATERIA). As for Equip, Circle on the Materia row first picks
+ * a party member; the next Circle asks for 3 (save-boot-22a).
+ */
+export const MENU_OVERLAY_MATERIA = 3;
 // The Equip screen (#216). The EQIPMENU overlay is not decompiled, so these
 // have no source: they were found by track searches in the private eval
 // (notes/216-equip-cursors.md) and sit like the Item overlay's MenuTables
@@ -455,12 +461,12 @@ const MENU_OVERLAY_ENTRIES = [
     name: 'menuOverlay',
     address: 0x80062dd4,
     type: 'u32',
-    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 4 = the Equip screen; 0 back on the main menu',
-    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343). Tier 2 (#121): one Circle on the Equip row (row 3) leaves it at 0, a party pick coming first (save-boot-15a); the next Circle, 60 frames later, makes it read 4 (YAMA_EQIPMENU_EQUIP in the decomp's enum YamadaOvl), and the Weapon slot and list then equip a spare weapon (15b, 15c)`,
+    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 3 = the Materia screen; 4 = the Equip screen; 0 back on the main menu',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343). Tier 2 (#121): one Circle on the Equip row (row 3) leaves it at 0, a party pick coming first (save-boot-15a); the next Circle, 60 frames later, makes it read 4 (YAMA_EQIPMENU_EQUIP in the decomp's enum YamadaOvl), and the Weapon slot and list then equip a spare weapon (15b, 15c). Tier 2 (#241): on the Materia row (row 2) the same Circle every 60 frames makes it read 3 (YAMA_EQIPMENU_MATERIA) at the second press (ovl_wait 61, save-boot-22a); Circle, Circle then moves inventory materia slot 0 into Cloud's weapon materia slot 0 (22b); a rerun matches`,
     status: 'confirmed',
     scenario: SC('save-boot-14e-item-screen-cross-twice'),
-    values: Object.freeze({ 0: 'other', 1: 'item', 4: 'equip' }),
-    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open'), 4: SC('save-boot-15b-equip-screen-open') }),
+    values: Object.freeze({ 0: 'other', 1: 'item', 3: 'materia', 4: 'equip' }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open'), 3: SC('save-boot-22a-materia-screen-open'), 4: SC('save-boot-15b-equip-screen-open') }),
   },
 ];
 

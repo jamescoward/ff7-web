@@ -1,6 +1,6 @@
 # #228: a world-map save loads back after a restart
 
-Status (2026-11-21): **attempt 1 built, Tier 2 not run yet.** Second implementer, Overflow work (Trip mode rule 9).
+Status (2026-11-21): **attempt 1 passes in Tier 2** (`6ee2417`, 96 pass, 0 fail). A confirmation run is next. Second implementer, Overflow work (Trip mode rule 9).
 
 ## What was built
 - **Format 2 restart step** `{ "restart": "keep-card" }` (`runner/format2.js`, `harness/schema/scenario.schema.json`, `harness/README.md`). `playScript` takes the boot point's state bytes. At a restart it reads the card, puts it back and loads that state. A save boot does the same with its generated card (#38), and loading flags the card as new (notes/31-card-and-snapshots.md). The step takes no frames, and the frame count runs on.
@@ -22,3 +22,23 @@ What decides attempt 2:
 - `card_ok 1, c_data 0`: the game rewrote only the directory frame. That would be surprising. Then load-back proves nothing new, so investigate first.
 - `w_state 0`: the title did not load file 1 after the restart (the card was not seen as new, or the cursor starts elsewhere). Check with a diagnostic: g_SaveSlotMask (save-boot-1's `slot_mask`) after the restart.
 - `win_ok 0`, or `world_ok 0` after w_state > 0: the loaded save does not open the entry window, and the three Circles did something else on the world map. Next: drop the Circles and wait for the window state instead.
+
+## Results
+
+### Attempt 1 (`6ee2417`, tier2: 96 pass, 0 fail)
+Tier 1 (real core) is green in CI, including the new restart tests.
+
+| scenario | metrics |
+|---|---|
+| **save-boot-20d-world-save-load (pass)** | card_ok 1, **c_data 1**, w_state 400, win_ok 1, world_ok 1, map_ok 1, x_dir -1, match 1 |
+| save-boot-20a-world-save-circle | unchanged from #226: card_ok 1, c_n 1, c_slot 1, c_sum 1, c_mod 3, c_loc 2, menu_wait 1, match 1 |
+| save-boot-20c-world-menu-state | unchanged |
+| every other scenario | pass |
+
+Reading:
+- **The game's own world-map save loads back.** After the restart, Circle presses from the title loaded file 1 into the world map: g_GameState read 3 after 400 frames. g_FieldCurrentMap names location 2. The player walks: pos.vx changed, with the same sign as save-boot-7. A rerun with the restart matches.
+- **c_data 1: the game rewrote the savemap bytes**, not only the directory frame. That settles PR #227's caveat. The right checksum (c_sum in 20a) is therefore one the game computed itself over its own bytes. This is a second, independent confirmation of the CRC-16/GENIBUS hypothesis.
+- win_ok 1: window 0 read 0 one frame after the three Circles. Whether the loaded save opened the entry window at all is not measured. Either way the Circles left the player on the world map (world_ok 1).
+
+### Confirmation run plan
+Same scenarios, unchanged (this notes push re-runs Tier 2); expect identical 20d metrics. Then the reviewer, and merge.

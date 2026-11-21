@@ -50,18 +50,18 @@ describe('#237 talk-rule scenarios', () => {
   });
 
   test('every height check holds only when |dz| is below its stated bound (y difference 0, range 2 per location)', () => {
-    const u32 = { type: 'u32' };
-    const u16 = { type: 'u16' };
+    const u32 = { type: 'u32', len: 4 };
+    const u16 = { type: 'u16', len: 2 };
     const checks = SCENARIOS.flatMap((s) => s.assert).filter((a) => a.near && a.near.x === 'z0');
     assert.ok(checks.length >= 6);
     for (const { near, metric } of checks) {
       assert.equal(near.y, near.toY, metric);
       assert.ok(near.range.every((r) => r === 'loading'), metric);
-      const bound = heightBound(near.shift, near.range.length);
+      const bound = heightBound(near.shift, near.range.length, near.plus ?? 0);
       const locs = [u32, u16, u32, u16, ...near.range.map(() => u16)];
-      const run = (a, b) => nearOutcome({ shift: near.shift, is: 'within' }, locs, [(a * 4096) >>> 0, 144, (b * 4096) >>> 0, 144, ...near.range.map(() => 2)]);
+      const run = (a, b) => nearOutcome({ shift: near.shift, plus: near.plus ?? 0, is: 'within' }, locs, [(a * 4096) >>> 0, 144, (b * 4096) >>> 0, 144, ...near.range.map(() => 2)]);
       for (const a of [-700, -300, -129, -1, 0, 1, 50, 127, 128, 255, 400]) {
-        for (const d of [0, 1, 15, 31, 32, 63, 64, 127, 128, 255, 256, 511, 512, 600]) {
+        for (const d of [0, 1, 15, 31, 32, 63, 64, 127, 128, 199, 200, 223, 224, 239, 240, 255, 256, 271, 272, 287, 288, 303, 304, 511, 512, 600]) {
           for (const sgn of [1, -1]) {
             const out = run(a, a + sgn * d);
             if (out.holds) assert.ok(d < bound, `${metric}: ${a}, ${a + sgn * d} within but |dz| ${d} >= ${bound}`);
@@ -71,6 +71,12 @@ describe('#237 talk-rule scenarios', () => {
       assert.equal(run(10, 10).holds, true, metric);
     }
     const h = SCENARIOS[0].assert.find((a) => a.metric === `h${TALKER}`).near;
-    assert.equal(heightBound(h.shift, h.range.length), 256);
+    assert.equal(heightBound(h.shift, h.range.length, h.plus), 256);
+    // At shift 12 the bound is exact for whole field units: 255 apart holds, 256 does not.
+    const exact = (a, b) => nearOutcome({ shift: 12, plus: 256, is: 'within' }, [{ type: 'u32', len: 4 }, { type: 'u16', len: 2 }, { type: 'u32', len: 4 }, { type: 'u16', len: 2 }], [(a * 4096) >>> 0, 144, (b * 4096) >>> 0, 144]);
+    assert.equal(exact(0, 255).holds, true);
+    assert.equal(exact(0, 256).holds, false);
+    assert.equal(exact(-100, 155).holds, true);
+    assert.equal(exact(-100, 156).holds, false);
   });
 });

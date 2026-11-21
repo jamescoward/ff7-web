@@ -145,7 +145,8 @@ export function compareOutcome(chk, locA, locB, a, b) {
  * A near check (#168): the sign of d - r (-1, 0 or 1), where d is the ground
  * distance between two points, floor(hypot(x - toX, y - toY)) after an
  * arithmetic >> shift of each coordinate (all four read as two's
- * complement), and r is the sum of the range locations (unsigned). -1 means
+ * complement), and r is the sum of the range locations (unsigned) plus the
+ * constant chk.plus (#237; 0 when absent). -1 means
  * strictly within r, as the field module's talk rule (distance < TalkRange +
  * SolidRange; notes/112-field-interactables.md). vals holds the decoded
  * (unsigned) values in the order x, y, toX, toY, ...range; locs the matching
@@ -155,7 +156,7 @@ export function nearOutcome(chk, locs, vals) {
   if (vals.some((v) => v === null)) return { sign: 0, holds: false };
   const [x, y, tx, ty] = [0, 1, 2, 3].map((i) => Math.floor(asSigned(locs[i], vals[i]) / 2 ** chk.shift));
   const d = Math.floor(Math.hypot(x - tx, y - ty));
-  const r = vals.slice(4).reduce((a, b) => a + b, 0);
+  const r = vals.slice(4).reduce((a, b) => a + b, chk.plus ?? 0);
   const sign = Math.sign(d - r);
   const holds = chk.is === 'within' ? sign < 0 : sign >= 0;
   return { sign, holds };
@@ -365,7 +366,8 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
         if (!loc) fail(`${where}.near: no memory location named "${k}"`);
         if (!NUMERIC.has(loc.type)) fail(`${where}.near: a near check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
       }
-      return { kind: 'near', names, shift: n.shift ?? 0, is: n.is, metric: a.metric };
+      if (n.range.length === 0 && !n.plus) fail(`${where}.near: needs at least one range location or a plus above 0`);
+      return { kind: 'near', names, shift: n.shift ?? 0, plus: n.plus ?? 0, is: n.is, metric: a.metric };
     }
     if ('track' in a) {
       const t = a.track;
@@ -1044,7 +1046,7 @@ export async function runScenario2(sc, opts = {}) {
       const out = have ? nearOutcome(a, a.names.map((k) => sc.memory[k]), actual.get(a)) : { sign: 0, holds: false };
       const [x, y, toX, toY, ...range] = a.names;
       return {
-        near: { x, y, toX, toY, range, ...(a.shift ? { shift: a.shift } : {}), is: a.is },
+        near: { x, y, toX, toY, range, ...(a.shift ? { shift: a.shift } : {}), ...(a.plus ? { plus: a.plus } : {}), is: a.is },
         pass: ok(out.holds),
         sign: ok(have) ? out.sign : 0,
       };

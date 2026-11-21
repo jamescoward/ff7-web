@@ -242,7 +242,7 @@ describe('near checks (#168)', () => {
     doc.assert.push({ near: { x: 'ax', y: 'ay', toX: 'bx', toY: 'by', range: ['r1', 'counter'], shift: 12, is: 'within' }, metric: 'n1' });
     doc.metrics.push('n1');
     const sc = loadScenario(doc);
-    assert.deepEqual(sc.asserts.at(-1), { kind: 'near', names: ['ax', 'ay', 'bx', 'by', 'r1', 'counter'], shift: 12, is: 'within', metric: 'n1' });
+    assert.deepEqual(sc.asserts.at(-1), { kind: 'near', names: ['ax', 'ay', 'bx', 'by', 'r1', 'counter'], shift: 12, plus: 0, is: 'within', metric: 'n1' });
 
     const noMem = clone(doc);
     noMem.assert.at(-1).near.toY = 'nope';
@@ -255,7 +255,26 @@ describe('near checks (#168)', () => {
     assert.throws(() => loadScenario(badIs), /schema/);
     const noRange = clone(doc);
     noRange.assert.at(-1).near.range = [];
-    assert.throws(() => loadScenario(noRange), /schema/);
+    assert.throws(() => loadScenario(noRange), /needs at least one range location or a plus above 0/);
+    // #237: a constant plus, with or without range locations.
+    const plusOnly = clone(noRange);
+    plusOnly.assert.at(-1).near.plus = 256;
+    assert.deepEqual(loadScenario(plusOnly).asserts.at(-1), { kind: 'near', names: ['ax', 'ay', 'bx', 'by'], shift: 12, plus: 256, is: 'within', metric: 'n1' });
+    const badPlus = clone(plusOnly);
+    badPlus.assert.at(-1).near.plus = -1;
+    assert.throws(() => loadScenario(badPlus), /schema/);
+  });
+
+  test('a constant plus adds to the range (#237)', () => {
+    const four = [s32, s32, s32, s32];
+    const pts = (x, y, tx, ty) => [raw(x * 4096), raw(y * 4096), raw(tx * 4096), raw(ty * 4096)];
+    // Distance 255 against 256 -> within; 256 against 256 -> exactly the range, not within.
+    assert.deepEqual(nearOutcome({ shift: 12, plus: 256, is: 'within' }, four, pts(-100, 0, 155, 0)), { sign: -1, holds: true });
+    assert.deepEqual(nearOutcome({ shift: 12, plus: 256, is: 'within' }, four, pts(-100, 0, 156, 0)), { sign: 0, holds: false });
+    // Ranges and plus add: 5 against 4 + 2 + 0 (no plus) is within, against 1 + 2 + 2 is not.
+    assert.deepEqual(nearOutcome({ shift: 12, is: 'within' }, locs, at(10, 20, 13, 24, 4, 2)), { sign: -1, holds: true });
+    assert.deepEqual(nearOutcome({ shift: 12, plus: 2, is: 'within' }, locs, at(10, 20, 13, 24, 1, 2)), { sign: 0, holds: false });
+    assert.deepEqual(nearOutcome({ shift: 12, plus: 3, is: 'within' }, locs, at(10, 20, 13, 24, 1, 2)), { sign: -1, holds: true });
   });
 });
 

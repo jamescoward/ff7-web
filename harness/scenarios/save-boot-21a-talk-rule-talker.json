@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-21a-talk-rule-talker",
-  "description": "#237 acceptance (attempt 2). Boot harness/saves/disc1-mds7st1.json (field 144) and load. Hold Down 300 frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model 7 is within talk range (ground distance < TalkRange + the player's SolidRange, n7 -1), its TalkOff reads 0, its height is within 256 field units of the player's (h7: shift 18, range 4), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0, and that a rerun matches.",
+  "description": "#237 acceptance (attempt 3). Boot harness/saves/disc1-mds7st1.json (field 144) and load. Hold Down 300 frames (save-boot-19a's route, where Circle opens window 1) and stop before Circle. Checks that model 7 is within talk range (ground distance < TalkRange + the player's SolidRange, n7 -1), its TalkOff reads 0, its height is within 256 field units of the player's (h7: field units, range plus 256), models 8 and 9 (TalkOff 0 per attempt 1) are outside, the player is model 0, and that a rerun matches.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",
@@ -300,11 +300,9 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading",
-          "loading"
-        ],
-        "shift": 18,
+        "range": [],
+        "plus": 256,
+        "shift": 12,
         "is": "within"
       },
       "metric": "h7"

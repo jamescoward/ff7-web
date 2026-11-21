@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-21b-talk-rule-height",
-  "description": "#237 attempt 2 (diagnostic). As save-boot-21a. Bounds the height difference between the player and model 7 at several resolutions with the near check (each -1 means |dz| below the bound, in field units): b32, b64, b128 (shift 16, range 2, 4, 8), b256 (shift 18, range 4), b512 (shift 19, range 4); zs is the sign of z0 - z7 (signed). Fails by design where a bound does not hold.",
+  "description": "#237 attempt 3 (diagnostic). As save-boot-21a. Brackets the height difference between the player and model 7 in field units with the near check and a constant range (each -1 means |dz| below the bound): b200, b224, b240, b272, b288, b304; zs is the sign of z0 - z7 (signed). Attempt 2 put |dz| in (192, 320). Fails by design where a bound does not hold.",
   "boot": {
     "disc": 1,
     "save": "disc1-mds7st1",
@@ -287,13 +287,12 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading"
-        ],
-        "shift": 16,
+        "range": [],
+        "plus": 200,
+        "shift": 12,
         "is": "within"
       },
-      "metric": "b32"
+      "metric": "b200"
     },
     {
       "near": {
@@ -301,14 +300,12 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading",
-          "loading"
-        ],
-        "shift": 16,
+        "range": [],
+        "plus": 224,
+        "shift": 12,
         "is": "within"
       },
-      "metric": "b64"
+      "metric": "b224"
     },
     {
       "near": {
@@ -316,16 +313,12 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading",
-          "loading",
-          "loading",
-          "loading"
-        ],
-        "shift": 16,
+        "range": [],
+        "plus": 240,
+        "shift": 12,
         "is": "within"
       },
-      "metric": "b128"
+      "metric": "b240"
     },
     {
       "near": {
@@ -333,14 +326,12 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading",
-          "loading"
-        ],
-        "shift": 18,
+        "range": [],
+        "plus": 272,
+        "shift": 12,
         "is": "within"
       },
-      "metric": "b256"
+      "metric": "b272"
     },
     {
       "near": {
@@ -348,23 +339,35 @@
         "y": "map_cur",
         "toX": "z7",
         "toY": "map_cur",
-        "range": [
-          "loading",
-          "loading"
-        ],
-        "shift": 19,
+        "range": [],
+        "plus": 288,
+        "shift": 12,
         "is": "within"
       },
-      "metric": "b512"
+      "metric": "b288"
+    },
+    {
+      "near": {
+        "x": "z0",
+        "y": "map_cur",
+        "toX": "z7",
+        "toY": "map_cur",
+        "range": [],
+        "plus": 304,
+        "shift": 12,
+        "is": "within"
+      },
+      "metric": "b304"
     }
   ],
   "metrics": [
     "zs",
-    "b32",
-    "b64",
-    "b128",
-    "b256",
-    "b512",
+    "b200",
+    "b224",
+    "b240",
+    "b272",
+    "b288",
+    "b304",
     "load_done"
   ]
 }

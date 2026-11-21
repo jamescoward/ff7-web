@@ -43,3 +43,25 @@ Reading:
 What decides attempt 3:
 - **21a passes and 21b brackets |dz| below 256.** The rule holds at the one reachable talk. The second run then confirms `fieldTalkRange` and `fieldTalkOff` (value 0), and `fieldZ` as far as this height difference goes. `nearby()` can then report `confirmed: true`.
 - **|dz| ≥ 256.** Either the game's height limit is not 256 field units in these units (for example raw >> 12 is not the right scale for z), or model 7 is not the talker. Attempt 3 then checks facing, or a walk that brings model 8 or 9 into range.
+
+### Attempt 2 (`3aed54f`, tier2: 97 pass, 2 fail; every other scenario passed unchanged)
+| scenario | metrics |
+|---|---|
+| 21a-talk-rule-talker (fail) | n7 −1, off7_ok 1, **h7 0**, n8 1, n9 1, pm_ok 1, match 1, load_done 392 |
+| 21b-talk-rule-height (fail by design) | zs 1, b32 1, b64 1, b128 1, b256 0, b512 −1, load_done 392 |
+| 21c-talk-rule-control (pass) | unchanged from attempt 1 |
+
+Reading:
+- Every part of the rule holds for model 7 except the height bound. The distance, TalkOff, models 8 and 9 out of range, the player model and the rerun are the same as in attempt 1, which makes them deterministic over two runs.
+- The player is higher than model 7 (zs 1). b256 0 means floor(z >> 18) values exactly 4 apart, so 192 < |dz| < 320. b128 1 and b512 −1 agree. **|dz| still straddles 256.**
+- The bounds the near check could express were all sums of memory values (2 per `loading`). None of them lands on 256 at field-unit resolution, so the 256 question cannot be settled without a constant.
+
+## Attempt 3 plan (the last)
+- **Format 2: `near.plus`**, a constant (0–65535) added to the range; `range` may then be empty. This is a missing capability of the check kind (a threshold against a constant), which the contract allows with Tier 1 tests (`format2.test.js`). Only the sign still leaves the sandbox.
+- `21a` asserts |dz| < 256 exactly in floored field units (shift 12, plus 256).
+- `21b` brackets |dz| at 200, 224, 240, 272, 288 and 304 field units.
+- `21c` is unchanged.
+
+Outcome either way:
+- **h7 −1:** the rule holds at the reachable talk, and attempt 3 is the acceptance. One more push repeats it for determinism, the entries are confirmed, and the PR merges.
+- **h7 not −1:** |dz| ≥ 256 although Circle opens a message there. Then the 256 limit, the >> 12 scale for PosZ, or model 7 being the talker is wrong. The budget is used up: report on #237, keep `fieldZ` as a hypothesis, and confirm only what was shown (TalkRange and TalkOff as read, with no talk claim).

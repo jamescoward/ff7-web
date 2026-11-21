@@ -510,6 +510,16 @@
           }
         },
         {
+          "description": "Restart from the scenario's boot point, keeping the memory card as the script left it (#228): the card is put back and the boot point's state (frame T) is loaded again, which flags the card as new, as a save boot does with its generated card. Takes no frames. Only in a scenario that starts from a boot point with a card (card \"blank\"), not from a named snapshot, and not in a boot point's script.",
+          "type": "object",
+          "required": ["restart"],
+          "additionalProperties": false,
+          "properties": {
+            "restart": { "const": "keep-card" },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "Record the value of every u8/u16/u32 memory location at this point (#38), for change checks with \"since\". Takes no frames; nothing leaves the run.",
           "type": "object",
           "required": ["mark"],
@@ -678,7 +688,8 @@
                     "slot": { "$ref": "#/$defs/metricName" },
                     "checksum": { "$ref": "#/$defs/metricName" },
                     "module": { "$ref": "#/$defs/metricName" },
-                    "location": { "$ref": "#/$defs/metricName" }
+                    "location": { "$ref": "#/$defs/metricName" },
+                    "savemap": { "$ref": "#/$defs/metricName" }
                   }
                 }
               }

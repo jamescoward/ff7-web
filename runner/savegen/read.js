@@ -80,19 +80,32 @@ export function changedSlots(before, after) {
  *   slot      the first changed slot, 0 if none
  *   checksum  1 if that slot holds a save with a right checksum, else 0
  *   module, location  that save's, 0 if none
+ *   savemap   1 if that slot's savemap bytes (block 0x200, SAVEMAP_SIZE
+ *             bytes) differ between the two cards, else 0 (#228): a save
+ *             that rewrote only the directory frame or the block header
+ *             reads 0
  *   holds     changed >= 1, checksum 1, and module as asked
  */
 export function cardOutcome(before, after, { module } = {}) {
   const changed = changedSlots(before, after);
-  if (!changed.length) return { changed: 0, slot: 0, checksum: 0, module: 0, location: 0, holds: false };
+  if (!changed.length) return { changed: 0, slot: 0, checksum: 0, module: 0, location: 0, savemap: 0, holds: false };
   const s = readSlot(after, changed[0]);
   const ok = s.checksum === 'right';
+  const from = s.slot * BLOCK_SIZE + SAVEMAP_IN_BLOCK;
+  let savemap = 0;
+  for (let i = from; i < from + SAVEMAP_SIZE; i++) {
+    if (before[i] !== after[i]) {
+      savemap = 1;
+      break;
+    }
+  }
   const out = {
     changed: changed.length,
     slot: s.slot,
     checksum: ok ? 1 : 0,
     module: s.module ?? 0,
     location: s.location ?? 0,
+    savemap,
   };
   return { ...out, holds: ok && (module === undefined || s.module === module) };
 }

@@ -86,7 +86,7 @@ Reading:
   - only one height difference was measured.
 - So `nearby()` is now confirmed in a settled field. The Labs flag `interact-label` (#25, off by default) can therefore show Talk, Exit or a dimmed label in a real game. Tier 3 is deferred (#123).
 - `21b` (the diagnostic) is removed. `21a` and `21c` stay as the acceptance and control.
-- `21a` also reads element 0 of the TalkOff and TalkRange arrays, which is the address the table names. It asserts the player's own TalkOff reads 0, as #112 saw.
+- `21a` also declares element 0 of the TalkOff and TalkRange arrays (`off0`, `talk0`), which is the address the table names. It asserts the player's own TalkOff reads 0, as #112 saw.
 - Format 2 `near.plus` stays, with its Tier 1 tests.
 
 The determinism run is the confirmation push: 21a and 21c must report the same metrics as on `9785d05`.

@@ -141,9 +141,12 @@ describe('nearby reader', () => {
     assert.equal(byName.fieldSolidRange.address, 0x80074f10);
     assert.equal(byName.fieldTalkRange.address, 0x80074f12);
     assert.equal(byName.fieldTriggers.address, 0x800716c4);
-    // Confirmed by #112 attempt 1; the talk entries stay hypotheses (notes/112-field-interactables.md).
+    // Confirmed by #112 attempt 1 (notes/112-field-interactables.md); the talk entries by #237 (notes/237-talk-rule.md).
     for (const n of ['fieldModelCount', 'fieldDir', 'fieldSolidRange', 'fieldTriggers']) assert.equal(byName[n].status, 'confirmed', n);
-    for (const n of ['fieldZ', 'fieldTalkOff', 'fieldTalkRange']) assert.equal(byName[n].status, 'hypothesis', n);
+    for (const n of ['fieldZ', 'fieldTalkOff', 'fieldTalkRange']) {
+      assert.equal(byName[n].status, 'confirmed', n);
+      assert.equal(byName[n].scenario, 'harness/scenarios/save-boot-21a-talk-rule-talker.json', n);
+    }
   });
 
   test('an NPC in range and faced, an NPC out of range, and an exit', async () => {
@@ -182,10 +185,10 @@ describe('nearby reader', () => {
     assert.equal(r.confirmed, true);
   });
 
-  test('with the shipped table it reads, but is not confirmed', async () => {
+  test('with the shipped table it reads, confirmed since #237 confirmed the talk entries', async () => {
     const r = await setup({ models: [PLAYER, { x: 0, y: 40, talkRange: 20 }], table: ADDRESS_TABLE }).s.nearby();
     assert.equal(r.value.length, 1);
-    assert.equal(r.confirmed, false);
+    assert.equal(r.confirmed, true);
   });
 
   test('outside a settled field: [] and reason "not in field", reading only the mode', async () => {

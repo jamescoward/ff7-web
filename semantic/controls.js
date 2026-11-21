@@ -117,9 +117,9 @@ export const INTERACT_LABELS = Object.freeze({
  *
  * - A failed read, a result with a reason (not in a settled field) or an
  *   unconfirmed result says nothing either way: the plain label, not dimmed.
- *   nearby() is unconfirmed while fieldZ, fieldTalkOff and fieldTalkRange are
- *   hypotheses (notes/112-field-interactables.md), so until #112's talk rule
- *   is confirmed in Tier 2 the label never changes in a real game.
+ *   #237 confirmed fieldZ, fieldTalkOff and fieldTalkRange at one talk
+ *   (notes/237-talk-rule.md), so nearby() is confirmed in a settled field
+ *   whose other reads are confirmed. Facing is still the reference's rule.
  * - Confirmed, an NPC in range: Talk. Circle talks to an NPC in range, so
  *   Talk wins over an exit in range (agent default, #25).
  * - Confirmed, an exit in range and no NPC: Exit.

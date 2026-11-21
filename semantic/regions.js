@@ -70,3 +70,58 @@ export function cropFor(mode, confirmed, displayWidth, displayHeight) {
     },
   };
 }
+
+// Battle scene crop (#136, Labs flag `battle-crop`): in a confirmed battle the
+// picture may show only the battle scene, leaving out the game's own command
+// and status windows along the bottom, so the page's command panel (#116) and
+// status strip (#133) take their place.
+//
+// The rectangle is in PS1 framebuffer pixels of the reference frame
+// (SCENE_REF), and scales with the frame shown. Agent default (Trip mode rule
+// 11, 2026-11-21), a hypothesis NOT measured on the disc: the bottom windows
+// are taken to start no higher than row 160 of a 320x240 frame, so the crop
+// keeps rows 0-159 at full width. If the windows start lower, part of the
+// scene is lost; if higher, part of a window shows. Tier 3 checks it.
+/** The frame size the scene rectangles are written for. */
+export const SCENE_REF = Object.freeze({ width: 320, height: 240 });
+
+/** Per mode: null (show the full frame) or { x, y, w, h } in SCENE_REF pixels. */
+export const SCENE_REGIONS = Object.freeze({
+  field: null,
+  battle: Object.freeze({ x: 0, y: 0, w: 320, h: 160 }),
+  world: null,
+  menu: null,
+  minigame: null,
+  movie: null,
+  unknown: null,
+});
+
+/** A scene crop never keeps less than this share of the frame's height or width. */
+export const MIN_SCENE_SHARE = 0.5;
+
+/**
+ * The fixed scene rectangle for one moment: null (the full frame) or
+ * { x, y, w, h } in the shown frame's pixels, integers inside the frame.
+ *
+ * @param {string} mode       mode()'s label
+ * @param {boolean} confirmed mode()'s `confirmed`; only `true` allows a crop
+ * @param {number} displayWidth  framebuffer width of the frame shown
+ * @param {number} displayHeight framebuffer height of the frame shown
+ */
+export function sceneRectFor(mode, confirmed, displayWidth, displayHeight) {
+  if (confirmed !== true) return null;
+  if (!Object.hasOwn(SCENE_REGIONS, mode)) return null;
+  const r = SCENE_REGIONS[mode];
+  if (!r) return null;
+  const W = displayWidth;
+  const H = displayHeight;
+  if (!Number.isInteger(W) || !Number.isInteger(H) || W <= 0 || H <= 0) return null;
+  const sx = W / SCENE_REF.width;
+  const sy = H / SCENE_REF.height;
+  const x = Math.round(r.x * sx);
+  const y = Math.round(r.y * sy);
+  const w = Math.min(W - x, Math.round(r.w * sx));
+  const h = Math.min(H - y, Math.round(r.h * sy));
+  if (w < W * MIN_SCENE_SHARE || h < H * MIN_SCENE_SHARE) return null;
+  return { x, y, w, h };
+}

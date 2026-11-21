@@ -18,8 +18,8 @@ const base = () => ({
   boot: { fixture: 'pad-echo', from: 'pad-echo-ready-card' },
   memory: { counter: { addr: '0x800f0000', type: 'u32' } },
   input: [{ wait: { frames: 10 } }],
-  assert: [{ card: { module: 3, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc' } }, metric: 'card_ok' }],
-  metrics: ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc'],
+  assert: [{ card: { module: 3, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc', savemap: 'c_data' } }, metric: 'card_ok' }],
+  metrics: ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'c_data'],
 });
 const clone = (o) => structuredClone(o);
 
@@ -29,7 +29,7 @@ describe('card checks: schema and loader (#226)', () => {
     assert.deepEqual(validate(schema, d), []);
     const sc = loadScenario(d);
     assert.deepEqual(sc.asserts[0], {
-      kind: 'card', module: 3, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc' }, metric: 'card_ok',
+      kind: 'card', module: 3, report: { changed: 'c_n', slot: 'c_slot', checksum: 'c_sum', module: 'c_mod', location: 'c_loc', savemap: 'c_data' }, metric: 'card_ok',
     });
   });
 

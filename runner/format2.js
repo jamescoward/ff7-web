@@ -68,7 +68,7 @@ export const BUILTIN_METRICS_2 = [
 
 const NUMERIC = new Set(['u8', 'u16', 'u32']);
 /** What a card check (#226) may report as metrics (savegen/read.js cardOutcome). */
-export const CARD_REPORT = ['changed', 'slot', 'checksum', 'module', 'location'];
+export const CARD_REPORT = ['changed', 'slot', 'checksum', 'module', 'location', 'savemap'];
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 /** Normalise a condition; throws ScenarioError. */
@@ -169,7 +169,7 @@ function loadPress(p, where) {
   return { mask: padMask(p.buttons), port: p.port ?? 0, every: p.every, hold };
 }
 
-/** Normalise script steps: [{ kind: 'press'|'wait'|'until'|'still', ... }]. Segments are already expanded. */
+/** Normalise script steps: [{ kind: 'press'|'wait'|'until'|'still'|'mark'|'restart', ... }]. Segments are already expanded. */
 function loadScript(steps, memory, where, { allowUntil = true } = {}) {
   return steps.map((s, i) => {
     const w = `${where}[${i}]`;
@@ -178,6 +178,10 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
     if (s.mark !== undefined) {
       if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no marks`);
       return { kind: 'mark', name: s.mark, index: i };
+    }
+    if (s.restart !== undefined) {
+      if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no restart`);
+      return { kind: 'restart', index: i };
     }
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);
@@ -318,6 +322,13 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
     if (s.kind !== 'mark') continue;
     if (marks.has(s.name)) fail(`input[${s.index}]: mark "${s.name}" is already set by an earlier step`);
     marks.add(s.name);
+  }
+  // A restart step (#228) loads the boot point's state again with the card
+  // as the script left it, so it needs a boot point with a card, whose state
+  // the run holds; a named snapshot's chain would not be replayed.
+  const restart = steps.find((s) => s.kind === 'restart');
+  if (restart && (bootPoint === null || bootPoint.card !== 'blank')) {
+    fail(`input[${restart.index}].restart: the scenario must start from a boot point with a memory card (card "blank"), not ${named ? `snapshot "${fromSnapshot}"` : `"${doc.boot.from ?? SAVE_BOOT_POINT}"`}`);
   }
   const asserts = doc.assert.map((a, i) => {
     const where = `assert[${i}]`;
@@ -500,9 +511,10 @@ function readAll(backend, memory) {
  * Play script steps on a backend. Returns { frames, waits: Map(step ->
  * frames waited, 0 = timed out), marks: Map(mark name -> Map(memory name ->
  * value)), timedOut }. A timed-out wait stops the script; marks after it
- * are not reached.
+ * are not reached. restartState: the boot point's state bytes, which a
+ * restart step loads again (#228); a restart without it throws.
  */
-export function playScript(backend, steps, memory, onMark = null) {
+export function playScript(backend, steps, memory, onMark = null, restartState = null) {
   let frames = 0;
   const waits = new Map();
   const marks = new Map();
@@ -520,6 +532,15 @@ export function playScript(backend, steps, memory, onMark = null) {
     if (s.kind === 'mark') {
       marks.set(s.name, readAll(backend, memory));
       if (onMark) onMark(s.name, backend);
+    } else if (s.kind === 'restart') {
+      // As a save boot puts its card in (#38): the card, then the state at
+      // T loaded again, which flags the card as new so the game reads it.
+      // Here the card is the one the script left; save states do not hold
+      // it (notes/31-card-and-snapshots.md). Takes no frames.
+      if (!restartState) throw new Error('a restart step needs the boot point state');
+      const card = backend.getCard();
+      backend.setCard(card);
+      backend.loadState(restartState);
     } else if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
@@ -780,6 +801,7 @@ export async function runScenario2(sc, opts = {}) {
       }
     : null;
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
+  const hasRestart = sc.steps.some((s) => s.kind === 'restart'); // #228: only from a boot point with a card (loadScenario2)
   const cardChecks = sc.asserts.filter((a) => a.kind === 'card');
   let cardBefore = null; // the slot 1 card at the start and end of the main run (#226), in memory only
   let cardAfter = null;
@@ -792,10 +814,10 @@ export async function runScenario2(sc, opts = {}) {
    * parts }. parts (with same_PART metrics) hashes each part of a state
    * saved at the end, after the digest.
    */
-  const play = (backend, onMark = null) => {
+  const play = (backend, onMark = null, restartState = null) => {
     const dupes = needDigest ? backend.stats().duplicateFrames : 0;
     const t0 = performance.now();
-    const r = playScript(backend, sc.steps, sc.memory, onMark);
+    const r = playScript(backend, sc.steps, sc.memory, onMark, restartState);
     const ms = performance.now() - t0;
     const digest = needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null;
     return { run: r, ms, digest, parts: wantParts ? partDigests(backend.saveState()) : null };
@@ -810,7 +832,9 @@ export async function runScenario2(sc, opts = {}) {
   };
   /**
    * Get to the start point with no snapshot: boot through the boot point,
-   * then play the chain's scripts. Returns { backend, reached, ms, frames }.
+   * then play the chain's scripts. Returns { backend, reached, ms, frames,
+   * state }: state is the boot point's state (after a save boot's card is
+   * in), for a restart step (#228); null when the script has none.
    */
   const fromScratch = async (want) => {
     const r = await bootThrough(bp, src.program, want, opts);
@@ -818,20 +842,24 @@ export async function runScenario2(sc, opts = {}) {
     let reachedHere = r.reached;
     let frames = bp ? bp.frames : 0;
     const t0 = performance.now();
+    // Taken even when T was not reached, so a restart step can still run;
+    // such a replay's result is discarded (ok false).
+    let state = null;
+    if ((card && reachedHere) || hasRestart) state = r.backend.saveState();
     if (card && reachedHere) {
       // As a restore does: the generated card in place of the blank one,
       // then the state at T loaded again (which flags the card as new).
-      const st = r.backend.saveState();
       r.backend.setCard(card);
-      r.backend.loadState(st);
+      r.backend.loadState(state);
     }
+    if (!hasRestart) state = null;
     for (const c of chain) {
       if (!reachedHere) break;
       const p = playScript(r.backend, c.steps, c.memory);
       frames += p.frames;
       if (p.timedOut) reachedHere = false;
     }
-    return { backend: r.backend, reached: reachedHere, ms: r.bootMs + (performance.now() - t0), frames };
+    return { backend: r.backend, reached: reachedHere, ms: r.bootMs + (performance.now() - t0), frames, state };
   };
 
   try {
@@ -854,10 +882,12 @@ export async function runScenario2(sc, opts = {}) {
     let snapshot = null; // what "rerun" restores
     let main;
     let startMs = 0; // wall time to get to the start point without the snapshot used
+    let mainRestart = null; // the boot point state a restart step loads (#228)
     try {
       if (opts.fresh) {
         const r = await fromScratch(want);
         main = { backend: r.backend };
+        mainRestart = r.state;
         reached = r.reached;
         snapshotFrames = r.frames;
         startMs = r.ms;
@@ -896,6 +926,7 @@ export async function runScenario2(sc, opts = {}) {
       snapshotFrames = 0;
       throw new StopRun();
     }
+    if (hasRestart && !opts.fresh) mainRestart = snapshot.bytes; // the boot point's state (named snapshots are refused at load)
 
     try {
       for (const a of sc.asserts) {
@@ -904,7 +935,7 @@ export async function runScenario2(sc, opts = {}) {
         startValues.set(a, readLoc(main.backend, loc));
       }
       if (cardChecks.length) cardBefore = main.backend.getCard();
-      const p = play(main.backend, onMark);
+      const p = play(main.backend, onMark, mainRestart);
       if (cardChecks.length) cardAfter = main.backend.getCard();
       ({ run, digest } = p);
       for (const a of sc.asserts) {
@@ -941,16 +972,19 @@ export async function runScenario2(sc, opts = {}) {
         // rerun: the same kind of start as the main run; boot: no snapshot.
         let again;
         let ok = true;
+        let againRestart = null;
         if (a.how === 'rerun' && snapshot) {
           again = (await restoreInto(snapshot.bytes)).backend;
+          againRestart = hasRestart ? snapshot.bytes : null;
         } else if (bp === null && !named) {
           again = (await restoreInto(null)).backend;
         } else {
           const r = await fromScratch(want);
           again = r.backend;
           ok = r.reached;
+          againRestart = r.state;
         }
-        const p = play(again);
+        const p = play(again, null, againRestart);
         sameStates.set(a, ok && p.digest === digest);
         if (a.how === 'boot' && mainParts && !partsSame.size) {
           for (const part of sc.parts) partsSame.set(part, ok && p.parts[part] === mainParts[part]);

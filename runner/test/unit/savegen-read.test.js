@@ -92,7 +92,7 @@ describe('changedSlots and cardOutcome', () => {
   test('no change: nothing holds', () => {
     const c = start();
     assert.deepEqual(changedSlots(c, c.slice()), []);
-    assert.deepEqual(cardOutcome(c, c.slice()), { changed: 0, slot: 0, checksum: 0, module: 0, location: 0, holds: false });
+    assert.deepEqual(cardOutcome(c, c.slice()), { changed: 0, slot: 0, checksum: 0, module: 0, location: 0, savemap: 0, holds: false });
   });
 
   test('a new world map save in slot 2 holds, with module 3', () => {
@@ -100,7 +100,7 @@ describe('changedSlots and cardOutcome', () => {
     const after = before.slice();
     copySlot(after, generateCard(pattern(11), desc(2, { module: { state: 3, exitAction: 0 }, field: { id: 2, x: 0, y: 0, triangle: 0, direction: 0 } })).card, 2);
     assert.deepEqual(changedSlots(before, after), [2]);
-    assert.deepEqual(cardOutcome(before, after, { module: 3 }), { changed: 1, slot: 2, checksum: 1, module: 3, location: 2, holds: true });
+    assert.deepEqual(cardOutcome(before, after, { module: 3 }), { changed: 1, slot: 2, checksum: 1, module: 3, location: 2, savemap: 1, holds: true });
     assert.equal(cardOutcome(before, after, { module: 1 }).holds, false);
   });
 
@@ -127,6 +127,20 @@ describe('changedSlots and cardOutcome', () => {
     const after = blankCard();
     const o = cardOutcome(before, after);
     assert.deepEqual([o.changed, o.slot, o.checksum, o.holds], [1, 1, 0, false]);
+  });
+
+  test('savemap: 1 when the slot\'s savemap bytes changed, 0 when only its directory frame did (#228)', () => {
+    const before = start();
+    const rewritten = before.slice();
+    copySlot(rewritten, generateCard(pattern(14), desc(1)).card, 1);
+    assert.equal(cardOutcome(before, rewritten).savemap, 1);
+    const frameOnly = before.slice();
+    frameOnly[1 * FRAME_SIZE + 0x0a] ^= 0x01; // a byte of slot 1's directory frame (the file name)
+    const o = cardOutcome(before, frameOnly);
+    assert.deepEqual([o.changed, o.slot, o.checksum, o.savemap], [1, 1, 1, 0]);
+    const outsideSavemap = before.slice();
+    outsideSavemap[1 * BLOCK_SIZE + 0x100] ^= 0x01; // the block's icon area, before the savemap at 0x200
+    assert.equal(cardOutcome(before, outsideSavemap).savemap, 0);
   });
 
   test('changes outside slot frames and blocks (frame 0, block 0) are not slots', () => {

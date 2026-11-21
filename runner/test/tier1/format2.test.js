@@ -19,8 +19,9 @@ import { build as buildPadEcho } from '../../../harness/fixtures/pad-echo.js';
 import { buildExpect } from '../../../harness/private-eval/eval/lib.js';
 import { loadExpect, summarize } from '../../../harness/private-eval/validate/validate.js';
 import { createBackend } from '../../backend.js';
-import { makeSnapshot, stateDigest } from '../../format2.js';
+import { makeSnapshot, playScript, stateDigest } from '../../format2.js';
 import { loadScenario, runScenario, ScenarioError } from '../../scenario.js';
+import { blankCard } from '../../synth/blank-card.js';
 import { buildIso } from '../../synth/iso9660.js';
 import { synthExe } from './helpers.js';
 
@@ -198,7 +199,7 @@ describe('card checks (#226)', () => {
     d.metrics = ['card_ok', 'c_n', 'c_slot', 'c_sum', 'c_mod', 'c_loc', 'release_wait', 'counter_wait']; // with the example script's wait metrics
     const r = await runScenario(loadScenario(d));
     assert.equal(r.status, 'fail');
-    assert.deepEqual(r.assertions, [{ card: {}, pass: false, changed: 0, slot: 0, checksum: 0, module: 0, location: 0 }]);
+    assert.deepEqual(r.assertions, [{ card: {}, pass: false, changed: 0, slot: 0, checksum: 0, module: 0, location: 0, savemap: 0 }]);
     assert.deepEqual(r.metrics, { card_ok: 0, c_n: 0, c_slot: 0, c_sum: 0, c_mod: 0, c_loc: 0, release_wait: 1, counter_wait: 21 });
   });
 
@@ -209,6 +210,77 @@ describe('card checks (#226)', () => {
     assert.equal(r.status, 'fail');
     assert.equal(r.metrics.card_ok, 0);
     assert.equal(r.metrics.c_n, 0);
+  });
+});
+
+describe('restart steps (#228)', () => {
+  /** pad-echo with a card: 10 frames, a restart, 5 frames. */
+  const withRestart = () => ({
+    format: 2,
+    name: 'f2-restart',
+    tier: 1,
+    boot: { fixture: 'pad-echo', from: 'pad-echo-ready-card' },
+    memory,
+    input: [{ wait: { frames: 10 } }, { restart: 'keep-card' }, { wait: { frames: 5 } }],
+    assert: [{ sameState: 'rerun', metric: 'same_rerun' }, { sameState: 'boot', metric: 'same_boot' }],
+    metrics: ['frames', 'counter', 'same_rerun', 'same_boot', 'failed_assertions'],
+  });
+  /** The same boot point and the part after the restart alone. */
+  const without = () => ({ ...withRestart(), name: 'f2-no-restart', input: [{ wait: { frames: 5 } }] });
+
+  test('the boot point state is loaded again: the script ends as the part after the restart alone does', async () => {
+    const snap = await makeSnapshot('pad-echo-ready-card');
+    assert.equal(snap.ok, true);
+    const sc = loadScenario(withRestart());
+    const base = await runScenario(loadScenario(without()));
+    assert.equal(base.status, 'pass', JSON.stringify(base));
+    for (const opts of [{}, { snapshot: snap }, { fresh: true }]) {
+      const r = await runScenario(sc, opts);
+      assert.equal(r.status, 'pass', `${JSON.stringify(opts)}: ${JSON.stringify(r)}`);
+      assert.equal(r.metrics.frames, 15); // the frame count runs on over a restart
+      assert.equal(r.metrics.counter, base.metrics.counter, JSON.stringify(opts));
+      assert.equal(r.metrics.same_rerun, 1);
+      assert.equal(r.metrics.same_boot, 1);
+    }
+  });
+
+  test('the card set before the restart is the one present after it', async () => {
+    const snap = await makeSnapshot('pad-echo-ready-card');
+    assert.equal(snap.ok, true);
+    const dir = mkdtempSync(path.join(tmpdir(), 'ff7-f2-restart-'));
+    cleanups.push(dir);
+    const exe = path.join(dir, 'pad-echo.exe');
+    writeFileSync(exe, Buffer.from(buildPadEcho()));
+    const sc = loadScenario(withRestart());
+    // What a save would leave: a card unlike the blank one (a synthetic
+    // pattern over slot 1's directory frame and block, no game bytes).
+    const written = blankCard();
+    for (let i = 0; i < 0x80; i++) written[0x80 + i] = (i * 37 + 1) & 0xff;
+    for (let i = 0; i < 0x2000; i++) written[0x2000 + i] = (i * 151 + 7) & 0xff;
+    const start = async () => {
+      const b = await createBackend({ memoryCard: true });
+      b.loadProgram(exe);
+      b.setCard(blankCard());
+      b.loadState(snap.bytes);
+      return b;
+    };
+    const b = await start();
+    const ref = await start();
+    try {
+      playScript(b, sc.steps.slice(0, 1), sc.memory);
+      b.setCard(written);
+      assert.throws(() => playScript(b, sc.steps.slice(1, 2), sc.memory), /needs the boot point state/);
+      const r = playScript(b, sc.steps.slice(1), sc.memory, null, snap.bytes);
+      assert.equal(r.timedOut, false);
+      assert.equal(r.frames, 5);
+      assert.deepEqual(b.getCard(), written);
+      // and the state is the boot point's plus 5 frames, as with no restart
+      playScript(ref, sc.steps.slice(2), sc.memory);
+      assert.equal(stateDigest(b, { picture: false }), stateDigest(ref, { picture: false }));
+    } finally {
+      b.close();
+      ref.close();
+    }
   });
 });
 

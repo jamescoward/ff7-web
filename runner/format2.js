@@ -330,6 +330,12 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
   if (restart && (bootPoint === null || bootPoint.card !== 'blank')) {
     fail(`input[${restart.index}].restart: the scenario must start from a boot point with a memory card (card "blank"), not ${named ? `snapshot "${fromSnapshot}"` : `"${doc.boot.from ?? SAVE_BOOT_POINT}"`}`);
   }
+  // Nor may it keep a named snapshot (#230): a scenario that starts from
+  // that snapshot replays this one in its chain, which holds no boot point
+  // state for the restart.
+  if (restart && snapshotName !== null) {
+    fail(`input[${restart.index}].restart: a scenario with a restart step can't keep a snapshot (snapshot "${snapshotName}"); a scenario starting from it would replay the restart without the boot point state`);
+  }
   const asserts = doc.assert.map((a, i) => {
     const where = `assert[${i}]`;
     name(a.metric, where);

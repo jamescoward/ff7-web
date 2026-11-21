@@ -510,7 +510,7 @@
           }
         },
         {
-          "description": "Restart from the scenario's boot point, keeping the memory card as the script left it (#228): the card is put back and the boot point's state (frame T) is loaded again, which flags the card as new, as a save boot does with its generated card. Takes no frames. Only in a scenario that starts from a boot point with a card (card \"blank\"), not from a named snapshot, and not in a boot point's script.",
+          "description": "Restart from the scenario's boot point, keeping the memory card as the script left it (#228): the card is put back and the boot point's state (frame T) is loaded again, which flags the card as new, as a save boot does with its generated card. Takes no frames. Only in a scenario that starts from a boot point with a card (card \"blank\"), not from a named snapshot, not in a scenario that keeps a snapshot (\"snapshot\"), and not in a boot point's script.",
           "type": "object",
           "required": ["restart"],
           "additionalProperties": false,

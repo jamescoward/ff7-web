@@ -491,6 +491,39 @@ body {
 @media (orientation: landscape) and (max-height: 600px) {
   .battle-panel { display: none !important; }
 }
+/* Landscape with the battle scene crop (#235, Labs flag `battle-crop`;
+   <html data-battle-crop-on>). The picture keeps the full frame's width
+   (4:3 at full height), so the crop's aspect (--screen-aspect, from
+   semantic/regions.js via js/main.js) makes it shorter, and it sits at the top.
+   The panel is one row of four 44 px buttons in the band that frees below it,
+   between the d-pad and the face buttons and above Start/Select. Its left and
+   right edges are the pad's own sizes (padding + d-pad + gap; padding + three
+   face buttons + gap), plus the safe-area insets when `safe-layout` insets the
+   pad. Outside a cropped battle the panel stays hidden in landscape, as above. */
+@media (orientation: landscape) and (max-height: 600px) {
+  :root[data-battle-crop-on] .screen {
+    --scene-h: calc(100dvh * 4 / 3 / var(--screen-aspect, 1.3333));
+    width: calc(100dvh * 4 / 3);
+    height: var(--scene-h);
+    align-self: flex-start;
+  }
+  :root[data-battle-crop-on] .battle-panel:not([hidden]) {
+    display: block !important;
+    position: absolute;
+    z-index: 4;
+    top: calc(env(safe-area-inset-top) + 100dvh * 4 / 3 / var(--screen-aspect, 1.3333) + 4px);
+    left: calc(2 * var(--gap) + var(--dpad));
+    right: calc(2 * var(--gap) + 3 * var(--face));
+    padding: 0;
+    background: none;
+  }
+  :root[data-safe-layout][data-battle-crop-on] .battle-panel:not([hidden]) {
+    left: calc(env(safe-area-inset-left) + 2 * var(--gap) + var(--dpad));
+    right: calc(env(safe-area-inset-right) + 2 * var(--gap) + 3 * var(--face));
+  }
+  :root[data-battle-crop-on] .bp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  :root[data-battle-crop-on] .bp-btn { padding: 0 4px; font-size: 13px; white-space: nowrap; }
+}
 @media not all and (orientation: landscape) and (max-height: 600px) {
   :root[data-safe-layout][data-battle-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
   :root[data-safe-layout][data-battle-panel-on] .screen { width: 100%; max-height: none; }

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -117,5 +117,43 @@ describe('#120 touch playthrough', () => {
     const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
+  });
+  test('stretch 2 probes (fresh budget, attempt 3): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
+    const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
+    const stall = stallSegment();
+    const frames = stall.steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
+    assert.equal(frames, 30 + 2400 + 200 + 30);
+    assert.equal(tapLeg('up', 200).reduce((n, s) => n + s.frames, 0), 200);
+    const probes = probeScenarios();
+    assert.equal(probes.length, 8);
+    assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
+    assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));
+    for (const b of runButtons('up-left')) offered.add(b);
+    for (const b of runButtons('up-right')) offered.add(b);
+    for (const p of probes) {
+      assert.equal(p.tier, 2);
+      assert.deepEqual(p.boot, { from: 'touch-md1-1' });
+      // Tier 2 runs scenarios in file-name order; touch-playthrough keeps touch-md1-1.
+      assert.ok([`${p.name}.json`, 'touch-playthrough.json'].sort()[0] === 'touch-playthrough.json', p.name);
+      assert.ok(p.metrics.length <= 8, p.name);
+      const steps = [...p.input.flatMap((s) => (s.segment ? stall.steps : [s]))];
+      for (const s of steps) {
+        for (const b of [...(s.buttons ?? []), ...(s.wait?.press?.buttons ?? [])]) assert.ok(offered.has(b), `${p.name}: ${b}`);
+        if (s.wait?.until) assert.ok(p.memory[s.wait.until.mem], `${p.name}: ${s.wait.until.mem}`);
+      }
+      const named = new Set([...p.assert.map((a) => a.metric).filter(Boolean), ...steps.map((s) => s.metric).filter(Boolean), ...Object.keys(p.memory)]);
+      for (const m of p.metrics) assert.ok(named.has(m), `${p.name}: ${m}`);
+      for (const a of p.assert) {
+        const c = a.compare;
+        if (c) {
+          assert.ok(p.memory[c.mem] && p.memory[c.with], `${p.name}: ${c.mem}`);
+          assert.equal(c.shift, c.mem.startsWith('gw') ? 12 : 0, `${p.name}: gateway ends are field units, positions raw`);
+        }
+      }
+    }
+    assert.deepEqual(PROBE_MODELS, [1, 2, 3, 4]);
+    const dlg = ADDRESS_TABLE.entries.find((x) => x.name === 'dialogState');
+    assert.equal(dlg.status, 'confirmed');
+    assert.equal(Number(PROBE_MEMORY.dlg.addr), dlg.address);
   });
 });

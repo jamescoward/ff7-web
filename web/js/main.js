@@ -7,7 +7,7 @@ import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { createBorderCrop, CROP_FLAG } from './border-crop.js';
 import { cropAspect } from './crop.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
-import { BATTLE_CROP_FLAG, createBattleCrop, LANDSCAPE_QUERY } from './battle-crop.js';
+import { BATTLE_CROP_FLAG, createBattleCrop } from './battle-crop.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createInteractLabel, INTERACT_FLAG } from './interact-label.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
@@ -214,14 +214,14 @@ labs.registerFlag(CROP_FLAG, {
 });
 labs.registerFlag(BATTLE_CROP_FLAG, {
   label: 'Battle scene crop',
-  description: 'In battle, the picture shows only the battle scene and leaves out the game\'s own command and status windows at the bottom; the battle command panel and status strip below it take their place. Needs the Battle command panel flag. Portrait only.',
+  description: 'In battle, the picture shows only the battle scene and leaves out the game\'s own command and status windows at the bottom; the battle command panel and status strip take their place (in landscape, the panel sits in a row below the shorter picture). Needs the Battle command panel flag.',
   pr: 136,
   checklist: [
     'Portrait, in a battle, with Battle command panel on: is any part of the battle scene (enemies, party, effects) cut off at the bottom?',
     'Does any part of the game\'s own command or status window still show at the bottom edge?',
     'Is the command panel usable with one thumb, and does it stay clear of the picture?',
     'Leave the battle (win or flee): is the full picture back at once?',
-    'Landscape, or with Battle command panel off: the full picture, as before.',
+    'Landscape, in a battle: is the command row below the picture easy to reach, and clear of the pad and Start/Select?',
   ],
 });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
@@ -299,7 +299,6 @@ const borderCrop = createBorderCrop({
 });
 const battleCrop = createBattleCrop({
   labs,
-  landscape: window.matchMedia?.(LANDSCAPE_QUERY) ?? null,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
 });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });

@@ -3,18 +3,17 @@
 // fixed rectangle semantic/regions.js gives for battle (sceneRectFor), which
 // leaves out the game's own command and status windows along the bottom. The
 // freed height goes to the battle command panel (#116) and the status strip
-// (#133), which already sit below the picture in portrait.
+// (#133): below the picture in portrait, and in landscape (#235) the panel
+// takes the band the shorter picture frees below it, between the pad halves.
 //
-// Agent defaults (Trip mode rule 11, 2026-11-21; notes/136-battle-crop.md):
+// Agent defaults (Trip mode rule 11; notes/136-battle-crop.md):
 //   - it crops only while the `battle-panel` flag is on too, so the game's
 //     command window is never hidden without the page's panel to replace it;
-//   - portrait only: landscape phones have no free space for the panel (it is
-//     hidden there, #116), so in landscape the full frame is shown.
+//   - portrait and landscape alike (#235, 2026-11-21; until then portrait only).
 // Everywhere else (any other mode, an unconfirmed battle, a failed read) the
-// full frame is shown at once. DOM-free apart from the injected media query:
-// the page passes frames in and draws the rectangle that comes back. It holds
-// no pixel coordinates of its own; they are FF7 knowledge and live in
-// semantic/regions.js.
+// full frame is shown at once. DOM-free: the page passes frames in and draws
+// the rectangle that comes back. It holds no pixel coordinates of its own;
+// they are FF7 knowledge and live in semantic/regions.js.
 
 import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { createSemantic } from './semantic/layer.js';
@@ -23,15 +22,12 @@ import { sceneRectFor } from './semantic/regions.js';
 export const BATTLE_CROP_FLAG = 'battle-crop';
 export const NEEDS_FLAG = 'battle-panel';
 export const BATTLE_CROP_HZ = 4;
-/** The page's compact landscape layout (web/css/app.css). */
-export const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 600px)';
 
 export function createBattleCrop({
   labs,
   timers = globalThis,
   hz = BATTLE_CROP_HZ,
   semanticFor = createSemantic,
-  landscape = null, // { matches, addEventListener('change') }, e.g. a MediaQueryList
   onChange = () => {},
 }) {
   let gateActive = false;
@@ -46,7 +42,7 @@ export function createBattleCrop({
   const flagOn = () => labs.isOn(BATTLE_CROP_FLAG);
   const shouldRun = () => flagOn() && (source !== null || (gateActive && backend !== null));
   const inBattle = () => sample?.value?.mode === 'battle' && sample.confirmed === true;
-  const isActive = () => flagOn() && labs.isOn(NEEDS_FLAG) && !landscape?.matches && inBattle();
+  const isActive = () => flagOn() && labs.isOn(NEEDS_FLAG) && inBattle();
 
   // Tell the page whenever the answer to "crop now?" changes, so it redraws
   // the last frame (full or cropped) at once, even while paused.
@@ -105,7 +101,6 @@ export function createBattleCrop({
     if (name === BATTLE_CROP_FLAG) sync();
     else if (name === NEEDS_FLAG) update();
   });
-  landscape?.addEventListener?.('change', update);
 
   return {
     tick,
@@ -119,7 +114,7 @@ export function createBattleCrop({
       if (!r || (r.x === 0 && r.y === 0 && r.w === f.width && r.h === f.height)) return null;
       return r;
     },
-    /** True while the scene crop applies (both flags on, portrait, a confirmed battle). */
+    /** True while the scene crop applies (both flags on, a confirmed battle). */
     get active() { return isActive(); },
     setGate(gate) {
       gateActive = Boolean(gate?.active);

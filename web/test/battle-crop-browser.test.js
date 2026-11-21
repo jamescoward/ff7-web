@@ -30,13 +30,25 @@ const STUB = `export async function createWorkerBackend() {
 const SCENE = { x: 0, y: 0, w: 320, h: 160 };
 const FULL = { x: 0, y: 0, w: 320, h: 240 };
 
-async function openApp(browser, query, viewport = 'portrait') {
+// The iPhone 14 Pro safe-area insets #106 uses (Home Screen web app, viewport-fit=cover).
+const ZERO = { top: 0, right: 0, bottom: 0, left: 0 };
+const LANDSCAPE = [
+  { name: 'landscape standalone', insets: { top: 0, right: 59, bottom: 21, left: 59 }, viewport: { width: 852, height: 393 } },
+  { name: 'landscape browser', insets: ZERO },
+];
+
+async function openApp(browser, query, viewport = 'portrait', { insets = ZERO, size } = {}) {
   const device = viewport === 'portrait' ? 'iPhone 14 Pro' : 'iPhone 14 Pro landscape';
-  const context = await browser.newContext({ ...pw.devices[device] });
+  const context = await browser.newContext({ ...pw.devices[device], ...(size && { viewport: size }) });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/js/backend.js', (route) => route.fulfill({ contentType: 'text/javascript', body: STUB }));
+  await page.route('**/css/app.css', async (route) => {
+    const res = await route.fetch();
+    const css = (await res.text()).replace(/env\(safe-area-inset-(top|right|bottom|left)\)/g, (_, side) => `${insets[side]}px`);
+    await route.fulfill({ response: res, body: css });
+  });
   await page.goto(server.url + query);
   await page.evaluate(() => window.ff7web.ready);
   await page.evaluate(() => {
@@ -48,7 +60,7 @@ async function openApp(browser, query, viewport = 'portrait') {
     // Cloud's command menu is open, so the panel shows (when its flag is on).
     const sem = {
       frame: 1000,
-      battleInput: async () => ({ value: { actor: 0, row: 0, targeting: null }, confirmed: true }),
+      battleInput: async () => ({ value: { actor: 0, row: 0, targeting: window.fakeTargeting ?? null }, confirmed: true }),
       mode: modeNow,
       partyStatus: async () => ({ value: { hp: 271, maxHp: 314, mp: 41, maxMp: 54, limit: 100, atb: 0x8000 }, confirmed: true }),
     };
@@ -78,6 +90,29 @@ const box = (page, sel) => page.evaluate((s) => document.querySelector(s).getBou
 const settle = (page) => page.waitForTimeout(700); // several 4 Hz polls
 const cropOn = (page) => page.evaluate(() => 'battleCropOn' in document.documentElement.dataset);
 const waitShown = (page, want, what) => until(async () => JSON.stringify(await shown(page)) === JSON.stringify(want), { timeout: 3000, what });
+const overlaps = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+// The panel, its shown buttons, and every other thing it must stay clear of:
+// the picture, the top bar's buttons, the status strip, and each pad control.
+const layout = (page) => page.evaluate(() => {
+  const r = (el, what) => ({ what, ...el.getBoundingClientRect().toJSON() });
+  const shownEls = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden');
+  const others = [
+    r(document.querySelector('.screen'), 'the picture'),
+    ...shownEls('.bar > *').map((e) => r(e, `top bar ${e.id || e.className}`)),
+    ...shownEls('#hud').map((e) => r(e, 'the status strip')),
+    ...shownEls('#pad .vp-btn, #pad .vp-dpad').map((e) => r(e, `pad ${e.className}`)),
+  ];
+  return {
+    vw: window.innerWidth,
+    vh: window.innerHeight,
+    scrollW: document.documentElement.scrollWidth,
+    scrollH: document.documentElement.scrollHeight,
+    screen: r(document.querySelector('.screen'), 'the picture'),
+    panel: r(document.getElementById('battle-panel'), 'panel'),
+    buttons: shownEls('#battle-panel .bp-btn').map((e) => r(e, 'button')),
+    others,
+  };
+});
 
 for (const name of BROWSERS) {
   describe(`battle crop: ${name}`, () => {
@@ -186,30 +221,96 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
-    test('landscape: the full frame (no room for the panel there)', async (t) => {
+    // #235: landscape crops too; the panel is one row in the band below the picture.
+    for (const prof of LANDSCAPE) {
+      for (const safe of [false, true]) {
+        const label = `${prof.name}${safe ? ', safe-layout' : ''}`;
+        test(`landscape (${label}): the scene crop, and the panel in a row below the picture, clear of every control`, async (t) => {
+          if (skip) return t.skip(skip);
+          const q = `?labs=battle-crop,battle-panel,battle-hud${safe ? ',safe-layout' : ''}`;
+          const { context, page, errors } = await openApp(browser, q, 'landscape', { insets: prof.insets, size: prof.viewport });
+          try {
+            // The same page outside battle: the scroll size the crop and panel must not add to.
+            // (Without safe-layout, the landscape browser profile already overflows by Start/Select's
+            // 17 px today; safe-layout, #152, fixes that, and there the test asks for no scroll at all.)
+            await setMode(page, 'field');
+            await settle(page);
+            await post(page);
+            const base = await layout(page);
+            if (safe) assert.ok(base.scrollW <= base.vw && base.scrollH <= base.vh, 'safe-layout: no scroll outside battle');
+            await setMode(page, 'battle');
+            await settle(page);
+            await post(page);
+            assert.equal(await page.evaluate(() => window.ff7web.battleCrop.active), true);
+            assert.deepEqual(await shown(page), SCENE);
+            assert.equal(await cropOn(page), true);
+            const scr = await box(page, '.screen');
+            assert.ok(Math.abs(scr.width / scr.height - 2) < 0.01, `2:1 box, got ${scr.width}x${scr.height}`);
+            for (const view of ['command', 'targeting']) {
+              await page.evaluate((v) => { window.fakeTargeting = v === 'targeting' ? { index: 4 } : null; }, view);
+              await until(() => page.evaluate((v) => {
+                const p = document.getElementById('battle-panel');
+                return p.dataset.view === v && getComputedStyle(p).display !== 'none';
+              }, view), { timeout: 3000, what: `the panel shows the ${view} view` });
+              const m = await layout(page);
+              assert.equal(m.buttons.length, 4, `four ${view} buttons in one row`);
+              for (const b of m.buttons) {
+                assert.ok(b.height >= 44 && b.width >= 44, `≥44 px button, got ${b.width}x${b.height}`);
+                assert.ok(Math.abs(b.top - m.buttons[0].top) < 0.5, 'one row');
+                assert.ok(b.left >= 0 && b.right <= m.vw && b.top >= 0 && b.bottom <= m.vh, `button inside the viewport (${JSON.stringify(b)})`);
+              }
+              assert.ok(m.panel.top >= m.screen.bottom - 0.5, `panel below the picture (${m.panel.top} vs ${m.screen.bottom})`);
+              for (const o of m.others) {
+                assert.ok(!overlaps(m.panel, o), `panel ${JSON.stringify(m.panel)} overlaps ${o.what} ${JSON.stringify(o)}`);
+              }
+              assert.ok(m.scrollW <= m.vw && m.scrollH <= Math.max(m.vh, base.scrollH), `no scroll added (${m.scrollW}x${m.scrollH} in ${m.vw}x${m.vh}; ${base.scrollH} outside battle)`);
+            }
+            assert.deepEqual(errors, []);
+          } finally { await context.close(); }
+        });
+      }
+    }
+
+    test('landscape: leaving the battle restores the full-frame layout at once, with no new frame posted', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=battle-crop,battle-panel', 'landscape');
       try {
+        await setMode(page, 'field');
         await settle(page);
         await post(page);
-        assert.equal(await page.evaluate(() => window.ff7web.battleCrop.active), false);
-        assert.deepEqual(await shown(page), FULL);
+        const full = await box(page, '.screen');
+        await setMode(page, 'battle');
+        await waitShown(page, SCENE, 'the scene in battle');
+        await until(() => page.locator('#battle-panel').isVisible(), { timeout: 3000, what: 'the battle panel shows' });
+        await setMode(page, 'field');
+        await waitShown(page, FULL, 'full frame after leaving the battle');
         assert.equal(await cropOn(page), false);
+        assert.deepEqual(await box(page, '.screen'), full, 'the picture is back to its full-frame box');
+        await until(async () => !(await page.locator('#battle-panel').isVisible()), { timeout: 3000, what: 'the panel hides' });
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
 
-    test('turning to landscape mid-battle shows the full frame, and back to portrait the scene', async (t) => {
+    test('turning the phone mid-battle keeps the scene, and the panel moves between below-the-strip and the landscape row', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page } = await openApp(browser, '?labs=battle-crop,battle-panel');
       try {
         await settle(page);
         await post(page);
         assert.deepEqual(await shown(page), SCENE);
+        await until(() => page.locator('#battle-panel').isVisible(), { timeout: 3000, what: 'the battle panel shows' });
         await page.setViewportSize({ width: 852, height: 393 });
-        await waitShown(page, FULL, 'full frame in landscape');
+        await post(page, 1);
+        assert.deepEqual(await shown(page), SCENE);
+        let m = await layout(page);
+        assert.ok(m.panel.top >= m.screen.bottom - 0.5 && m.panel.bottom <= 393, 'landscape: the row below the picture');
+        assert.equal(new Set(m.buttons.map((b) => Math.round(b.top))).size, 1, 'landscape: one row');
         await page.setViewportSize({ width: 393, height: 852 });
-        await waitShown(page, SCENE, 'scene back in portrait');
+        await post(page, 1);
+        assert.deepEqual(await shown(page), SCENE);
+        m = await layout(page);
+        assert.ok(m.panel.top >= m.screen.bottom - 0.5, 'portrait: the panel below the picture');
+        assert.equal(new Set(m.buttons.map((b) => Math.round(b.top))).size, 2, 'portrait: two rows, as before');
       } finally { await context.close(); }
     });
 

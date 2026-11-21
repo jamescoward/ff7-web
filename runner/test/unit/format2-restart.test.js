@@ -56,6 +56,20 @@ describe('restart steps: schema and loader (#228)', () => {
     assert.throws(() => loadScenario(d), (e) => e instanceof ScenarioError && /restart.*card "blank"/.test(e.message));
   });
 
+  test('a scenario that keeps a snapshot is refused (#230)', () => {
+    const d = base();
+    d.snapshot = 'kept-after-restart';
+    assert.deepEqual(validate(schema, d), []);
+    assert.throws(() => loadScenario(d), (e) => e instanceof ScenarioError && /input\[1\]\.restart.*snapshot "kept-after-restart"/.test(e.message));
+  });
+
+  test('a scenario that keeps a snapshot and has no restart still loads (#230)', () => {
+    const d = base();
+    d.snapshot = 'kept-no-restart';
+    d.input.splice(1, 1);
+    assert.equal(loadScenario(d).snapshotName, 'kept-no-restart');
+  });
+
   test('a scenario from a named snapshot is refused', () => {
     const d = base();
     d.boot = { from: 'some-snapshot' };

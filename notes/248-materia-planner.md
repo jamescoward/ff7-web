@@ -9,7 +9,7 @@ Pad plans for the Materia screen, in `semantic/materia-screen.js`, that a later 
 A plan executor runs the list plan with `materiaListSlot(row, offset)` as its cursor (unit test).
 
 ## Save
-`harness/saves/disc1-md1stin-materia-plan.json` is `disc1-md1stin-materia-gaps` with author-chosen materia 49 only in inventory slots 2, 7 and 13, with AP 2, 7 and 13 (words 0x249, 0x749, 0xd49).
+`harness/saves/disc1-md1stin-materia-plan.json` is `disc1-md1stin-materia-gaps` with author-chosen materia 49 only in inventory slots 2, 7 and 13, with AP 2, 7 and 13 (words 0x231, 0x731, 0xd31).
 
 ## Hypotheses
 - **H1:** Down past row 9 scrolls one entry whatever the slots hold, so index = slot past page 1 across gaps.

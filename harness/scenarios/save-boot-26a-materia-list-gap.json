@@ -1,0 +1,376 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-materia-gaps",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it)."
+    },
+    "row0": {
+      "addr": "0x8009a0d3",
+      "type": "u8",
+      "description": "menuCursor (confirmed #78): the main-menu cursor, row 0 = Item."
+    },
+    "menu_ovl": {
+      "addr": "0x80062dd4",
+      "type": "u32",
+      "description": "menuOverlay (confirmed; 3 = the Materia screen, #241)."
+    },
+    "l_row": {
+      "addr": "0x801df5d1",
+      "type": "u8",
+      "description": "materiaListRow (confirmed #244): the highlighted row on the page, 0-9."
+    },
+    "l_off": {
+      "addr": "0x801df5c8",
+      "type": "u8",
+      "description": "materiaListOffset (confirmed #244; low byte of an s16): the list index on the top row."
+    },
+    "wm0": {
+      "addr": "0x8009c778",
+      "type": "u32",
+      "description": "characterWeaponMateria[record 0], slot 0 (confirmed #117): Cloud's first weapon materia slot; empty in the save."
+    },
+    "mat0": {
+      "addr": "0x8009ce60",
+      "type": "u32",
+      "description": "materiaSlot[0] (confirmed #117)."
+    },
+    "mat3": {
+      "addr": "0x8009ce6c",
+      "type": "u32",
+      "description": "materiaSlot[3] (confirmed #117)."
+    },
+    "mat5": {
+      "addr": "0x8009ce74",
+      "type": "u32",
+      "description": "materiaSlot[5] (confirmed #117)."
+    }
+  },
+  "name": "save-boot-26a-materia-list-gap",
+  "description": "#246 (acceptance, hypothesis H1): the Materia list keeps empty inventory slots in place, so list index = inventory slot. Load harness/saves/disc1-md1stin-materia-gaps.json (Cloud alone, materia slots empty, materia 49 in inventory slots 0, 3 and 5 only, AP = slot), open the field menu, plan the main-menu cursor 0 to 2 (semantic/menu-panel.js), Circle every 60 frames until menu_ovl reads 3 (ovl_wait), 120 frames, Circle (opens the list for weapon slot 0, #241) and 60 frames; the list row and offset read 0 (#244). Down 3 times, each a 4-frame press, a wait of at most 30 frames for the list row to read the next index (w_row3 for the last; under H2, a compacted list, the row stops at 2 and that wait fails), then 10 frames. Then mark, Circle, and wait until inventory slot 3 reads empty (eq_wait). Checks: slot 3 empty and changed since the mark (took_ok), slots 0 and 5 unchanged, Cloud's weapon slot 0 holds slot 3's word 0x331, the offset still 0, still on overlay 3 in the menu, a rerun matches. Reports the raw list row at the end. Only frame counts, 1/0, indices and author-chosen words leave.",
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "menu_ovl",
+          "equals": 3
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "ovl_wait"
+    },
+    {
+      "wait": {
+        "frames": 120
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 3
+        },
+        "timeout": 30
+      },
+      "metric": "w_row3"
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    },
+    {
+      "mark": "before-equip"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "mat3",
+          "equals": 4294967295
+        },
+        "timeout": 120
+      },
+      "metric": "eq_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "mat3",
+        "equals": 4294967295
+      },
+      "metric": "took_ok"
+    },
+    {
+      "change": {
+        "mem": "mat3",
+        "is": "changed",
+        "since": "before-equip"
+      }
+    },
+    {
+      "expect": {
+        "mem": "mat0",
+        "equals": 49
+      }
+    },
+    {
+      "expect": {
+        "mem": "mat5",
+        "equals": 1329
+      }
+    },
+    {
+      "expect": {
+        "mem": "wm0",
+        "equals": 817
+      }
+    },
+    {
+      "expect": {
+        "mem": "l_off",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "menu_ovl",
+        "equals": 3
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "ovl_wait",
+    "w_row3",
+    "eq_wait",
+    "took_ok",
+    "wm0",
+    "l_row",
+    "match"
+  ]
+}

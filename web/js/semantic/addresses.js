@@ -456,6 +456,52 @@ const EQUIP_MENU_ENTRIES = [
   },
 ];
 
+// The Materia screen (#244). Same overlay file as Equip, same method: found
+// by track searches in the private eval (notes/244-materia-cursors.md), and
+// laid out as MenuTables (0x12 bytes, rowOffset at +0x02, row at +0x0B): a
+// slot table at 0x801DF5A2 (column at +0x0A) and a list table at 0x801DF5C6.
+// Overlay variables: read them only while a confirmed menuOverlay names the
+// Materia overlay.
+const MATERIA_MENU_SOURCE = 'no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced)';
+const MATERIA_MENU_ENTRIES = [
+  {
+    name: 'materiaSlotColumn',
+    address: 0x801df5ac,
+    type: 's8',
+    meaning: 'Materia screen slot cursor, the column: the materia slot index on the selected row (+0x0A of the slot MenuTable at 0x801DF5A2). Overlay variable: meaningless unless menuOverlay names the Materia overlay',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Right, Left read 1, 0 (save-boot-24a, 25a); a rerun matches`,
+    status: 'hypothesis',
+    scenario: SC('save-boot-25a-materia-slot-cursor'),
+  },
+  {
+    name: 'materiaSlotRow',
+    address: 0x801df5ad,
+    type: 's8',
+    meaning: 'Materia screen slot cursor, the row: 0 weapon, 1 armor (the row of the slot MenuTable at 0x801DF5A2)',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Down, Up read 1, 0 (save-boot-24a, 25a); a rerun matches`,
+    status: 'hypothesis',
+    scenario: SC('save-boot-25a-materia-slot-cursor'),
+  },
+  {
+    name: 'materiaListRow',
+    address: 0x801df5d1,
+    type: 's8',
+    meaning: 'Materia list cursor, the row on the visible page (the row of the list MenuTable at 0x801DF5C6; 10 rows a page). The list entry under the cursor is materiaListRow + materiaListOffset. Meaningful only while the list is open; no page variable is read, so callers track it',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-24b); nine Downs read 1 to 9, and it stays 9 while the list scrolls (save-boot-25b); 0 on the slot page (save-boot-25a); a rerun matches`,
+    status: 'hypothesis',
+    scenario: SC('save-boot-25b-materia-list-cursor'),
+  },
+  {
+    name: 'materiaListOffset',
+    address: 0x801df5c8,
+    type: 's16',
+    meaning: 'Materia list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; with 12 entries, Downs 10 and 11 read 1 and 2 (save-boot-24c, 25b), and Circle then takes the entry at index 11 (row 9 + offset 2), emptying inventory slot 11 (save-boot-25b); a rerun matches`,
+    status: 'hypothesis',
+    scenario: SC('save-boot-25b-materia-list-cursor'),
+  },
+];
+
 const MENU_OVERLAY_ENTRIES = [
   {
     name: 'menuOverlay',
@@ -748,6 +794,7 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...INVENTORY_ENTRIES,
   ...ITEM_MENU_ENTRIES,
   ...EQUIP_MENU_ENTRIES,
+  ...MATERIA_MENU_ENTRIES,
   ...MENU_OVERLAY_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

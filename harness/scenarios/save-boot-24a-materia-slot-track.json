@@ -32,6 +32,41 @@
       "addr": "0x80062dd4",
       "type": "u32",
       "description": "menuOverlay (confirmed; 3 = the Materia screen, #241)."
+    },
+    "col": {
+      "addr": "0x801df5ac",
+      "type": "u8",
+      "description": "Materia screen slot column (candidate, #244 24a): 0 on weapon slot 0. In the EQIPMENU overlay; meaningful only while menuOverlay reads 3."
+    },
+    "row": {
+      "addr": "0x801df5ad",
+      "type": "u8",
+      "description": "Materia screen slot row (candidate, #244 24a): 0 weapon, 1 armor."
+    },
+    "l_row": {
+      "addr": "0x801df5d1",
+      "type": "u8",
+      "description": "Materia list cursor (candidate, #244 24b): the highlighted row on the page, 0-9."
+    },
+    "l_off": {
+      "addr": "0x801df5c8",
+      "type": "u8",
+      "description": "Materia list offset (candidate, #244 24c): the index of the list entry on the top row."
+    },
+    "wm0": {
+      "addr": "0x8009c778",
+      "type": "u32",
+      "description": "characterWeaponMateria[record 0], slot 0 (confirmed #117): Cloud's first weapon materia slot; 0xFFFFFFFF empty in the save."
+    },
+    "mat0": {
+      "addr": "0x8009ce60",
+      "type": "u32",
+      "description": "materiaSlot[0] (confirmed #117)."
+    },
+    "mat11": {
+      "addr": "0x8009ce8c",
+      "type": "u32",
+      "description": "materiaSlot[11] (confirmed #117): the last filled inventory slot in the save."
     }
   },
   "name": "save-boot-24a-materia-slot-track",

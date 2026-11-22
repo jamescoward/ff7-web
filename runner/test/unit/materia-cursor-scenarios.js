@@ -15,7 +15,7 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, CHARACTER_RECORD_SIZE } from '../../../semantic/addresses.js';
 import { menuPanelPlan } from '../../../semantic/menu-panel.js';
 import { MENUS } from '../../../semantic/menus.js';
 import { SCENARIO_DIR, scriptFromPlan, serialise } from './planner-scenarios.js';
@@ -65,12 +65,37 @@ export const PAGE_SIZES = Object.freeze([8, 9, 10]);
 /** The list offset after d Downs from the top, if the list shows `page` rows and scrolls by one at the bottom. */
 export const offsetAfter = (d, page, length = MATERIA.length) => Math.min(Math.max(0, d - (page - 1)), length - page);
 
+/**
+ * Candidates from attempt 1 (tier2 on f7b13b1, notes/244-materia-cursors.md):
+ * the only byte each search found (the list offset search for 10 rows found
+ * two; the first is used). They sit like the Equip and Item overlays'
+ * MenuTables (#135, #216: 0x12 bytes, rowOffset at +0x02, row at +0x0B): a
+ * slot table at 0x801DF5A2 with the column at +0x0A and the row at +0x0B,
+ * and the list table two tables later (0x801DF5C6).
+ */
+export const CANDIDATES = Object.freeze({ column: 0x801df5ac, row: 0x801df5ad, listRow: 0x801df5d1, listOffset: 0x801df5c8 });
+/** The list shows 10 rows (24c: only the page-10 offset hypothesis matched). */
+export const LIST_PAGE = 10;
+/** 25b: Downs in the list; Circle then takes the entry at that index (row 9 + offset 2 = 11). */
+export const LIST_DOWNS = 11;
+/** An empty materia word (ID 0xFF; #117). */
+export const MATERIA_EMPTY = 0xffffffff;
+/** The packed word of the save's materia (AP << 8 | ID); every slot 0-11 holds it. */
+export const MATERIA_WORD = ((MATERIA[0].ap << 8) | MATERIA[0].id) >>> 0;
+
 const MEMORY = {
   game_state: { addr: '0x8009c560', type: 'u16', description: 'g_GameState (s16 as u16; confirmed #76): field 1, menu 5.' },
   map_cur: { addr: '0x8009a05c', type: 'u16', description: 'g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID.' },
   loading: { addr: '0x800965e8', type: 'u16', description: 'g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it).' },
   row0: { addr: '0x8009a0d3', type: 'u8', description: 'menuCursor (confirmed #78): the main-menu cursor, row 0 = Item.' },
   menu_ovl: { addr: hex(entry('menuOverlay').address), type: 'u32', description: 'menuOverlay (confirmed; 3 = the Materia screen, #241).' },
+  col: { addr: hex(CANDIDATES.column), type: 'u8', description: 'Materia screen slot column (candidate, #244 24a): 0 on weapon slot 0. In the EQIPMENU overlay; meaningful only while menuOverlay reads 3.' },
+  row: { addr: hex(CANDIDATES.row), type: 'u8', description: 'Materia screen slot row (candidate, #244 24a): 0 weapon, 1 armor.' },
+  l_row: { addr: hex(CANDIDATES.listRow), type: 'u8', description: 'Materia list cursor (candidate, #244 24b): the highlighted row on the page, 0-9.' },
+  l_off: { addr: hex(CANDIDATES.listOffset), type: 'u8', description: 'Materia list offset (candidate, #244 24c): the index of the list entry on the top row.' },
+  wm0: { addr: hex(entry('characterWeaponMateria').address + CHARACTER_RECORD_SIZE * 0), type: 'u32', description: "characterWeaponMateria[record 0], slot 0 (confirmed #117): Cloud's first weapon materia slot; 0xFFFFFFFF empty in the save." },
+  mat0: { addr: hex(entry('materiaSlot').address), type: 'u32', description: 'materiaSlot[0] (confirmed #117).' },
+  mat11: { addr: hex(entry('materiaSlot').address + 4 * 11), type: 'u32', description: 'materiaSlot[11] (confirmed #117): the last filled inventory slot in the save.' },
 };
 
 /** Load the save and open the field menu, as save-boot-22a does. */
@@ -147,7 +172,74 @@ export function materiaCursorScenarios() {
     })),
     metrics: ['load_done', 'ovl_wait', ...PAGE_SIZES.flatMap((P) => [`o${P}_n`, `o${P}_a`])],
   };
-  return [slot, list, scroll];
+
+  // Acceptance (step 2): each candidate reads the expected index after known
+  // presses, checked with plain waits on the candidate address.
+  const until = (mem, equals, metric, timeout = SETTLE) => ({ wait: { until: { mem, equals }, timeout }, ...(metric ? { metric } : {}) });
+  /** Frames after a value is seen before the next press, as the menu planner's gap. */
+  const GAP = { wait: { frames: 10 } };
+  const slotAccept = {
+    ...base,
+    name: 'save-boot-25a-materia-slot-cursor',
+    description: `#244 (acceptance): the slot column ${hex(CANDIDATES.column)} and row ${hex(CANDIDATES.row)} candidates follow Right, Left, Down and Up on the Materia screen. As 24a to the open screen; column and row read 0; then Right (column 1, w_c1), Left (0, w_c0), Down (row 1, w_r1), Up (row 0, w_r0), each a 4-frame press, a wait of at most ${SETTLE} frames for the value, then 10 frames. Checks: the column reads 0 at the end, the list row and offset candidates read 0, still on overlay ${OVERLAY_MATERIA} in the menu, no materia moved (wm0 empty), a rerun matches (match). Reports the raw column at the end. Only frame counts, 1/0 and indices leave.`,
+    input: [
+      ...openMateria,
+      until('col', 0, undefined, 1),
+      until('row', 0, undefined, 1),
+      PRESS('right'), until('col', 1, 'w_c1'), GAP,
+      PRESS('left'), until('col', 0, 'w_c0'), GAP,
+      PRESS('down'), until('row', 1, 'w_r1'), GAP,
+      PRESS('up'), until('row', 0, 'w_r0'),
+      { wait: { frames: SETTLE } },
+    ],
+    assert: [
+      { expect: { mem: 'col', equals: 0 } },
+      { expect: { mem: 'row', equals: 0 } },
+      { expect: { mem: 'l_row', equals: 0 } },
+      { expect: { mem: 'l_off', equals: 0 } },
+      { expect: { mem: 'wm0', equals: MATERIA_EMPTY } },
+      { expect: { mem: 'menu_ovl', equals: OVERLAY_MATERIA } },
+      { expect: { mem: 'game_state', equals: 5 } },
+      { sameState: 'rerun', metric: 'match' },
+    ],
+    metrics: ['load_done', 'ovl_wait', 'w_c1', 'w_c0', 'w_r1', 'w_r0', 'col', 'match'],
+  };
+
+  const listSteps = [];
+  for (let k = 1; k <= LIST_DOWNS; k++) {
+    listSteps.push(PRESS('down'));
+    if (k < LIST_PAGE) listSteps.push(until('l_row', k, k === LIST_PAGE - 1 ? 'w_row9' : undefined));
+    else listSteps.push(until('l_off', k - (LIST_PAGE - 1), k === LIST_DOWNS ? 'w_off2' : undefined));
+    listSteps.push(GAP);
+  }
+  const index = LIST_DOWNS;
+  const listAccept = {
+    ...base,
+    name: 'save-boot-25b-materia-list-cursor',
+    description: `#244 (acceptance): the list row ${hex(CANDIDATES.listRow)} and list offset ${hex(CANDIDATES.listOffset)} candidates follow Down in the materia list, and the entry they point at is the one Circle takes. As 24b to the open list; row and offset read 0; Down ${LIST_DOWNS} times (4-frame presses, each followed by a wait of at most ${SETTLE} frames for the value, then 10 frames): the row reads 1 to ${LIST_PAGE - 1} after the first ${LIST_PAGE - 1} (w_row9 for the last), then the offset reads 1 and 2 (w_off2 for the last) while the row stays ${LIST_PAGE - 1}. Then mark, Circle, and wait until inventory slot ${index} reads empty (eq_wait). Hypothesis (list order): the entry at index ${index} is inventory slot ${index}. Checks: materiaSlot[${index}] empty and changed since the mark (took_ok), materiaSlot[0] unchanged, Cloud's weapon materia slot 0 holds ${hex(MATERIA_WORD)}, still on overlay ${OVERLAY_MATERIA} in the menu, a rerun matches. Reports the raw wm0 (an author-chosen word).`,
+    input: [
+      ...openList,
+      until('l_row', 0, undefined, 1),
+      until('l_off', 0, undefined, 1),
+      ...listSteps,
+      { wait: { until: { mem: 'l_row', equals: LIST_PAGE - 1 }, timeout: 1 } },
+      { mark: 'before-equip' },
+      PRESS('circle'),
+      { wait: { until: { mem: 'mat11', equals: MATERIA_EMPTY }, timeout: 120 }, metric: 'eq_wait' },
+      { wait: { frames: SETTLE } },
+    ],
+    assert: [
+      { expect: { mem: 'mat11', equals: MATERIA_EMPTY }, metric: 'took_ok' },
+      { change: { mem: 'mat11', is: 'changed', since: 'before-equip' } },
+      { expect: { mem: 'mat0', equals: MATERIA_WORD } },
+      { expect: { mem: 'wm0', equals: MATERIA_WORD } },
+      { expect: { mem: 'menu_ovl', equals: OVERLAY_MATERIA } },
+      { expect: { mem: 'game_state', equals: 5 } },
+      { sameState: 'rerun', metric: 'match' },
+    ],
+    metrics: ['load_done', 'ovl_wait', 'w_row9', 'w_off2', 'eq_wait', 'took_ok', 'wm0', 'match'],
+  };
+  return [slot, list, scroll, slotAccept, listAccept];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

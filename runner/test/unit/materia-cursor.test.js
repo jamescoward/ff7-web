@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { MENU_OVERLAY_MATERIA } from '../../../semantic/addresses.js';
 import {
-  COLUMN_VALUES, MATERIA, MATERIA_ROW, OVERLAY_MATERIA, OVERLAY_RANGE, PAGE_SIZES, ROW_VALUES, SAVE, SCROLL_DOWNS, SLOT_STEPS,
+  CANDIDATES, COLUMN_VALUES, LIST_DOWNS, LIST_PAGE, MATERIA, MATERIA_ROW, OVERLAY_MATERIA, OVERLAY_RANGE, PAGE_SIZES, ROW_VALUES, SAVE, SCROLL_DOWNS, SLOT_STEPS,
   materiaCursorScenarios, offsetAfter,
 } from './materia-cursor-scenarios.js';
 import { SCENARIO_DIR, serialise } from './planner-scenarios.js';
@@ -75,5 +75,23 @@ describe('#244 materia cursor scenarios', () => {
     assert.deepEqual(save.party, [0, 255, 255]);
     assert.ok(save.characters.some((c) => c.record === 0));
     assert.deepEqual(save.materia, MATERIA.map((m) => ({ ...m })));
+  });
+
+  test('the candidates sit as MenuTables do (0x12 bytes; rowOffset +0x02, column +0x0A, row +0x0B)', () => {
+    const slotTable = CANDIDATES.row - 0x0b;
+    const listTable = CANDIDATES.listRow - 0x0b;
+    assert.equal(CANDIDATES.column, slotTable + 0x0a);
+    assert.equal(listTable - slotTable, 2 * 0x12);
+    assert.equal(CANDIDATES.listOffset, listTable + 0x02);
+  });
+
+  test('25b takes the last filled entry: row page-1 plus offset, within the 12 entries', () => {
+    const offset = LIST_DOWNS - (LIST_PAGE - 1);
+    assert.equal(LIST_PAGE - 1 + offset, LIST_DOWNS);
+    assert.equal(LIST_DOWNS, MATERIA.length - 1);
+    const [, , , slot, list] = materiaCursorScenarios();
+    assert.equal(slot.name, 'save-boot-25a-materia-slot-cursor');
+    const inList = list.input.slice(list.input.findIndex((s) => s.wait?.until?.mem === 'l_row'));
+    assert.equal(inList.filter((s) => s.buttons?.[0] === 'down').length, LIST_DOWNS);
   });
 });

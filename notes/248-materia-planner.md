@@ -20,3 +20,21 @@ A plan executor runs the list plan with `materiaListSlot(row, offset)` as its cu
 - **27b:** open the list for weapon slot 0, plan to slot 13, then `materiaListPlan({9,4}, 7)` (6 Ups, to row 3 offset 4), then Circle. Slot 7 should empty into weapon slot 0.
 
 Each press waits for the cursor that should move (the row, or the offset on a scroll) and checks the other in one frame.
+
+### Attempt 1 results: `beaf517` (check 137350905809) and `e586b5a` (check 137353228465), 109 pass, 0 fail each
+The scenario files are the same in both commits, and every 27a/27b metric is identical across the two runs:
+| scenario | metrics |
+|---|---|
+| 27a plan-scroll | ovl_wait 61, w_col 1, w_far 1, eq_wait 1, took_ok 1, wm1 3377 (0xd31), match 1 |
+| 27b plan-up | ovl_wait 61, w_far 1, w_back 1, eq_wait 1, l_row 3, l_off 4, match 1 |
+
+What this shows:
+- **H1 holds.** All 13 steps of the plan to slot 13 passed, including the four scroll steps (row 9; offset 1, 2, 3, 4) across the empty slots 8-12. Circle then emptied slot 13 and put its word, 0xd31, into Cloud's weapon slot 1. Slots 2 and 7 were unchanged and weapon slot 0 stayed empty. So list index = offset + row = inventory slot also holds past page 1.
+- **The column plan works.** One Right read column 1, and the list it opened filled weapon slot 1.
+- **H2 holds.** From row 9, offset 4, each of six Ups lowered the row (8 to 3) with the offset still 4. Circle took slot 7 into weapon slot 0, and slots 2 and 13 were unchanged.
+- 25a/25b and 26a/26b passed in the same runs with their earlier metrics.
+
+## Limits
+- Up at row 0 with offset > 0 (scrolling back) is planned by `materiaListStep` but not run.
+- Columns beyond 1, the armor row, and other weapons' slot counts are not planned.
+- What the list does at the last slot (199) is not run; plans stop there (no wrap).

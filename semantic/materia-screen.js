@@ -63,8 +63,10 @@ export function materiaColumnPlan(from, to, timing) {
 /**
  * Where one press leaves the list cursor { row, offset }: Down moves the row
  * until the last page row, then scrolls (offset + 1, row stays; #244
- * save-boot-25b). Up moves the row until row 0, then scrolls back (offset -
- * 1). Up is the #248 hypothesis H2 until Tier 2 confirms it.
+ * save-boot-25b; past empty slots, #248 save-boot-27a). Up moves the row
+ * until row 0 with the offset unchanged (#248 save-boot-27b: six Ups from
+ * row 9, offset 4 read rows 8-3, offset 4), then scrolls back (offset - 1;
+ * Up at row 0 with offset > 0 is not yet run in Tier 2).
  */
 export function materiaListStep({ row, offset }, button) {
   if (button === 'down') return row < MATERIA_PAGE_ROWS - 1 ? { row: row + 1, offset } : { row, offset: offset + 1 };

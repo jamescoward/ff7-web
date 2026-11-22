@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -517,6 +517,37 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         slot: inRange(r.values.equipSlotCursor, 2),
         listRow: inRange(r.values.equipListRow, 7),
         listOffset: inRange(r.values.equipListOffset, 0x7fff),
+      };
+      return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #244: the Materia screen's cursors. { value: { row, column, listRow,
+     * listOffset } }. row: 0 weapon, 1 armor; column: the materia slot on
+     * that row. listRow (0-9) and listOffset point at list entry listRow +
+     * listOffset while the list is open; no page variable is read, so
+     * callers track whether the list is open. The variables live in the
+     * Materia overlay, so they are read only in a confirmed menu mode while
+     * a confirmed menuOverlay names the Materia overlay. Each field is null
+     * unless that chain and its own entry are confirmed, or when out of range.
+     */
+    async materiaCursors() {
+      const none = { row: null, column: null, listRow: null, listOffset: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_MATERIA) return { value: none, confirmed: true, reason: 'not the Materia screen' };
+      const r = await read(['materiaSlotRow', 'materiaSlotColumn', 'materiaListRow', 'materiaListOffset']);
+      if (!r.values) return fail(r);
+      const inRange = (v, hi) => (r.confirmed && Number.isInteger(v) && v >= 0 && v <= hi ? v : null);
+      const value = {
+        row: inRange(r.values.materiaSlotRow, 1),
+        column: inRange(r.values.materiaSlotColumn, RECORD_WEAPON_MATERIA_SLOTS - 1),
+        listRow: inRange(r.values.materiaListRow, 9),
+        listOffset: inRange(r.values.materiaListOffset, 0x7fff),
       };
       return { value, confirmed: r.confirmed };
     },

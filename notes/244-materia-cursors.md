@@ -32,4 +32,21 @@ What this shows:
 - **25a:** column and row read 0 when the screen opens; Right reads column 1, Left 0, Down row 1, Up row 0. The list row and offset read 0; no materia moves.
 - **25b:** in the list, Downs 1-9 read row 1-9; Downs 10 and 11 read offset 1 and 2 with the row at 9. Circle then takes the entry at index 11: inventory slot 11 reads empty, slot 0 is unchanged, and weapon slot 0 holds the materia. That index 11 is inventory slot 11 is a list-order **hypothesis** (inventory order); every slot holds the same materia, so only the emptied slot shows which entry was taken.
 
-_Pending Tier 2._
+### Attempt 1, step 2 results: `468b9ec` (eval job 137106817639) and `f50acf5` (eval job 137107128605), 105 pass, 0 fail each
+The scenario files are the same in both commits. Every 24/25 metric is identical across the two runs, and 24a–24c match `f7b13b1` too:
+| scenario | metrics |
+|---|---|
+| 25a slot-cursor | w_c1 1, w_c0 1, w_r1 1, w_r0 1, col 0, match 1 |
+| 25b list-cursor | w_row9 1, w_off2 1, eq_wait 1, took_ok 1, wm0 49 (0x31), match 1 |
+
+What this shows:
+- **The four candidates are confirmed**, deterministically over two runs:
+  - the column and row read each value on the first frames after their press (every wait passed within 30 frames), and the list row and offset read 0 on the slot page;
+  - in the list, the row reaches 9, the offset then reads 1 and 2, and Circle takes the entry at index 11: inventory slot 11 empties on the first frame checked, slot 0 keeps its materia, and Cloud's weapon slot 0 holds it.
+- **List order is inventory order** for this save (index 11 is inventory slot 11). Observed for this save only, where all 12 entries are filled.
+- Entries `materiaSlotColumn` (0x801DF5AC, s8), `materiaSlotRow` (0x801DF5AD, s8), `materiaListRow` (0x801DF5D1, s8) and `materiaListOffset` (0x801DF5C8, s16) are now confirmed. The reader is `materiaCursors()`.
+
+## Limits and follow-ups
+- One save: Cloud's starting weapon and armor. Columns beyond 1, the armor row's columns, and lists with empty inventory slots between entries are not read.
+- 24c's second page-10 match is unexplained, as in #216's 17c. It does not affect the entries.
+- A native Materia panel (Labs flag) on top of `materiaCursors()` is the next slice, in the UI lane.

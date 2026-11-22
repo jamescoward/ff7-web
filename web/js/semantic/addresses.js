@@ -470,7 +470,7 @@ const MATERIA_MENU_ENTRIES = [
     type: 's8',
     meaning: 'Materia screen slot cursor, the column: the materia slot index on the selected row (+0x0A of the slot MenuTable at 0x801DF5A2). Overlay variable: meaningless unless menuOverlay names the Materia overlay',
     source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Right, Left read 1, 0 (save-boot-24a, 25a); a rerun matches`,
-    status: 'hypothesis',
+    status: 'confirmed',
     scenario: SC('save-boot-25a-materia-slot-cursor'),
   },
   {
@@ -479,7 +479,7 @@ const MATERIA_MENU_ENTRIES = [
     type: 's8',
     meaning: 'Materia screen slot cursor, the row: 0 weapon, 1 armor (the row of the slot MenuTable at 0x801DF5A2)',
     source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Down, Up read 1, 0 (save-boot-24a, 25a); a rerun matches`,
-    status: 'hypothesis',
+    status: 'confirmed',
     scenario: SC('save-boot-25a-materia-slot-cursor'),
   },
   {
@@ -488,7 +488,7 @@ const MATERIA_MENU_ENTRIES = [
     type: 's8',
     meaning: 'Materia list cursor, the row on the visible page (the row of the list MenuTable at 0x801DF5C6; 10 rows a page). The list entry under the cursor is materiaListRow + materiaListOffset. Meaningful only while the list is open; no page variable is read, so callers track it',
     source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-24b); nine Downs read 1 to 9, and it stays 9 while the list scrolls (save-boot-25b); 0 on the slot page (save-boot-25a); a rerun matches`,
-    status: 'hypothesis',
+    status: 'confirmed',
     scenario: SC('save-boot-25b-materia-list-cursor'),
   },
   {
@@ -497,7 +497,7 @@ const MATERIA_MENU_ENTRIES = [
     type: 's16',
     meaning: 'Materia list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)',
     source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; with 12 entries, Downs 10 and 11 read 1 and 2 (save-boot-24c, 25b), and Circle then takes the entry at index 11 (row 9 + offset 2), emptying inventory slot 11 (save-boot-25b); a rerun matches`,
-    status: 'hypothesis',
+    status: 'confirmed',
     scenario: SC('save-boot-25b-materia-list-cursor'),
   },
 ];

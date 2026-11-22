@@ -10,8 +10,7 @@ export const MATERIA_PAGE_ROWS = 10;
 /**
  * The inventory slot under the list cursor: listOffset + listRow. The list
  * keeps empty inventory slots in place, in slot order (#244 for a full
- * list; with empty slots between entries a hypothesis until #246
- * save-boot-26a passes in Tier 2). null unless
+ * list; #246 save-boot-26a with empty slots between entries). null unless
  * both are non-negative integers and the row is on the page.
  */
 export function materiaListSlot(listRow, listOffset) {
@@ -23,9 +22,9 @@ export function materiaListSlot(listRow, listOffset) {
 /**
  * The game's visible materia page as rows: [{ row, slot, materia }] for rows
  * 0 .. MATERIA_PAGE_ROWS-1, where materia is the materia() entry for that
- * slot ({ id, ap }) or null when the slot is empty (hypothesis until #246
- * save-boot-26b passes: Circle on an empty row moves no materia). listOffset must be a confirmed
- * integer; anything else gives no rows.
+ * slot ({ id, ap }) or null when the slot is empty (#246 save-boot-26b:
+ * Circle on an empty row moves no materia, and the cursor stays).
+ * listOffset must be a confirmed integer; anything else gives no rows.
  */
 export function materiaPageRows(listOffset, materia) {
   if (!Number.isInteger(listOffset) || listOffset < 0) return [];

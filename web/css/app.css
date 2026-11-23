@@ -573,3 +573,15 @@ body {
 .ne-weapons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .ne-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ne-member[data-chosen] { background: #ffd47933; }
+
+/* Native Materia screen (#250), Labs flag `native-materia` (off by default):
+   the same panel as the native Item screen (.native-item; nm- classes mirror
+   its ni- ones): the member line, two weapon slot buttons (the chosen one
+   highlighted) and one button per inventory materia; the panel scrolls, the
+   page does not (js/native-materia.js, <html data-native-materia-on>). */
+.nm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.nm-title { font-weight: 600; }
+.nm-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; }
+.nm-slots, .nm-list, .nm-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.nm-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }

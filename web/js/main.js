@@ -13,6 +13,7 @@ import { createInteractLabel, INTERACT_FLAG } from './interact-label.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
+import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -200,6 +201,18 @@ labs.registerFlag(EQUIP_FLAG, {
     'The classic pad still works while the panel is up (portrait and landscape).',
   ],
 });
+labs.registerFlag(MATERIA_FLAG, {
+  label: 'Native Materia screen',
+  description: 'When the game\'s Materia screen is open, a native panel covers the picture: the member\'s weapon materia slots and every materia in the inventory (numbers and AP, no names). With one party member, tap an empty weapon slot, then a materia: the cursors move there one step at a time, Circle is pressed, and the panel reads both slots to confirm the move. Armor slots and larger parties are not offered yet. Back presses Cross; Hide shows the picture again.',
+  pr: 259,
+  checklist: [
+    'Main menu, Materia, pick Cloud: the panel covers the picture; leave Materia: the picture comes back.',
+    'With only Cloud in the party: tap an empty weapon slot, then a materia far down the list. Does the panel say "Equipped", and does the game agree?',
+    'Do the weapon slots and the materia list match the game (same numbers, AP and order)?',
+    'Tap Hide: the picture shows until Materia is closed and opened again. Back leaves the screen.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
 labs.registerFlag(CROP_FLAG, {
   label: 'Crop black borders',
   description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
@@ -293,6 +306,7 @@ const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
 const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs });
+const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs });
 const borderCrop = createBorderCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
@@ -375,6 +389,7 @@ const backendReady = createWorkerBackend({
     battlePanel.setGate(gate);
     itemScreen.setGate(gate);
     equipScreen.setGate(gate);
+    materiaScreen.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -396,6 +411,7 @@ const backendReady = createWorkerBackend({
   battlePanel.setBackend(b);
   itemScreen.setBackend(b);
   equipScreen.setBackend(b);
+  materiaScreen.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     const c = borderCrop.frame(f);
@@ -530,6 +546,7 @@ window.ff7web = {
   menuPanel,
   itemScreen,
   equipScreen,
+  materiaScreen,
   battlePanel,
   suspend,
   drawnFrame: () => drawn,

@@ -95,3 +95,69 @@ export function materiaListPlan(from, toSlot, timing) {
   });
   return Object.freeze({ ...plan, steps: Object.freeze(steps) });
 }
+
+// --- Native Materia screen (#250, Labs flag `native-materia`) ---
+// What a tap may do and how its result is read. The sequence is the one
+// Tier 2 ran in save-boot-27a (#248): with the screen open 120 frames,
+// materiaColumnPlan along the weapon row, Circle and 60 frames (the list
+// opens), materiaListPlan to the inventory slot, then Circle.
+
+/** Frames the Materia screen must have been open before a tap (save-boot-27a: 120 after menuOverlay reads 3). */
+export const MATERIA_SETTLE_FRAMES = 120;
+/** Frames after the Circle that opens the list before the list plan starts (save-boot-27a: 60). */
+export const MATERIA_LIST_OPEN_FRAMES = 60;
+/** The slot row a tap fills: 0, the weapon row (#244); the armor row is not planned (#255). */
+export const MATERIA_TAP_ROW = 0;
+
+/**
+ * May a tap put inventory slot `slot` into weapon materia column `column`
+ * now? { ok, reason }. state: { open, framesOpen, memberSlot, cursors,
+ * weaponMateria, materia }:
+ * - memberSlot: the party slot whose screen this is, or null when not known
+ *   (a party of one only; the party pick is not confirmed on this screen);
+ * - cursors: a materiaCursors() value; the slot cursor must read the weapon
+ *   row and a column, so the plans start from confirmed values;
+ * - weaponMateria: that member's weapon materia slots ({ id, ap } or null);
+ * - materia: the materia() value.
+ * Only empty, confirmed columns are offered: Tier 2 filled empty slots only,
+ * and a swap is not run.
+ */
+export function materiaTapAllowed(state, column, slot) {
+  if (!state?.open) return { ok: false, reason: 'closed' };
+  if (state.memberSlot === null || state.memberSlot === undefined) return { ok: false, reason: 'party pick not read' };
+  if (!(Number.isInteger(column) && column >= 0 && column < MATERIA_CONFIRMED_COLUMNS)) return { ok: false, reason: 'column not planned' };
+  if (!(Number.isInteger(slot) && slot >= 0 && slot < MATERIA_INVENTORY_SLOTS)) return { ok: false, reason: 'no materia' };
+  if (!Array.isArray(state.materia) || !state.materia.some((m) => m.slot === slot)) return { ok: false, reason: 'no materia' };
+  if (!Array.isArray(state.weaponMateria) || state.weaponMateria.length <= column) return { ok: false, reason: 'unread' };
+  if (state.weaponMateria[column] !== null) return { ok: false, reason: 'slot not empty' };
+  const c = state.cursors;
+  if (!(c && c.row === MATERIA_TAP_ROW && Number.isInteger(c.column))) return { ok: false, reason: 'cursor not read' };
+  if (!(Number.isInteger(state.framesOpen) && state.framesOpen >= MATERIA_SETTLE_FRAMES)) return { ok: false, reason: 'settling' };
+  return { ok: true, reason: null };
+}
+
+/**
+ * Did the tap move the materia? before and after: { inventory, weapon },
+ * the { id, ap } (or null) in the tapped inventory slot and in the weapon
+ * column. 'equipped': the inventory slot is now empty and the column holds
+ * what it held. 'other': either changed some other way. 'none': no change
+ * (or unread: pass undefined for an unread value).
+ */
+export function materiaEquipOutcome(before, after) {
+  const same = (a, b) => (a === null && b === null) || (a && b && a.id === b.id && a.ap === b.ap);
+  if (!before || !after || before.inventory === undefined || after.inventory === undefined || after.weapon === undefined) return 'none';
+  if (before.inventory && after.inventory === null && same(after.weapon, before.inventory)) return 'equipped';
+  if (same(before.inventory, after.inventory) && same(before.weapon, after.weapon)) return 'none';
+  return 'other';
+}
+
+/** A materia's text: ID and AP only (names are game data). */
+export function materiaLabel(m) {
+  if (!m) return '—';
+  return `materia #${m.id}  AP ${m.ap}`;
+}
+
+/** A weapon materia column's text. */
+export function materiaColumnLabel(column, m) {
+  return `Wpn ${column + 1}: ${m ? `#${m.id}` : 'empty'}`;
+}

@@ -11,8 +11,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
 **Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`). Owner decisions of 2026-11-23 (chat session; recorded on each issue and on #123):
-- **Game-state lane (main implementer):** #120 is ready again, with a route hint: talk to a party member in md1_1, probably Biggs, else Jessie. If that fails, a third budget reads md1_1's line triggers and walkmesh. #168 is ready with a third budget, starting from the window-1 lead in mds7st1. Then #255 (Materia armor row and columns ≥2) and the part 1 halves of #253, #256 and #257.
-- **UI lane (second implementer):** #250 (native Materia screen), #251 (CRT filter), #252 (2× internal resolution), #254 (native Equip v2). Then the part 2 halves of #253 (battle sub-menus, first priority because #132 likely needs healing), #256 (Item list past page 1) and #257 (native Save screen).
+- **Game-state lane (main implementer):** #120 is ready again, with a route hint: talk to a party member in md1_1, probably Biggs, else Jessie. If that fails, a third budget reads md1_1's line triggers and walkmesh. #168 is ready with a third budget, starting from the window-1 lead in mds7st1. Then #260 part 1 (names read at runtime from the owner's disc; owner asked for it to go next, 2026-11-23), then #255 (Materia armor row and columns ≥2) and the part 1 halves of #253, #256 and #257.
+- **UI lane (second implementer):** #250 (native Materia screen), #260 part 2 once part 1 is merged (Labs flag `game-names`), #251 (CRT filter), #252 (2× internal resolution), #254 (native Equip v2). Then the part 2 halves of #253 (battle sub-menus, first priority because #132 likely needs healing), #256 (Item list past page 1) and #257 (native Save screen).
 - PR #191 (#149, sandbox memory report) is merged. #147 stays parked: it unblocks nothing else. The native shell stays unplanned (it needs a Mac).
 
 **Done in M2:**

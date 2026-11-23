@@ -10,7 +10,10 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **M2 plan (owner-approved, 2026-11-05; `notes/m2-issue-drafts.md`).** Updated 2026-11-07.
 
-**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`): #24 (PR #213) and #25 (PR #217) are done; #215 and #216 are done (PRs #219, #220). #168 is blocked again after its fresh budget (PR #218: a new `near` check; lead: a message opens in **window 1** in mds7st1, see `notes/168-choice-cursor.md`).
+**Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`). Owner decisions of 2026-11-23 (chat session; recorded on each issue and on #123):
+- **Game-state lane (main implementer):** #120 is ready again, with a route hint: talk to a party member in md1_1, probably Biggs, else Jessie. If that fails, a third budget reads md1_1's line triggers and walkmesh. #168 is ready with a third budget, starting from the window-1 lead in mds7st1. Then #255 (Materia armor row and columns ≥2) and the part 1 halves of #253, #256 and #257.
+- **UI lane (second implementer):** #250 (native Materia screen), #251 (CRT filter), #252 (2× internal resolution), #254 (native Equip v2). Then the part 2 halves of #253 (battle sub-menus, first priority because #132 likely needs healing), #256 (Item list past page 1) and #257 (native Save screen).
+- PR #191 (#149, sandbox memory report) is merged. #147 stays parked: it unblocks nothing else. The native shell stays unplanned (it needs a Mac).
 
 **Done in M2:**
 - **#248** (PR #249): the Materia screen has pad plans, `materiaColumnPlan()` (columns 0-1) and `materiaListPlan()` (any inventory slot, over list index = offset + row). Both are proved in Tier 2 by running their own steps. `save-boot-27a` scrolls past page 1 across empty slots to slot 13 and fills weapon slot 1. `27b` shows that Up after a scroll moves the row first, with the offset unchanged. Deterministic over two runs (`notes/248-materia-planner.md`). These plans are what a native Materia panel (UI lane) needs.

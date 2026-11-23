@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { HINT_MODELS, hintMemory, hintScenarios, TALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { HINT_MODELS, hintMemory, hintScenarios, RANGE_BRACKETS, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -126,14 +126,22 @@ describe('#120 touch playthrough', () => {
     assert.equal(tapLeg('up', 200).reduce((n, s) => n + s.frames, 0), 200);
     assert.equal(probeScenarios().length, 8);
     const probes = [...probeScenarios(), ...hintScenarios()];
-    assert.equal(hintScenarios().length, 2 + TALKS.length);
+    assert.equal(hintScenarios().length, 2 + WALKS.length);
+    // s2i: the first keeps the stall as a snapshot; the rest boot from it and sort after it.
+    const [keeper, ...fromStall] = hintScenarios();
+    assert.equal(keeper.snapshot, STALL_SNAPSHOT);
+    for (const p of fromStall) {
+      assert.deepEqual(p.boot, { from: STALL_SNAPSHOT }, p.name);
+      assert.ok(keeper.name < p.name, p.name);
+    }
+    assert.ok(RANGE_BRACKETS.length <= 8);
     assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
     assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));
     for (const b of runButtons('up-left')) offered.add(b);
     for (const b of runButtons('up-right')) offered.add(b);
     for (const p of probes) {
       assert.equal(p.tier, 2);
-      assert.deepEqual(p.boot, { from: 'touch-md1-1' });
+      assert.ok([{ from: 'touch-md1-1' }, { from: STALL_SNAPSHOT }].some((b) => b.from === p.boot.from), p.name);
       // Tier 2 runs scenarios in file-name order; touch-playthrough keeps touch-md1-1.
       assert.ok([`${p.name}.json`, 'touch-playthrough.json'].sort()[0] === 'touch-playthrough.json', p.name);
       assert.ok(p.metrics.length <= 8, p.name);
@@ -163,7 +171,7 @@ describe('#120 touch playthrough', () => {
       for (const k of HINT_MODELS) assert.equal(Number(hm[`${pre}${k}`].addr), e.address + k * e.stride, `${pre}${k}`);
     }
     for (const p of hintScenarios()) {
-      for (const a of p.assert.filter((x) => x.near)) assert.deepEqual(a.near.range, [`talk${a.metric.slice(1)}`, 'solid0'], p.name);
+      for (const a of p.assert.filter((x) => x.near)) assert.deepEqual(a.near.range, [`talk${a.near.toX.slice(1)}`, 'solid0'], p.name);
     }
     const dlg = ADDRESS_TABLE.entries.find((x) => x.name === 'dialogState');
     assert.equal(dlg.status, 'confirmed');

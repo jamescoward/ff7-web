@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { HINT_MODELS, hintMemory, hintScenarios, TALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -118,14 +118,15 @@ describe('#120 touch playthrough', () => {
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
   });
-  test('stretch 2 probes (fresh budget, attempt 3): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
+  test('stretch 2 probes (fresh budget, attempt 3, and the owner-hint attempt): touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const stall = stallSegment();
     const frames = stall.steps.reduce((n, s) => n + (s.frames ?? s.wait?.frames ?? 0), 0);
     assert.equal(frames, 30 + 2400 + 200 + 30);
     assert.equal(tapLeg('up', 200).reduce((n, s) => n + s.frames, 0), 200);
-    const probes = probeScenarios();
-    assert.equal(probes.length, 8);
+    assert.equal(probeScenarios().length, 8);
+    const probes = [...probeScenarios(), ...hintScenarios()];
+    assert.equal(hintScenarios().length, 2 + TALKS.length);
     assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
     assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));
     for (const b of runButtons('up-left')) offered.add(b);
@@ -152,6 +153,18 @@ describe('#120 touch playthrough', () => {
       }
     }
     assert.deepEqual(PROBE_MODELS, [1, 2, 3, 4]);
+    // Hint probes: windows and field-model arrays come from the address table (#224, #237), element k at address + k * stride.
+    const hm = hintMemory();
+    for (const [i, n] of ['dialogState', 'dialogState1', 'dialogState2', 'dialogState3'].entries()) {
+      assert.equal(Number(hm[`w${i}`].addr), ADDRESS_TABLE.entries.find((x) => x.name === n).address, n);
+    }
+    for (const [pre, n] of [['x', 'fieldX'], ['y', 'fieldY'], ['talk', 'fieldTalkRange'], ['off', 'fieldTalkOff']]) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === n);
+      for (const k of HINT_MODELS) assert.equal(Number(hm[`${pre}${k}`].addr), e.address + k * e.stride, `${pre}${k}`);
+    }
+    for (const p of hintScenarios()) {
+      for (const a of p.assert.filter((x) => x.near)) assert.deepEqual(a.near.range, [`talk${a.metric.slice(1)}`, 'solid0'], p.name);
+    }
     const dlg = ADDRESS_TABLE.entries.find((x) => x.name === 'dialogState');
     assert.equal(dlg.status, 'confirmed');
     assert.equal(Number(PROBE_MEMORY.dlg.addr), dlg.address);

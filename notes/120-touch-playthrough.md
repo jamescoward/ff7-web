@@ -266,3 +266,19 @@ Reading:
 - The up-left, up, right, up sweep ends in **md1stin (116)**: it crossed gateway 0 back. Its model signs come from md1stin's models, so they say nothing about md1_1.
 - **Stop (fresh budget 3/3).** Six attempts over two budgets, plus three measurement-only issues (#200, #202, #204), haven't found the way to md1_2. What is known: model 3 stands in the exit line's x-range, between the stall point and the line. Nothing in md1_1 reacts to Interact at the stall or along these sweeps. No scene runs.
 - **No touch action is shown to be missing.** Every stretch-2 input is a walk or run drag plus Interact, which is all the classic pad does in a field without a menu. The blocker is route knowledge (a trigger or path not found), not a touch action.
+
+## Stretch 2, owner-hint attempt (owner, 2026-11-23): talk to a party member
+The owner's hint, from memory and so a hypothesis: in md1_1 the way to md1_2 opens after talking to a party member (Biggs, else Jessie). If this fails, stretch 2 gets a third budget of 3 attempts that reads md1_1's line triggers and walkmesh instead of more sweeps.
+
+Why it is worth a fresh look after "no talk at the stall": fresh attempts 1-3 watched only message window 0 and pressed Interact wherever Cloud stopped. Since then #237 confirmed the talk rule (`fieldTalkOff`, `fieldTalkRange`, `fieldSolidRange`, format 2's `near`), and #224 found messages that open in window 1.
+
+The eight sweeps (`touch-s2g-*`) are replaced by ten probes (`hintScenarios()`), all booting from `touch-md1-1`; `touch-playthrough` stays stretch 1. Memory comes from the address table: windows 0-3 (`DIALOG_STATE_ENTRIES`), and element k of `fieldX`, `fieldY`, `fieldTalkRange`, `fieldTalkOff`, plus the player's `fieldSolidRange`.
+
+| scenario | question | metrics |
+|---|---|---|
+| `touch-s2h-info-entry` | at md1_1's entry: is any of models 1-4 talkable (TalkOff) and in talk range | `off1..off4` (raw), `n1..n4` (near sign; −1 within) |
+| `touch-s2h-info-stall` | the same at #200's stall point | the same |
+| `touch-s2h-talk-{right,up-right,up,up-left,left,still}` | from the stall, Interact taps facing that way (or no drag): does **window 1** open? If so, close it and drag up to the exit | `w1_open`, `w1_close`, `exit`, `map_cur`, `n1..n4` at the end |
+| `touch-s2h-talk-{r150,l150}-up` | the same after a 150-frame step right / left (model 3 is to Cloud's right) | the same |
+
+A wait that times out stops its script and reports 0. md1_2 is the only end check, so the talk probes fail by design unless one reaches it.

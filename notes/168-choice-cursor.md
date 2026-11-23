@@ -205,3 +205,45 @@ So attempt 1 runs 8 short scenarios. Generator: `runner/test/unit/choice-cursor-
 | `save-boot-28e-steer-rest` | the same for model 9, and for model 7 (the down walk reaches it, so it calibrates) | `sx9`, `sy9`, `d9_*`, `sx7`, `sy7`, `d7_*` |
 
 What decides attempt 2: for each candidate, the pad direction or directions that move towards it, and roughly how far. Attempt 2 then walks to each candidate in turn and talks, watching every window's state and pointerEnabled. A distance check may fail by design. Only the snapshot keeper (28a) and the steering walks must pass.
+
+### Attempt 1 results (`de91358`, tier2: 115 pass, 2 fail; both fails are distance checks that may fail by design)
+`save-boot-28a`: load_done 392, cnt 10. Every earlier scenario passed unchanged.
+
+Pad mapping (28b, 60 frames each, sign of the player's PosX / PosY change):
+
+| pad | dx | dy |
+|---|---|---|
+| up | −1 | +1 |
+| down | +1 | −1 |
+| left | −1 | −1 |
+| right | +1 | +1 |
+
+So the camera turns the pad 45° against the world axes, and each diagonal moves along one axis: up+left −x, down+right +x, up+right +y, down+left −y (inferred from the four, not measured).
+
+Models (28c, 28d, 28e; side = sign of model − player, d = sign of ground distance − n):
+
+| model | sx | sy | pad towards it | d_256 | d_1024 |
+|---|---|---|---|---|---|
+| 4 | −1 | −1 | left | +1 | +1 |
+| 5 | −1 | +1 | up | +1 | +1 |
+| 6 | +1 | −1 | down | +1 | +1 |
+| 8 | −1 | +1 | up | +1 | +1 |
+| 9 | +1 | −1 | down | +1 | +1 |
+| 7 (talker) | +1 | −1 | down | +1 | **−1** |
+
+Reading:
+- Model 7 lies on the down side, 256–1024 field units away. That matches #224: the down walk reaches it. So the mapping and the sides agree.
+- Every candidate is more than 1024 field units away. 6 and 9 lie in the same quadrant as 7 and farther, so a down walk meets 7 first.
+- Straight walks of 300 frames (the fresh budget's attempt 3) did not bring 4, 5 or 6 into range in any of 8 directions. So either the walk speed is too low for these distances, or walls stop the walk. Routes need distances per axis.
+
+### Attempt 2 plan (one push)
+The steering probes 28b–28e are removed (definitions in `de91358`); 28a stays as the snapshot keeper. Two new groups:
+- **`save-boot-28f-axis-<k>`** for k = 4, 5, 6, 8, 9, 7: the sign of |model k − player| along PosX, and along PosY, minus 512, 1024, 2048 and 4096 field units (a `near` check with the other coordinate set to the player's own). This gives each candidate's offset per axis within a factor of 2, for a two-leg route along the diagonals.
+- **`save-boot-28g-talk-<dir>`**, 8 directions (the four pads and the four diagonals): walk with a Circle edge every 8 frames **until window 1 opens** (`win_wait`, timeout 600), then wait for window 1 to read 6 (`done_wait`, timeout 300). Reports window 1's pointerEnabled `ptr1` (1 is an ask) and raw `ptr0`, `w0` and `w2`, which survive a timeout. `n7` says whether model 7, #224's plain message, is the one in range. The fresh budget's sweeps in this field watched only window 0, and #224 showed this field's talk uses window 1. So these are the first sweeps here that could see a window-1 talk.
+
+What decides attempt 3 (the last in this budget):
+- a sweep with `ptr1` 1: an ask. Attempt 3 adds the acceptance chain (Down, Up, Circle; pointerY moves by one line and back; rerun) on that route.
+- a sweep with `win_wait` > 0, `ptr1` 0 and `n7` 1: a different model's plain message. Press through it and look for an ask after it.
+- no new talk: attempt 3 walks a two-leg route to the nearest candidate from 28f's brackets.
+
+Tier 2 count with this push: 124 of 128.

@@ -4,9 +4,16 @@
 import { createAutoControls, AUTO_FLAG, WORLD_DRAG_FLAG } from './auto-controls.js';
 import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
+import { createBorderCrop, CROP_FLAG } from './border-crop.js';
+import { cropAspect } from './crop.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
+import { BATTLE_CROP_FLAG, createBattleCrop } from './battle-crop.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
+import { createInteractLabel, INTERACT_FLAG } from './interact-label.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
+import { createItemScreen, ITEM_FLAG } from './native-item.js';
+import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
+import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
 import { createWorkerBackend } from './backend.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
@@ -134,6 +141,18 @@ labs.registerFlag(TAPS_FLAG, {
     'Flag off: tapping the picture does nothing.',
   ],
 });
+labs.registerFlag(INTERACT_FLAG, {
+  label: 'Context Interact label',
+  description: 'With drag-to-walk on, the Interact button says Talk when a person is in reach, Exit at an exit, and dims when nothing is in reach. It still presses Circle. It stays plain until the game reads behind it are confirmed.',
+  pr: 217,
+  checklist: [
+    'Walk up to a person and face them: does Interact say Talk, and does a tap talk?',
+    'Stand on an exit line: does it say Exit? Walk away: does it dim?',
+    'Does the label flicker or lag while walking?',
+    'A dimmed Interact still presses Circle (examine, save point).',
+    'Flag off: the button always says Interact; the classic pad still works.',
+  ],
+});
 labs.registerFlag(PANEL_FLAG, {
   label: 'Tap-to-select main menu',
   description: 'In the field main menu, a panel below the picture lists the ten commands. Tap one: the cursor moves there and Circle is pressed. Back and Close press Triangle. Portrait only.',
@@ -156,6 +175,66 @@ labs.registerFlag(BATTLE_PANEL_FLAG, {
     'In target selection: do Prev and Next move the target, and does Back return to the commands?',
     'With Barret or Tifa acting, the command rows are greyed out (their rows are not confirmed yet); the targeting buttons still work.',
     'The classic pad and the battle status strip still work while the panel is up.',
+  ],
+});
+labs.registerFlag(ITEM_FLAG, {
+  label: 'Native Item screen',
+  description: 'When the game\'s Item screen is open, a native panel covers the picture: the visible item page (item numbers and counts, no names) and the party\'s HP and MP. Tap an item, then a party member: the cursors move there, Circle is pressed, and the panel reads the count and HP to confirm the use. Back presses Cross; Hide shows the picture again.',
+  pr: 211,
+  checklist: [
+    'Main menu, Item: the panel covers the picture; leave Item (Back or the pad): the picture comes back.',
+    'Tap an item, then a hurt party member: is it used on that member, and does the panel say "Used" with the new count and HP?',
+    'Does each row match the game\'s own list (same order, same counts)?',
+    'Tap Hide: the picture shows until Item is closed and opened again.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
+labs.registerFlag(EQUIP_FLAG, {
+  label: 'Native Equip screen',
+  description: 'When the game\'s Equip screen is open, a native panel covers the picture: each party member\'s weapon, armor and accessory, and the spare weapons (numbers and counts, no names). With one party member, tap the first spare weapon: Circle, then Circle, is pressed and the panel reads the weapon to confirm the change. Other weapons and larger parties are shown but not tappable yet. Back presses Cross; Hide shows the picture again.',
+  pr: 214,
+  checklist: [
+    'Main menu, Equip, pick a member: the panel covers the picture; leave Equip: the picture comes back.',
+    'With only Cloud in the party and a spare weapon: tap it once the button is enabled. Does the panel say "Equipped", and does the game agree?',
+    'Do the member rows and the spare weapons match the game (same numbers and counts)?',
+    'Use the pad on the Equip screen: the weapon button turns off until Equip is closed and reopened. Hide shows the picture.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
+labs.registerFlag(MATERIA_FLAG, {
+  label: 'Native Materia screen',
+  description: 'When the game\'s Materia screen is open, a native panel covers the picture: the member\'s weapon materia slots and every materia in the inventory (numbers and AP, no names). With one party member, tap an empty weapon slot, then a materia: the cursors move there one step at a time, Circle is pressed, and the panel reads both slots to confirm the move. Armor slots and larger parties are not offered yet. Back presses Cross; Hide shows the picture again.',
+  pr: 259,
+  checklist: [
+    'Main menu, Materia, pick Cloud: the panel covers the picture; leave Materia: the picture comes back.',
+    'With only Cloud in the party: tap an empty weapon slot, then a materia far down the list. Does the panel say "Equipped", and does the game agree?',
+    'Do the weapon slots and the materia list match the game (same numbers, AP and order)?',
+    'Tap Hide: the picture shows until Materia is closed and opened again. Back leaves the screen.',
+    'The classic pad still works while the panel is up (portrait and landscape).',
+  ],
+});
+labs.registerFlag(CROP_FLAG, {
+  label: 'Crop black borders',
+  description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
+  pr: 213,
+  checklist: [
+    'Field rooms and a battle: is anything cut off at an edge?',
+    'Is there visible pumping (the picture resizing) in dark scenes or fades?',
+    'Open the menu, play a movie: is the full frame shown at once?',
+    'Portrait: is the picture larger with the flag on than off?',
+    'The classic pad and drag-to-walk still work as before.',
+  ],
+});
+labs.registerFlag(BATTLE_CROP_FLAG, {
+  label: 'Battle scene crop',
+  description: 'In battle, the picture shows only the battle scene and leaves out the game\'s own command and status windows at the bottom; the battle command panel and status strip take their place (in landscape, the panel sits in a row below the shorter picture). Needs the Battle command panel flag.',
+  pr: 136,
+  checklist: [
+    'Portrait, in a battle, with Battle command panel on: is any part of the battle scene (enemies, party, effects) cut off at the bottom?',
+    'Does any part of the game\'s own command or status window still show at the bottom edge?',
+    'Is the command panel usable with one thumb, and does it stay clear of the picture?',
+    'Leave the battle (win or flee): is the full picture back at once?',
+    'Landscape, in a battle: is the command row below the picture easy to reach, and clear of the pad and Start/Select?',
   ],
 });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
@@ -207,6 +286,14 @@ const audio = createAudio();
 const cards = createCardStore();
 let pendingFrame = null;
 let drawn = 0;
+// Border crop (#24): the crop computed for each posted frame, and the last
+// frame, so a mode change or a flag toggle redraws at once, even while paused.
+const crops = new WeakMap();
+let lastFrame = null;
+let shown = null; // the part of the frame on the canvas: { x, y, w, h }
+let shownAspect = 0;
+const root = document.documentElement;
+const stage = document.querySelector('.stage');
 
 // Inputs work before the core is ready; the latest mask is sent on load.
 const mixer = createInputMixer((mask) => backend?.setPad(mask));
@@ -214,8 +301,20 @@ const controls = createControls({ padRoot: $('pad'), fieldRoot: $('field'), togg
 const autoControls = createAutoControls({ controls, labs });
 const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
+const interactLabel = createInteractLabel({ fieldRoot: $('field'), labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
+const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
+const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs });
+const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs });
+const borderCrop = createBorderCrop({
+  labs,
+  onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
+});
+const battleCrop = createBattleCrop({
+  labs,
+  onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
+});
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
 
 function draw() {
@@ -223,12 +322,43 @@ function draw() {
   const f = pendingFrame;
   if (!f) return;
   pendingFrame = null;
-  if (canvas.width !== f.width || canvas.height !== f.height) {
-    canvas.width = f.width;
-    canvas.height = f.height;
+  // The battle scene crop (#136) takes precedence over the border crop in battle.
+  const scene = battleCrop.frame(f);
+  const c = scene ?? (borderCrop.allowed ? crops.get(f) ?? null : null);
+  if (scene) root.dataset.battleCropOn = '';
+  else delete root.dataset.battleCropOn;
+  if (c) {
+    drawCropped(f, c);
+  } else {
+    if (shownAspect) {
+      // Back to the full frame: drop the crop's aspect (the default is 4:3).
+      shownAspect = 0;
+      stage.style.removeProperty('--screen-aspect');
+      delete root.dataset.borderCropOn;
+    }
+    if (canvas.width !== f.width || canvas.height !== f.height) {
+      canvas.width = f.width;
+      canvas.height = f.height;
+    }
+    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
   }
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
+  shown = { x: c?.x ?? 0, y: c?.y ?? 0, w: c?.w ?? f.width, h: c?.h ?? f.height };
   drawn = f.frame;
+}
+// Only the crop is drawn, moved to the canvas origin; the screen box takes the
+// crop's share of 4:3, so the pixel aspect ratio is kept.
+function drawCropped(f, c) {
+  if (canvas.width !== c.w || canvas.height !== c.h) {
+    canvas.width = c.w;
+    canvas.height = c.h;
+  }
+  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
+  const aspect = cropAspect(c, f.width, f.height);
+  if (Math.abs(aspect - shownAspect) > 1e-3) {
+    shownAspect = aspect;
+    stage.style.setProperty('--screen-aspect', aspect.toFixed(4));
+    root.dataset.borderCropOn = '';
+  }
 }
 requestAnimationFrame(draw);
 
@@ -250,10 +380,16 @@ const backendReady = createWorkerBackend({
   onSemantic: (gate) => {
     overlay.setGate(gate);
     autoControls.setGate(gate);
+    borderCrop.setGate(gate);
+    battleCrop.setGate(gate);
     battleHud.setGate(gate);
     dialogueTaps.setGate(gate);
+    interactLabel.setGate(gate);
     menuPanel.setGate(gate);
     battlePanel.setGate(gate);
+    itemScreen.setGate(gate);
+    equipScreen.setGate(gate);
+    materiaScreen.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -266,12 +402,21 @@ const backendReady = createWorkerBackend({
 }).then((b) => {
   backend = b;
   autoControls.setBackend(b);
+  borderCrop.setBackend(b);
+  battleCrop.setBackend(b);
   battleHud.setBackend(b);
   dialogueTaps.setBackend(b);
+  interactLabel.setBackend(b);
   menuPanel.setBackend(b);
   battlePanel.setBackend(b);
+  itemScreen.setBackend(b);
+  equipScreen.setBackend(b);
+  materiaScreen.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
+    const c = borderCrop.frame(f);
+    if (c) crops.set(f, c);
+    lastFrame = f;
     pendingFrame = f;
   });
   return b;
@@ -393,10 +538,18 @@ window.ff7web = {
   overlay,
   labs,
   autoControls,
+  borderCrop,
+  battleCrop,
   battleHud,
   dialogueTaps,
+  interactLabel,
   menuPanel,
+  itemScreen,
+  equipScreen,
+  materiaScreen,
   battlePanel,
   suspend,
   drawnFrame: () => drawn,
+  /** The part of the frame on screen: { x, y, w, h }, or null before a frame (#24). */
+  shownRect: () => (shown ? { ...shown } : null),
 };

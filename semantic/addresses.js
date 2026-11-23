@@ -37,7 +37,8 @@
 // (notes/99-player-model.md). #78
 // confirmed menuCursor, partySlot0..2 and partyHp0 (notes/78-menu-party.md);
 // #101 confirmed partyHp1 and partyHp2 and saw slots 1 and 2 hold Barret and
-// Tifa (notes/101-barret-party.md).
+// Tifa (notes/101-barret-party.md). #237 confirmed fieldZ, fieldTalkOff and
+// fieldTalkRange at the mds7st1 talk (notes/237-talk-rule.md).
 //
 // Caveat for every confirmed entry (#88): the scenarios run as a chain of
 // snapshots kept in memory. On the disc a state restored from a kept snapshot
@@ -259,7 +260,30 @@ const WINDOW_ENTRIES = [
     source: `${WINDOW_SOURCE}. Not seen in Tier 2 yet: no choice window has been reached (#168)`,
     status: 'hypothesis',
   },
+  // #224: windows 1-3 (notes/224-window1-state.md). A field script names the
+  // window it opens; #168 saw a message in window 1 with window 0 closed.
+  ...[1, 2, 3].map((i) => ({
+    name: `dialogState${i}`,
+    address: WINDOW_DATA + i * WINDOW_SIZE + 0x2c,
+    type: 's16',
+    meaning: `state of message window ${i} (g_WindowData[${i}].state), with the same values as dialogState (window 0)`,
+    values: WINDOW_STATES,
+    ...(i === 1
+      ? {
+        source: `${WINDOW_SOURCE}. Tier 2 (#224, notes/224-window1-state.md): in mds7st1 (disc1-mds7st1), after Down 300 frames and one Circle press, it reads 6 28 frames later with window 0 at 0 and pointerEnabled 0, a plain message (save-boot-19a); one more Circle takes it out of 6 and it reads 0 three frames after (save-boot-19b); reruns match. With the walk alone and no Circle it stays 0, so the Circle talk opens it. Only 0 and 6 are confirmed values`,
+        status: 'confirmed',
+        scenario: SC('save-boot-19a-window1-open'),
+        confirmedValues: Object.freeze({ 0: SC('save-boot-19b-window1-circle'), 6: SC('save-boot-19a-window1-open') }),
+      }
+      : {
+        source: `${WINDOW_SOURCE}. Not seen open in Tier 2 (#168 and #224 read 0 in every diagnostic)`,
+        status: 'hypothesis',
+      }),
+  })),
 ];
+
+/** Message windows dialogue() may read, in order: window 0, then 1-3 (#224). */
+export const DIALOG_STATE_ENTRIES = Object.freeze(['dialogState', 'dialogState1', 'dialogState2', 'dialogState3']);
 
 /**
  * #110: the battle menu (notes/110-battle-input.md). Candidates from
@@ -331,6 +355,166 @@ const INV_13B = 'save-boot-13b-equipment-menu';
 /** Consecutive u32 materia slots per record from each of these entries. */
 export const RECORD_WEAPON_MATERIA_SLOTS = 8;
 export const RECORD_ARMOR_MATERIA_SLOTS = 8;
+
+// The field menu's Item screen (#135). Its code and variables are an overlay
+// the menu loads at 0x801D0000 when Item is chosen, so these addresses hold
+// other data whenever the Item screen is not open: read them only in menu
+// mode (gameState 5) after itemMenuScreen has been seen at a known value.
+const ITEM_MENU_SOURCE = 'Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B)';
+const ITEM_MENU_ENTRIES = [
+  {
+    name: 'itemMenuScreen',
+    address: 0x801d3e48,
+    type: 's32',
+    meaning: 'Item screen page (g_ItemMenuCurrentScreen): 0 the Use/Arrange/Key Items tabs, 1 the item list (where opening Item starts), 2 an item chosen and a party member being picked, 3 key items, 4 and 5 arrange. Overlay variable: meaningless unless the Item screen is open',
+    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 1 after Item is chosen from the main menu (menu overlay id D_80062DD4 reads 1, overlays are read to 0x801D0000; save-boot-14a, 14c), 2 after Circle on a usable item (save-boot-14b), 0 (the tabs) after Cross on the list (save-boot-14d). Circle pressed 30 frames after the field menu opens is ignored; 60 frames works`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14a-item-screen-open'),
+    values: Object.freeze({ 0: 'tabs', 1: 'list', 2: 'target', 3: 'keyItems', 4: 'arrange', 5: 'arrangeCustom' }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14d-item-screen-cross'), 1: SC('save-boot-14a-item-screen-open'), 2: SC('save-boot-14b-item-use-plan') }),
+  },
+  {
+    name: 'itemListRow',
+    address: 0x801d3df9,
+    type: 's8',
+    meaning: 'Item screen list cursor, the row on the visible page (g_ItemMenuWidgets[1].row; 10 rows a page). The inventory slot under the cursor is itemListRow + itemListOffset',
+    source: `${ITEM_MENU_SOURCE}: g_ItemMenuWidgets at 0x801D3DDC, entry 1 at +0x12. Tier 2 (#135): 0 when the list opens (save-boot-14a, 14c); two planned Downs read 1 then 2, and Circle then uses inventory slot 2 (save-boot-14b)`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14b-item-use-plan'),
+  },
+  {
+    name: 'itemListOffset',
+    address: 0x801d3df0,
+    type: 's16',
+    meaning: 'Item screen list scroll: the inventory slot on the top visible row (g_ItemMenuWidgets[1].rowOffset)',
+    source: `${ITEM_MENU_SOURCE}. Tier 2 (#135): 0 when the list opens (save-boot-14c). Scrolling is not checked`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14c-item-screen-press'),
+  },
+  {
+    name: 'itemTargetSlot',
+    address: 0x801d3e0b,
+    type: 's8',
+    meaning: 'Item screen party cursor on the target page (itemMenuScreen 2): the party slot an item is used on (g_ItemMenuWidgets[2].row, 3 rows)',
+    source: `${ITEM_MENU_SOURCE}: entry 2 at +0x24. Tier 2 (#135): 0 on the target page; one planned Down reads 1, and Circle then raises party slot 1's HP (save-boot-14b)`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14b-item-use-plan'),
+  },
+];
+
+// The menu's overlay bookkeeping (#135 part 2): which menu overlay was last
+// asked for. The native Item screen is shown only while it names the Item
+// overlay, so the overlay variables above are never read for another page.
+/** menuOverlay value for the Item screen (ITEMMENU_Init is entry 1 of the init table). */
+export const MENU_OVERLAY_ITEM = 1;
+/**
+ * menuOverlay value for the Equip screen (#121; enum YamadaOvl,
+ * YAMA_EQIPMENU_EQUIP). Circle on the main menu's Equip row first picks a
+ * party member (the id stays 0, save-boot-15a); the next Circle asks for 4.
+ */
+export const MENU_OVERLAY_EQUIP = 4;
+/**
+ * menuOverlay value for the Materia screen (#241; enum YamadaOvl,
+ * YAMA_EQIPMENU_MATERIA). As for Equip, Circle on the Materia row first picks
+ * a party member; the next Circle asks for 3 (save-boot-22a).
+ */
+export const MENU_OVERLAY_MATERIA = 3;
+// The Equip screen (#216). The EQIPMENU overlay is not decompiled, so these
+// have no source: they were found by track searches in the private eval
+// (notes/216-equip-cursors.md) and sit like the Item overlay's MenuTables
+// (0x12 bytes, rowOffset at +0x02, row at +0x0B): a slot table at 0x801D8AA0
+// and a list table at 0x801D8AB2. Overlay variables: read them only while a
+// confirmed menuOverlay names the Equip overlay.
+const EQUIP_MENU_SOURCE = 'no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#216): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-17a to 17c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B)';
+const EQUIP_MENU_ENTRIES = [
+  {
+    name: 'equipSlotCursor',
+    address: 0x801d8aab,
+    type: 's8',
+    meaning: 'Equip screen slot cursor: 0 Weapon, 1 Armor, 2 Accessory (the row of the slot MenuTable at 0x801D8AA0). Overlay variable: meaningless unless menuOverlay names the Equip overlay',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Equip screen opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17a, 18a); it stays 0 in the Weapon list and after a weapon is equipped (save-boot-18b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18a-equip-slot-cursor'),
+  },
+  {
+    name: 'equipListRow',
+    address: 0x801d8abd,
+    type: 's8',
+    meaning: 'Equip screen list cursor, the row on the visible page (the row of the list MenuTable at 0x801D8AB2; 8 rows a page). The list entry under the cursor is equipListRow + equipListOffset. Meaningful only while the list is open; no page variable is read, so callers track it',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Weapon list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17b); seven Downs read 1 to 7, and it stays 7 while the list scrolls (save-boot-18b); 0 on the slot page (save-boot-18a); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18b-equip-list-cursor'),
+  },
+  {
+    name: 'equipListOffset',
+    address: 0x801d8ab4,
+    type: 's16',
+    meaning: 'Equip screen list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)',
+    source: `${EQUIP_MENU_SOURCE}. Tier 2 (#216): 0 when the Weapon list opens; with 12 entries, Downs 8 and 9 read 1 and 2 (save-boot-17c, 18b), and Circle then equips the entry at index 9 (row 7 + offset 2), weapon 10 from inventory slot 9 (save-boot-18b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-18b-equip-list-cursor'),
+  },
+];
+
+// The Materia screen (#244). Same overlay file as Equip, same method: found
+// by track searches in the private eval (notes/244-materia-cursors.md), and
+// laid out as MenuTables (0x12 bytes, rowOffset at +0x02, row at +0x0B): a
+// slot table at 0x801DF5A2 (column at +0x0A) and a list table at 0x801DF5C6.
+// Overlay variables: read them only while a confirmed menuOverlay names the
+// Materia overlay.
+const MATERIA_MENU_SOURCE = 'no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced)';
+const MATERIA_MENU_ENTRIES = [
+  {
+    name: 'materiaSlotColumn',
+    address: 0x801df5ac,
+    type: 's8',
+    meaning: 'Materia screen slot cursor, the column: the materia slot index on the selected row (+0x0A of the slot MenuTable at 0x801DF5A2). Overlay variable: meaningless unless menuOverlay names the Materia overlay',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Right, Left read 1, 0 (save-boot-24a, 25a); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-25a-materia-slot-cursor'),
+  },
+  {
+    name: 'materiaSlotRow',
+    address: 0x801df5ad,
+    type: 's8',
+    meaning: 'Materia screen slot cursor, the row: 0 weapon, 1 armor (the row of the slot MenuTable at 0x801DF5A2)',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the Materia screen opens; Down, Up read 1, 0 (save-boot-24a, 25a); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-25a-materia-slot-cursor'),
+  },
+  {
+    name: 'materiaListRow',
+    address: 0x801df5d1,
+    type: 's8',
+    meaning: 'Materia list cursor, the row on the visible page (the row of the list MenuTable at 0x801DF5C6; 10 rows a page). The list entry under the cursor is materiaListRow + materiaListOffset. Meaningful only while the list is open; no page variable is read, so callers track it',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-24b); nine Downs read 1 to 9, and it stays 9 while the list scrolls (save-boot-25b); 0 on the slot page (save-boot-25a); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-25b-materia-list-cursor'),
+  },
+  {
+    name: 'materiaListOffset',
+    address: 0x801df5c8,
+    type: 's16',
+    meaning: 'Materia list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)',
+    source: `${MATERIA_MENU_SOURCE}. Tier 2 (#244): 0 when the list opens; with 12 entries, Downs 10 and 11 read 1 and 2 (save-boot-24c, 25b), and Circle then takes the entry at index 11 (row 9 + offset 2), emptying inventory slot 11 (save-boot-25b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-25b-materia-list-cursor'),
+  },
+];
+
+const MENU_OVERLAY_ENTRIES = [
+  {
+    name: 'menuOverlay',
+    address: 0x80062dd4,
+    type: 'u32',
+    meaning: 'the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 3 = the Materia screen; 4 = the Equip screen; 0 back on the main menu',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343). Tier 2 (#121): one Circle on the Equip row (row 3) leaves it at 0, a party pick coming first (save-boot-15a); the next Circle, 60 frames later, makes it read 4 (YAMA_EQIPMENU_EQUIP in the decomp's enum YamadaOvl), and the Weapon slot and list then equip a spare weapon (15b, 15c). Tier 2 (#241): on the Materia row (row 2) the same Circle every 60 frames makes it read 3 (YAMA_EQIPMENU_MATERIA) at the second press (ovl_wait 61, save-boot-22a); Circle, Circle then moves inventory materia slot 0 into Cloud's weapon materia slot 0 (22b); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-14e-item-screen-cross-twice'),
+    values: Object.freeze({ 0: 'other', 1: 'item', 3: 'materia', 4: 'equip' }),
+    confirmedValues: Object.freeze({ 0: SC('save-boot-14e-item-screen-cross-twice'), 1: SC('save-boot-14a-item-screen-open'), 3: SC('save-boot-22a-materia-screen-open'), 4: SC('save-boot-15b-equip-screen-open') }),
+  },
+];
 
 const INVENTORY_ENTRIES = [
   {
@@ -416,8 +600,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'field Z (height) position of each field model (g_FieldEntity[i].PosZ, raw units; >> 12 for field units)',
-    source: `${ENTITY_SOURCE}: PosZ at +0x14. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: PosZ at +0x14. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05; at that point the player is 224..239 field units (PosZ >> 12) above model 7, inside the 256 limit (save-boot-21a, exact in floored field units). Only one height difference was measured`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldDir',
@@ -448,8 +633,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'non-zero when a field model can not be talked to (g_FieldEntity[i].TalkOff, set by the field script)',
-    source: `${ENTITY_SOURCE}: TalkOff at +0x5B. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: TalkOff at +0x5B. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05. Only 0 was seen on a model that talks; that a non-zero value blocks a talk is the reference's claim, not measured`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldTalkRange',
@@ -458,8 +644,9 @@ const FIELD_ENTRIES = [
     stride: FIELD_ENTITY_SIZE,
     count: 16,
     meaning: 'talk radius of each field model (g_FieldEntity[i].TalkRange, field units)',
-    source: `${ENTITY_SOURCE}: TalkRange at +0x6E. Not checked in Tier 2 yet`,
-    status: 'hypothesis',
+    source: `${ENTITY_SOURCE}: TalkRange at +0x6E. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05`,
+    status: 'confirmed',
+    scenario: SC('save-boot-21a-talk-rule-talker'),
   },
   {
     name: 'fieldTriggers',
@@ -566,6 +753,15 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
     status: 'confirmed',
     scenario: SC('reactor-mode-2d-cursor-sequence'),
   },
+  {
+    name: 'partyPick',
+    address: 0x8009a0e5,
+    type: 's8',
+    meaning: 'main-menu party pick: the party slot (0-2) highlighted after Circle on a main-menu row that asks for a member (Equip), and the member whose Equip screen then opens (the row of g_PartyMenuTables[1]). Only the party pick and the Equip screen are checked; elsewhere it may hold a stale value',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_PartyMenuTables at 0x8009A0C8) and include/game.h (MenuTable, size 0x12, row at +0x0B): table 1's row. Tier 2 (#215, notes/215-party-pick.md): from a generated save with party Cloud, Barret, Tifa, after the planned move to Equip and Circle, Down 0, 1 or 2 times reads 0, 1 or 2 (save-boot-16a to 16d); Circle then opens the Equip screen (menuOverlay 4) for that slot's member, and Circle, Circle changes only that member's weapon; it still reads the slot on the Equip screen; table 2's row stays 0; a rerun matches`,
+    status: 'confirmed',
+    scenario: SC('save-boot-16c-party-pick-slot1'),
+  },
   ...[0, 1, 2].map((i) => ({
     name: `partySlot${i}`,
     address: 0x8009c6e4 + 0x4f8 + i,
@@ -596,5 +792,9 @@ export const ADDRESS_TABLE = makeTable(EXE_USA_SHA1, [
   ...WINDOW_ENTRIES,
   ...BATTLE_MENU_ENTRIES,
   ...INVENTORY_ENTRIES,
+  ...ITEM_MENU_ENTRIES,
+  ...EQUIP_MENU_ENTRIES,
+  ...MATERIA_MENU_ENTRIES,
+  ...MENU_OVERLAY_ENTRIES,
   ...FIELD_ENTRIES,
 ]);

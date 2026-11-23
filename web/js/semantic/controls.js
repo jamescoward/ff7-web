@@ -7,6 +7,7 @@
 // notes/108-dialogue-state.md). The choice panel is not here yet (needs #168).
 // The field buttons are the ones #23 put on the touch layout (Circle talks
 // and examines, Triangle opens the menu, Cross cancels); #146 moved them here.
+// #25 adds the context-aware Interact label (interactLabel), over #112 nearby().
 // Original project code, GPL-2.0-or-later.
 
 /**
@@ -72,3 +73,78 @@ export const BATTLE_PANEL_ACTIONS = Object.freeze({
 
 /** The targeting buttons, in screen order. */
 export const BATTLE_TARGET_ACTIONS = Object.freeze(['prev', 'next', 'confirm', 'back']);
+
+/**
+ * Native Item screen actions (#135, Labs flag `native-item`). An item tap
+ * moves the list cursor there with the menu planner, then presses `select`;
+ * a party tap does the same with the party cursor. Back presses Cross, the
+ * menus' cancel button (as the field Back, FIELD_ACTIONS). On the list,
+ * Cross goes to the Item screen's tab row (itemMenuScreen 0, save-boot-14d),
+ * and a second Cross returns to the main menu (menuOverlay 0, 14e). On the
+ * target page it returns to the list (a source claim).
+ */
+export const ITEM_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});
+
+/**
+ * Native Equip screen actions (#121, Labs flag `native-equip`). A tap on
+ * the first spare weapon presses `select` twice (the Weapon slot, then the
+ * list's first entry; save-boot-15c, semantic/equip-screen.js). Back
+ * presses Cross, the menus' cancel button; where it goes from the Equip
+ * screen is not measured.
+ */
+export const EQUIP_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});
+
+/**
+ * Native Materia screen actions (#250, Labs flag `native-materia`). A tap
+ * runs the slot column plan, presses `select` (the list opens), runs the
+ * list plan, then presses `select` (the materia goes into the slot;
+ * save-boot-27a, semantic/materia-screen.js). Back presses Cross.
+ */
+export const MATERIA_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});
+
+/**
+ * Context-aware Interact labels (#25, Labs flag `interact-label`). The
+ * Interact button still presses Circle; only its label changes, from a
+ * nearby() result (semantic/layer.js, #112).
+ */
+export const INTERACT_LABELS = Object.freeze({
+  talk: Object.freeze({ id: 'talk', label: 'Talk ○' }),
+  exit: Object.freeze({ id: 'exit', label: 'Exit ○' }),
+});
+
+/**
+ * What the Interact button should say for a nearby() result:
+ * { id, label, dim }. id is 'talk', 'exit' or 'interact' (the plain label,
+ * FIELD_ACTIONS). Pure: no DOM.
+ *
+ * - A failed read, a result with a reason (not in a settled field) or an
+ *   unconfirmed result says nothing either way: the plain label, not dimmed.
+ *   #237 confirmed fieldZ, fieldTalkOff and fieldTalkRange at one talk
+ *   (notes/237-talk-rule.md), so nearby() is confirmed in a settled field
+ *   whose other reads are confirmed. Facing is still the reference's rule.
+ * - Confirmed, an NPC in range: Talk. Circle talks to an NPC in range, so
+ *   Talk wins over an exit in range (agent default, #25).
+ * - Confirmed, an exit in range and no NPC: Exit.
+ * - Confirmed, nothing in range: the plain label, dimmed (agent default,
+ *   #25: dimmed, not hidden, so the layout never shifts).
+ */
+export function interactLabel(sample) {
+  const plain = FIELD_ACTIONS.find((a) => a.id === 'interact');
+  const list = sample?.value;
+  if (!Array.isArray(list) || sample.reason || sample.confirmed !== true) {
+    return { id: plain.id, label: plain.label, dim: false };
+  }
+  const inRange = (kind) => list.some((e) => e?.kind === kind && e.inRange === true);
+  if (inRange('npc')) return { ...INTERACT_LABELS.talk, dim: false };
+  if (inRange('exit')) return { ...INTERACT_LABELS.exit, dim: false };
+  return { id: plain.id, label: plain.label, dim: true };
+}

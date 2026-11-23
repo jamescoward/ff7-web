@@ -33,6 +33,18 @@ test('the input mixer ORs sources and reports only changes', () => {
   assert.deepEqual(sent, [PAD.cross, PAD.cross | PAD.up, PAD.up, 0]);
 });
 
+test('the input mixer tells listeners each change, after setPad, until unsubscribed (#121)', () => {
+  const order = [];
+  const mix = createInputMixer((m) => order.push(['pad', m]));
+  const off = mix.onChange((m) => order.push(['cb', m]));
+  mix.set('touch', PAD.cross);
+  mix.set('touch', PAD.cross); // no change, no call
+  mix.releaseAll();
+  off();
+  mix.set('keys', PAD.up);
+  assert.deepEqual(order, [['pad', PAD.cross], ['cb', PAD.cross], ['pad', 0], ['cb', 0], ['pad', PAD.up]]);
+});
+
 test('the d-pad reads 8 directions by angle, with a dead zone', () => {
   const r = 100;
   assert.equal(dpadMask(0, 0, r), 0);

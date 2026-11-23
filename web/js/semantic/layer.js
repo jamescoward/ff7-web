@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, WINDOW_WAITING_STATES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -102,6 +102,9 @@ export function pushMovieSample(samples, frame, value) {
 
 /** Raw g_GameState in battle (#76). */
 const BATTLE_GAME_STATE = 2;
+const MENU_GAME_STATE = 5;
+/** itemMenuScreen values the native Item screen acts on (#135): confirmed in Tier 2. */
+const ITEM_PAGES = Object.freeze({ 1: 'list', 2: 'target' });
 
 /**
  * Character records 0-8 (Cloud ... Cid). Party character IDs 0-8 name the
@@ -357,7 +360,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
     },
 
     /**
-     * #108: message window 0. { value: { open, waiting, choice: null | { row } } }.
+     * #108: the message windows. { value: { open, waiting, choice: null | { row } } }.
      * open: a window shows (state not 0). waiting: it waits for Circle (the
      * text has finished, not still typing). choice: a choice window waiting
      * for a pick, with row = the pointer's line in the window (0 = the
@@ -365,14 +368,19 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
      * As in partyStatus, choice is reported only from confirmed entries:
      * until dialogPointer and dialogPointerY are confirmed (#168) it is
      * always null, and a choice window reads as a plain waiting message.
-     * confirmed: the state read is a confirmed value (0 closed, 6 done).
+     * confirmed: every state read is a confirmed value (0 closed, 6 done).
+     * #224: windows 1-3 are read too once their state entry is confirmed
+     * (a field script names the window it opens); open and waiting then hold
+     * when any read window is. choice still comes from window 0 only.
      */
     async dialogue() {
-      const s = await read(['dialogState']);
+      const names = DIALOG_STATE_ENTRIES.filter((n, i) => i === 0 || entries.get(n)?.status === 'confirmed');
+      const s = await read(names);
       if (!s.values) return fail(s);
-      const raw = s.values.dialogState;
-      const open = raw !== 0;
-      const waiting = WINDOW_WAITING_STATES.includes(raw);
+      const raws = names.map((n) => s.values[n]);
+      const raw = raws[0];
+      const open = raws.some((r) => r !== 0);
+      const waiting = raws.some((r) => WINDOW_WAITING_STATES.includes(r));
       let choice = null;
       const pointerConfirmed = ['dialogPointer', 'dialogPointerY'].every((n) => entries.get(n)?.status === 'confirmed');
       if (raw === WINDOW_TXT_DONE && pointerConfirmed) {
@@ -432,6 +440,133 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         if (it) value.push({ slot, ...it });
       });
       return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #135: the game's Item screen. { value: { page, listRow, listOffset, targetSlot } }.
+     * page: 'list' (choosing an item) or 'target' (choosing a party slot),
+     * null on any other page or when the Item screen is not open. The Item
+     * screen's variables live in a menu overlay and hold other data whenever
+     * another page is loaded, so they are read only in a confirmed menu mode
+     * while menuOverlay names the Item overlay. Every field is null unless
+     * that chain and the field's own entry are confirmed.
+     */
+    async itemScreen() {
+      const none = { page: null, listRow: null, listOffset: null, targetSlot: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_ITEM) return { value: none, confirmed: true, reason: 'not the Item screen' };
+      const s = await read(['itemMenuScreen']);
+      if (!s.values) return fail(s);
+      const page = s.confirmed ? ITEM_PAGES[s.values.itemMenuScreen] ?? null : null;
+      if (page === null) return { value: none, confirmed: s.confirmed };
+      const one = async (name) => {
+        const r = await read([name]);
+        return r.values && r.confirmed ? r.values[name] : null;
+      };
+      const value = { page, listRow: null, listOffset: await one('itemListOffset'), targetSlot: null };
+      if (page === 'list') value.listRow = await one('itemListRow');
+      else value.targetSlot = await one('itemTargetSlot');
+      return { value, confirmed: true };
+    },
+
+    /**
+     * #121: is the game's Equip screen open? { value: { open } }. open is
+     * true only in a confirmed menu mode while a confirmed menuOverlay names
+     * the Equip overlay (MENU_OVERLAY_EQUIP); false when either says
+     * otherwise. No Equip-screen cursor is read: none has a source yet
+     * (notes/121-native-equip.md).
+     */
+    async equipScreen() {
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: { open: false }, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: { open: false }, confirmed: false };
+      return { value: { open: o.values.menuOverlay === MENU_OVERLAY_EQUIP }, confirmed: true };
+    },
+
+    /**
+     * #216: the Equip screen's cursors. { value: { slot, listRow, listOffset } }.
+     * slot: 0 Weapon, 1 Armor, 2 Accessory. listRow (0-7) and listOffset
+     * point at list entry listRow + listOffset while the list is open; no
+     * page variable is read, so callers track whether the list is open. The
+     * variables live in the Equip overlay, so they are read only in a
+     * confirmed menu mode while a confirmed menuOverlay names the Equip
+     * overlay. Each field is null unless that chain and its own entry are
+     * confirmed, or when out of range.
+     */
+    async equipCursors() {
+      const none = { slot: null, listRow: null, listOffset: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_EQUIP) return { value: none, confirmed: true, reason: 'not the Equip screen' };
+      const r = await read(['equipSlotCursor', 'equipListRow', 'equipListOffset']);
+      if (!r.values) return fail(r);
+      const inRange = (v, hi) => (r.confirmed && Number.isInteger(v) && v >= 0 && v <= hi ? v : null);
+      const value = {
+        slot: inRange(r.values.equipSlotCursor, 2),
+        listRow: inRange(r.values.equipListRow, 7),
+        listOffset: inRange(r.values.equipListOffset, 0x7fff),
+      };
+      return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #244: the Materia screen's cursors. { value: { row, column, listRow,
+     * listOffset } }. row: 0 weapon, 1 armor; column: the materia slot on
+     * that row. listRow (0-9) and listOffset point at list entry listRow +
+     * listOffset while the list is open; no page variable is read, so
+     * callers track whether the list is open. The variables live in the
+     * Materia overlay, so they are read only in a confirmed menu mode while
+     * a confirmed menuOverlay names the Materia overlay. Each field is null
+     * unless that chain and its own entry are confirmed, or when out of range.
+     */
+    async materiaCursors() {
+      const none = { row: null, column: null, listRow: null, listOffset: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in menu' };
+      const o = await read(['menuOverlay']);
+      if (!o.values) return fail(o);
+      if (!o.confirmed) return { value: none, confirmed: false };
+      if (o.values.menuOverlay !== MENU_OVERLAY_MATERIA) return { value: none, confirmed: true, reason: 'not the Materia screen' };
+      const r = await read(['materiaSlotRow', 'materiaSlotColumn', 'materiaListRow', 'materiaListOffset']);
+      if (!r.values) return fail(r);
+      const inRange = (v, hi) => (r.confirmed && Number.isInteger(v) && v >= 0 && v <= hi ? v : null);
+      const value = {
+        row: inRange(r.values.materiaSlotRow, 1),
+        column: inRange(r.values.materiaSlotColumn, RECORD_WEAPON_MATERIA_SLOTS - 1),
+        listRow: inRange(r.values.materiaListRow, 9),
+        listOffset: inRange(r.values.materiaListOffset, 0x7fff),
+      };
+      return { value, confirmed: r.confirmed };
+    },
+
+    /**
+     * #215: the main menu's party pick, the party slot (0-2) whose screen a
+     * member row (Equip) opens. { value: slot | null }. Read only in a
+     * confirmed menu mode; it is checked in the party pick and on the Equip
+     * screen, and may be stale elsewhere, so callers use it only there.
+     * null when out of range or not in the menu.
+     */
+    async partyPick() {
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === MENU_GAME_STATE)) return { value: null, confirmed: g.confirmed, reason: 'not in menu' };
+      const r = await read(['partyPick']);
+      if (!r.values) return fail(r);
+      const v = r.values.partyPick;
+      return { value: Number.isInteger(v) && v >= 0 && v < 3 ? v : null, confirmed: r.confirmed };
     },
 
     /** #117: the materia inventory. { value: [{ slot, id, ap }] } for each non-empty slot, in slot order. */

@@ -31,6 +31,7 @@ import { RAM_SIZE, ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
 import { BaselineError, baselineFromDisc } from './savegen/baseline.js';
 import { descriptionProblems, generateCard } from './savegen/index.js';
+import { cardOutcome } from './savegen/read.js';
 import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
@@ -66,6 +67,8 @@ export const BUILTIN_METRICS_2 = [
 ];
 
 const NUMERIC = new Set(['u8', 'u16', 'u32']);
+/** What a card check (#226) may report as metrics (savegen/read.js cardOutcome). */
+export const CARD_REPORT = ['changed', 'slot', 'checksum', 'module', 'location', 'savemap'];
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 /** Normalise a condition; throws ScenarioError. */
@@ -138,6 +141,27 @@ export function compareOutcome(chk, locA, locB, a, b) {
   return { sign, holds };
 }
 
+/**
+ * A near check (#168): the sign of d - r (-1, 0 or 1), where d is the ground
+ * distance between two points, floor(hypot(x - toX, y - toY)) after an
+ * arithmetic >> shift of each coordinate (all four read as two's
+ * complement), and r is the sum of the range locations (unsigned) plus the
+ * constant chk.plus (#237; 0 when absent). -1 means
+ * strictly within r, as the field module's talk rule (distance < TalkRange +
+ * SolidRange; notes/112-field-interactables.md). vals holds the decoded
+ * (unsigned) values in the order x, y, toX, toY, ...range; locs the matching
+ * locations. A missing value gives sign 0, not held.
+ */
+export function nearOutcome(chk, locs, vals) {
+  if (vals.some((v) => v === null)) return { sign: 0, holds: false };
+  const [x, y, tx, ty] = [0, 1, 2, 3].map((i) => Math.floor(asSigned(locs[i], vals[i]) / 2 ** chk.shift));
+  const d = Math.floor(Math.hypot(x - tx, y - ty));
+  const r = vals.slice(4).reduce((a, b) => a + b, chk.plus ?? 0);
+  const sign = Math.sign(d - r);
+  const holds = chk.is === 'within' ? sign < 0 : sign >= 0;
+  return { sign, holds };
+}
+
 /** Normalise a wait's press; null if none. Throws ScenarioError. */
 function loadPress(p, where) {
   if (!p) return null;
@@ -146,7 +170,7 @@ function loadPress(p, where) {
   return { mask: padMask(p.buttons), port: p.port ?? 0, every: p.every, hold };
 }
 
-/** Normalise script steps: [{ kind: 'press'|'wait'|'until'|'still', ... }]. Segments are already expanded. */
+/** Normalise script steps: [{ kind: 'press'|'wait'|'until'|'still'|'mark'|'restart', ... }]. Segments are already expanded. */
 function loadScript(steps, memory, where, { allowUntil = true } = {}) {
   return steps.map((s, i) => {
     const w = `${where}[${i}]`;
@@ -155,6 +179,10 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
     if (s.mark !== undefined) {
       if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no marks`);
       return { kind: 'mark', name: s.mark, index: i };
+    }
+    if (s.restart !== undefined) {
+      if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no restart`);
+      return { kind: 'restart', index: i };
     }
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);
@@ -296,6 +324,19 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
     if (marks.has(s.name)) fail(`input[${s.index}]: mark "${s.name}" is already set by an earlier step`);
     marks.add(s.name);
   }
+  // A restart step (#228) loads the boot point's state again with the card
+  // as the script left it, so it needs a boot point with a card, whose state
+  // the run holds; a named snapshot's chain would not be replayed.
+  const restart = steps.find((s) => s.kind === 'restart');
+  if (restart && (bootPoint === null || bootPoint.card !== 'blank')) {
+    fail(`input[${restart.index}].restart: the scenario must start from a boot point with a memory card (card "blank"), not ${named ? `snapshot "${fromSnapshot}"` : `"${doc.boot.from ?? SAVE_BOOT_POINT}"`}`);
+  }
+  // Nor may it keep a named snapshot (#230): a scenario that starts from
+  // that snapshot replays this one in its chain, which holds no boot point
+  // state for the restart.
+  if (restart && snapshotName !== null) {
+    fail(`input[${restart.index}].restart: a scenario with a restart step can't keep a snapshot (snapshot "${snapshotName}"); a scenario starting from it would replay the restart without the boot point state`);
+  }
   const asserts = doc.assert.map((a, i) => {
     const where = `assert[${i}]`;
     name(a.metric, where);
@@ -316,6 +357,50 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
         if (!NUMERIC.has(loc.type)) fail(`${where}.compare: a compare check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
       }
       return { kind: 'compare', mem: c.mem, with: c.with, shift: c.shift ?? 0, is: c.is, signed: c.signed === true, metric: a.metric };
+    }
+    if ('near' in a) {
+      const n = a.near;
+      const names = [n.x, n.y, n.toX, n.toY, ...n.range];
+      for (const k of names) {
+        const loc = memory[k];
+        if (!loc) fail(`${where}.near: no memory location named "${k}"`);
+        if (!NUMERIC.has(loc.type)) fail(`${where}.near: a near check needs u8, u16 or u32 locations, "${k}" is ${loc.type}`);
+      }
+      if (n.range.length === 0 && !n.plus) fail(`${where}.near: needs at least one range location or a plus above 0`);
+      return { kind: 'near', names, shift: n.shift ?? 0, plus: n.plus ?? 0, is: n.is, metric: a.metric };
+    }
+    if ('track' in a) {
+      const t = a.track;
+      if (t.values.length !== t.marks.length) fail(`${where}.track: values needs one number per mark (${t.marks.length}), has ${t.values.length}`);
+      if (new Set(t.values).size < 2) fail(`${where}.track: values must hold at least two different numbers`);
+      for (const m of t.marks) if (!marks.has(m)) fail(`${where}.track: no mark step named "${m}" in the script`);
+      if (new Set(t.marks).size !== t.marks.length) fail(`${where}.track: a mark is named twice`);
+      const from = Number.parseInt(t.from, 16);
+      let off;
+      try {
+        off = ramOffset(from, t.bytes);
+      } catch (e) {
+        fail(`${where}.track: ${e.message}`);
+      }
+      const windows = trackWindows(source?.fixture !== undefined);
+      if (!windows.some((w) => off >= w.from && off + t.bytes <= w.from + w.bytes)) {
+        fail(`${where}.track: 0x${(from >>> 0).toString(16)}+${t.bytes} is outside every search window (${windows.map((w) => w.name).join(', ')})`);
+      }
+      const found = t.found ?? [];
+      found.forEach((k, j) => name(k, `${where}.track.found[${j}]`));
+      return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, mayMiss: t.mayMiss === true, metric: a.metric };
+    }
+    if ('card' in a) {
+      // A card check (#226) reads the slot 1 card the scenario's own boot
+      // point puts in (card "blank"), so it can't start from a named
+      // snapshot, whose card is not known here.
+      if (bootPoint === null || bootPoint.card !== 'blank') {
+        fail(`${where}.card: the scenario must start from a boot point with a memory card (card "blank"), not ${named ? `snapshot "${fromSnapshot}"` : `"${doc.boot.from ?? SAVE_BOOT_POINT}"`}`);
+      }
+      const c = a.card;
+      const report = c.report ?? {};
+      for (const k of CARD_REPORT) if (report[k] !== undefined) name(report[k], `${where}.card.report.${k}`);
+      return { kind: 'card', ...(c.module !== undefined ? { module: c.module } : {}), report, metric: a.metric };
     }
     return { kind: 'sameState', how: a.sameState, metric: a.metric };
   });
@@ -358,6 +443,61 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
   };
 }
 
+/**
+ * Where a track check may search (#221), as main-RAM offsets. A search must
+ * lie inside one window, so a scenario cannot sweep arbitrary game memory.
+ *   overlay   0x801D0000 to the end of RAM: the menu overlays load here
+ *             (#135), and #216 found the Equip cursors in it.
+ *   pad-echo  0x800F0000, 256 bytes: the homebrew fixture's counter. Only
+ *             for scenarios that boot a fixture, where no game is in memory.
+ * Add a window only with a reason recorded here and in the issue.
+ */
+export const TRACK_WINDOWS = Object.freeze([
+  Object.freeze({ name: 'overlay', from: 0x1d0000, bytes: 0x30000, fixtureOnly: false }),
+  Object.freeze({ name: 'pad-echo', from: 0x0f0000, bytes: 0x100, fixtureOnly: true }),
+]);
+
+/** The windows open to a scenario: fixture-only windows need a fixture boot. */
+export function trackWindows(fixtureBoot) {
+  return TRACK_WINDOWS.filter((w) => fixtureBoot || !w.fixtureOnly);
+}
+
+/**
+ * A track check reports at most this many matches as its count (#221), so
+ * the count can't serve as a histogram of a range: 0 to 4 exactly, then 5
+ * for "5 or more".
+ */
+export const TRACK_COUNT_CAP = 5;
+
+/**
+ * A track check (#216): narrow its candidates with the bytes read at one of
+ * its marks. cand is null before the first mark (every offset a candidate)
+ * and a Uint8Array of 0/1 flags after; returns the new flags. Only offsets
+ * whose byte equals value stay candidates.
+ */
+export function trackNarrow(cand, bytes, value) {
+  const out = cand ?? new Uint8Array(bytes.length).fill(1);
+  for (let i = 0; i < bytes.length; i++) if (out[i] && bytes[i] !== value) out[i] = 0;
+  return out;
+}
+
+/**
+ * The offsets still flagged, in order: { count, first: the first n offsets }.
+ * count is capped at TRACK_COUNT_CAP (#221); first is not affected.
+ */
+export function trackMatches(cand, n) {
+  let count = 0;
+  const first = [];
+  if (cand) {
+    for (let i = 0; i < cand.length; i++) {
+      if (!cand[i]) continue;
+      count += 1;
+      if (first.length < n) first.push(i);
+    }
+  }
+  return { count: Math.min(count, TRACK_COUNT_CAP), first };
+}
+
 /** Stops a run at its current stage. */
 class StopRun extends Error {
   constructor(cause) {
@@ -379,9 +519,10 @@ function readAll(backend, memory) {
  * Play script steps on a backend. Returns { frames, waits: Map(step ->
  * frames waited, 0 = timed out), marks: Map(mark name -> Map(memory name ->
  * value)), timedOut }. A timed-out wait stops the script; marks after it
- * are not reached.
+ * are not reached. restartState: the boot point's state bytes, which a
+ * restart step loads again (#228); a restart without it throws.
  */
-export function playScript(backend, steps, memory) {
+export function playScript(backend, steps, memory, onMark = null, restartState = null) {
   let frames = 0;
   const waits = new Map();
   const marks = new Map();
@@ -398,6 +539,16 @@ export function playScript(backend, steps, memory) {
   for (const s of steps) {
     if (s.kind === 'mark') {
       marks.set(s.name, readAll(backend, memory));
+      if (onMark) onMark(s.name, backend);
+    } else if (s.kind === 'restart') {
+      // As a save boot puts its card in (#38): the card, then the state at
+      // T loaded again, which flags the card as new so the game reads it.
+      // Here the card is the one the script left; save states do not hold
+      // it (notes/31-card-and-snapshots.md). Takes no frames.
+      if (!restartState) throw new Error('a restart step needs the boot point state');
+      const card = backend.getCard();
+      backend.setCard(card);
+      backend.loadState(restartState);
     } else if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
@@ -633,7 +784,7 @@ export async function runScenario2(sc, opts = {}) {
   let card = null; // a generated card for a save boot (#38), in memory only
   const finalMem = new Map();
   const sameStates = new Map(); // check -> boolean
-  const actual = new Map(); // expect or change check -> value at the end of the script; compare -> [a, b]
+  const actual = new Map(); // expect or change check -> value at the end of the script; compare -> [a, b]; near -> values in names order
   const startValues = new Map(); // change check -> value at the start of the script
   const live = new Set();
   const track = (b) => {
@@ -644,7 +795,24 @@ export async function runScenario2(sc, opts = {}) {
     live.delete(b);
     closeQuietly(b);
   };
+  // track checks (#216): candidate flags per check, narrowed at each of its
+  // marks in the main run only; seen counts the marks reached.
+  const tracks = new Map(sc.asserts.filter((a) => a.kind === 'track').map((a) => [a, { cand: null, seen: 0 }]));
+  const onMark = tracks.size
+    ? (mark, backend) => {
+        for (const [a, st] of tracks) {
+          const i = a.marks.indexOf(mark);
+          if (i < 0) continue;
+          st.cand = trackNarrow(st.cand, backend.readMem(a.from, a.bytes), a.values[i]);
+          st.seen += 1;
+        }
+      }
+    : null;
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
+  const hasRestart = sc.steps.some((s) => s.kind === 'restart'); // #228: only from a boot point with a card (loadScenario2)
+  const cardChecks = sc.asserts.filter((a) => a.kind === 'card');
+  let cardBefore = null; // the slot 1 card at the start and end of the main run (#226), in memory only
+  let cardAfter = null;
   const wantParts = (sc.parts ?? []).length > 0;
   let mainParts = null; // part -> hash at the end of the main run, for same_PART
   const partsSame = new Map(); // part -> boolean, against the "boot" replay
@@ -654,10 +822,10 @@ export async function runScenario2(sc, opts = {}) {
    * parts }. parts (with same_PART metrics) hashes each part of a state
    * saved at the end, after the digest.
    */
-  const play = (backend) => {
+  const play = (backend, onMark = null, restartState = null) => {
     const dupes = needDigest ? backend.stats().duplicateFrames : 0;
     const t0 = performance.now();
-    const r = playScript(backend, sc.steps, sc.memory);
+    const r = playScript(backend, sc.steps, sc.memory, onMark, restartState);
     const ms = performance.now() - t0;
     const digest = needDigest ? stateDigest(backend, { picture: newPicture(backend, dupes, r.frames) }) : null;
     return { run: r, ms, digest, parts: wantParts ? partDigests(backend.saveState()) : null };
@@ -672,7 +840,9 @@ export async function runScenario2(sc, opts = {}) {
   };
   /**
    * Get to the start point with no snapshot: boot through the boot point,
-   * then play the chain's scripts. Returns { backend, reached, ms, frames }.
+   * then play the chain's scripts. Returns { backend, reached, ms, frames,
+   * state }: state is the boot point's state (after a save boot's card is
+   * in), for a restart step (#228); null when the script has none.
    */
   const fromScratch = async (want) => {
     const r = await bootThrough(bp, src.program, want, opts);
@@ -680,20 +850,24 @@ export async function runScenario2(sc, opts = {}) {
     let reachedHere = r.reached;
     let frames = bp ? bp.frames : 0;
     const t0 = performance.now();
+    // Taken even when T was not reached, so a restart step can still run;
+    // such a replay's result is discarded (ok false).
+    let state = null;
+    if ((card && reachedHere) || hasRestart) state = r.backend.saveState();
     if (card && reachedHere) {
       // As a restore does: the generated card in place of the blank one,
       // then the state at T loaded again (which flags the card as new).
-      const st = r.backend.saveState();
       r.backend.setCard(card);
-      r.backend.loadState(st);
+      r.backend.loadState(state);
     }
+    if (!hasRestart) state = null;
     for (const c of chain) {
       if (!reachedHere) break;
       const p = playScript(r.backend, c.steps, c.memory);
       frames += p.frames;
       if (p.timedOut) reachedHere = false;
     }
-    return { backend: r.backend, reached: reachedHere, ms: r.bootMs + (performance.now() - t0), frames };
+    return { backend: r.backend, reached: reachedHere, ms: r.bootMs + (performance.now() - t0), frames, state };
   };
 
   try {
@@ -716,10 +890,12 @@ export async function runScenario2(sc, opts = {}) {
     let snapshot = null; // what "rerun" restores
     let main;
     let startMs = 0; // wall time to get to the start point without the snapshot used
+    let mainRestart = null; // the boot point state a restart step loads (#228)
     try {
       if (opts.fresh) {
         const r = await fromScratch(want);
         main = { backend: r.backend };
+        mainRestart = r.state;
         reached = r.reached;
         snapshotFrames = r.frames;
         startMs = r.ms;
@@ -758,6 +934,7 @@ export async function runScenario2(sc, opts = {}) {
       snapshotFrames = 0;
       throw new StopRun();
     }
+    if (hasRestart && !opts.fresh) mainRestart = snapshot.bytes; // the boot point's state (named snapshots are refused at load)
 
     try {
       for (const a of sc.asserts) {
@@ -765,7 +942,9 @@ export async function runScenario2(sc, opts = {}) {
         const loc = sc.memory[a.mem];
         startValues.set(a, readLoc(main.backend, loc));
       }
-      const p = play(main.backend);
+      if (cardChecks.length) cardBefore = main.backend.getCard();
+      const p = play(main.backend, onMark, mainRestart);
+      if (cardChecks.length) cardAfter = main.backend.getCard();
       ({ run, digest } = p);
       for (const a of sc.asserts) {
         // "since": the value at the mark step, if the script reached it.
@@ -785,6 +964,10 @@ export async function runScenario2(sc, opts = {}) {
           actual.set(a, [readLoc(main.backend, sc.memory[a.mem]), readLoc(main.backend, sc.memory[a.with])]);
           continue;
         }
+        if (a.kind === 'near') {
+          actual.set(a, a.names.map((k) => readLoc(main.backend, sc.memory[k])));
+          continue;
+        }
         if (a.kind !== 'expect' && a.kind !== 'change') continue;
         const loc = sc.memory[a.kind === 'expect' ? a.cond.mem : a.mem];
         actual.set(a, readLoc(main.backend, loc));
@@ -797,16 +980,19 @@ export async function runScenario2(sc, opts = {}) {
         // rerun: the same kind of start as the main run; boot: no snapshot.
         let again;
         let ok = true;
+        let againRestart = null;
         if (a.how === 'rerun' && snapshot) {
           again = (await restoreInto(snapshot.bytes)).backend;
+          againRestart = hasRestart ? snapshot.bytes : null;
         } else if (bp === null && !named) {
           again = (await restoreInto(null)).backend;
         } else {
           const r = await fromScratch(want);
           again = r.backend;
           ok = r.reached;
+          againRestart = r.state;
         }
-        const p = play(again);
+        const p = play(again, null, againRestart);
         sameStates.set(a, ok && p.digest === digest);
         if (a.how === 'boot' && mainParts && !partsSame.size) {
           for (const part of sc.parts) partsSame.set(part, ok && p.parts[part] === mainParts[part]);
@@ -855,6 +1041,38 @@ export async function runScenario2(sc, opts = {}) {
         sign: ok(have) ? out.sign : 0,
       };
     }
+    if (a.kind === 'near') {
+      const have = actual.has(a);
+      const out = have ? nearOutcome(a, a.names.map((k) => sc.memory[k]), actual.get(a)) : { sign: 0, holds: false };
+      const [x, y, toX, toY, ...range] = a.names;
+      return {
+        near: { x, y, toX, toY, range, ...(a.shift ? { shift: a.shift } : {}), ...(a.plus ? { plus: a.plus } : {}), is: a.is },
+        pass: ok(out.holds),
+        sign: ok(have) ? out.sign : 0,
+      };
+    }
+    if (a.kind === 'track') {
+      const st = tracks.get(a);
+      const m = ok(st.seen === a.marks.length) ? trackMatches(st.cand, a.found.length) : { count: 0, first: [] };
+      return {
+        track: { from: `0x${(a.from >>> 0).toString(16).padStart(8, '0')}`, bytes: a.bytes, marks: a.marks, values: a.values },
+        // mayMiss (#221): no match is a passing record, not a failure. A
+        // stopped run or a missed mark still fails.
+        pass: m.count > 0 || (a.mayMiss && ok(st.seen === a.marks.length)),
+        count: m.count,
+        found: a.found.map((_, j) => (j < m.first.length ? a.from + m.first[j] : 0)),
+      };
+    }
+    if (a.kind === 'card') {
+      const have = cardBefore !== null && cardAfter !== null;
+      const out = have ? cardOutcome(cardBefore, cardAfter, { module: a.module }) : null;
+      const zero = Object.fromEntries(CARD_REPORT.map((k) => [k, 0]));
+      return {
+        card: a.module !== undefined ? { module: a.module } : {},
+        pass: ok(have && out.holds),
+        ...(ok(have) ? Object.fromEntries(CARD_REPORT.map((k) => [k, out[k]])) : zero),
+      };
+    }
     return { sameState: a.how, pass: ok(sameStates.get(a) === true) };
   });
   const isWait = (s) => s.kind === 'until' || s.kind === 'still';
@@ -868,8 +1086,17 @@ export async function runScenario2(sc, opts = {}) {
   const namedMetrics = new Map();
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
   sc.asserts.forEach((a, i) => {
+    if (a.kind === 'track') {
+      // metric: the number of matches; found: their addresses (0 past the last).
+      a.found.forEach((k, j) => namedMetrics.set(k, assertions[i].found[j]));
+      namedMetrics.set(a.metric, assertions[i].count);
+      return;
+    }
+    if (a.kind === 'card') {
+      for (const k of CARD_REPORT) if (a.report[k] !== undefined) namedMetrics.set(a.report[k], assertions[i][k]);
+    }
     if (a.metric === undefined) return;
-    namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
+    namedMetrics.set(a.metric, a.kind === 'change' || a.kind === 'compare' || a.kind === 'near' ? assertions[i].sign : assertions[i].pass ? 1 : 0);
   });
   const framesRun = run?.frames ?? 0;
   const builtin = {

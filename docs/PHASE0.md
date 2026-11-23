@@ -26,6 +26,7 @@ Tier 2 private eval (private storage + read-only token in a `main`-only environm
 ### M2 — Game-state layer
 First the harness it runs on: Tier 2 scenarios that boot the disc to a title snapshot and drive the game by input script, waiting on memory conditions (#37). Then: detect mode (field / battle / menu / world map / minigame / movie), read player position, field ID, menu cursor and party data. Debug overlay showing live values. Addresses recorded with provenance and verified against the USA executable hash. Once the title, mode and field addresses are confirmed, scenarios can also boot from generated saves (#38).
 *Stop condition:* mode detection is not reliable across a scripted set of private save states.
+*Done (2026-11-18, #81):* the mode-detection set (17 Tier 2 points, every mode, settled and just after transitions) is green on two runs, and a Tier 1 test feeds each point's checked values to `mode()` (`notes/81-mode-reliability.md`).
 
 ### M3 — Touch UX tier 1–2
 Field controls: drag-to-walk (an invisible floating joystick under the picture) with large Interact and Menu buttons (#23), then context-aware actions and automatic switching between control modes (#25). Reclaim black borders so the picture is as large as possible (#24). Tap-to-select in menus and battle commands. Input injection only, no memory writes.

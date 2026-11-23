@@ -48,6 +48,9 @@
   <main class="stage">
     <div class="screen">
       <canvas id="screen" width="320" height="240" aria-label="Game picture"></canvas>
+      <div class="native-item" id="native-item" role="group" aria-label="Item screen" hidden></div>
+      <div class="native-item native-equip" id="native-equip" role="group" aria-label="Equip screen" hidden></div>
+      <div class="native-item native-materia" id="native-materia" role="group" aria-label="Materia screen" hidden></div>
       <div class="debug" id="debug" aria-label="Debug overlay: live game state" hidden></div>
       <p class="status" id="status" role="status">Choose a disc image (.cue with its .bin files, .chd, .pbp, .iso) or a PS-X EXE. It stays on this device.</p>
     </div>

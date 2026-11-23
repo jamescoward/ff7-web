@@ -1,0 +1,39 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin equip",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    255,
+    255
+  ],
+  "progress": 6,
+  "equipment": [
+    {
+      "record": 0,
+      "weapon": 0,
+      "armor": 0,
+      "accessory": 255
+    }
+  ],
+  "items": [
+    {
+      "slot": 0,
+      "index": 129,
+      "quantity": 1
+    },
+    {
+      "slot": 1,
+      "index": 130,
+      "quantity": 1
+    }
+  ]
+}

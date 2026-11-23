@@ -71,7 +71,7 @@ describe('address table', () => {
     validateTable(ADDRESS_TABLE);
     assert.equal(ADDRESS_TABLE.exe, EXE_USA_SHA1);
     assert.equal(EXE_USA_SHA1, 'a95e8b16b97071203b953bb81a33980509262f30');
-    // #76, #77, #78, #99, #101, #108, #110, #112, #117, #130 and #171 confirmed these; everything else is still a hypothesis.
+    // #76, #77, #78, #99, #101, #108, #110, #112, #117, #130, #135, #171, #215, #216, #224, #237 and #244 confirmed these; everything else is still a hypothesis.
     const confirmed = ['gameState', 'prevGameState', 'movieFrame', 'fieldId', 'playerModel', 'fieldX', 'fieldY', 'fieldLoading',
       'menuCursor', 'partySlot0', 'partySlot1', 'partySlot2', 'partyHp0', 'partyHp1', 'partyHp2',
       // #130
@@ -79,6 +79,8 @@ describe('address table', () => {
       'partyLimit0', 'partyLimit1', 'partyLimit2', 'partyAtb0', 'partyAtb1', 'partyAtb2', 'characterLimit',
       // #108
       'dialogState',
+      // #224
+      'dialogState1',
       // #110
       'battleMenuWidget', 'battleActor', 'battleCommandRow0', 'battleTarget',
       // #171
@@ -86,7 +88,19 @@ describe('address table', () => {
       // #117
       'inventorySlot', 'materiaSlot', 'characterWeapon', 'characterArmor', 'characterAccessory', 'characterWeaponMateria', 'characterArmorMateria',
       // #112
-      'fieldModelCount', 'fieldDir', 'fieldSolidRange', 'fieldTriggers'];
+      'fieldModelCount', 'fieldDir', 'fieldSolidRange', 'fieldTriggers',
+      // #135
+      'itemMenuScreen', 'itemListRow', 'itemListOffset', 'itemTargetSlot',
+      // #135 part 2
+      'menuOverlay',
+      // #215
+      'partyPick',
+      // #216
+      'equipSlotCursor', 'equipListRow', 'equipListOffset',
+      // #237
+      'fieldZ', 'fieldTalkOff', 'fieldTalkRange',
+      // #244
+      'materiaSlotColumn', 'materiaSlotRow', 'materiaListRow', 'materiaListOffset'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

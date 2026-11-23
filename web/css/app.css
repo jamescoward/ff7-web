@@ -122,7 +122,9 @@ body {
 .screen {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  /* --screen-aspect: the shown part of the frame, set only by the Labs flag
+     `border-crop` (#24; js/main.js). Unset, the picture is 4:3 as before. */
+  aspect-ratio: var(--screen-aspect, 4 / 3);
   max-height: 60dvh;
   margin: 0 auto;
   background: #000;
@@ -349,6 +351,8 @@ body {
 .field-action { flex: 1; min-height: 60px; }
 .field-back { min-height: 48px; align-self: center; padding: 0 12px; }
 .field-on { background: var(--btn-on); }
+/* #25 (Labs flag interact-label): nothing in range. Still tappable. */
+.field-dim:not(.field-on) { opacity: 0.55; }
 .field-cue {
   position: absolute;
   width: 14px;
@@ -367,6 +371,9 @@ body {
   .bar { position: absolute; z-index: 5; top: env(safe-area-inset-top); left: env(safe-area-inset-left); padding: 6px; }
   .stage { flex-direction: row; }
   .screen { height: 100dvh; max-height: none; width: auto; }
+  /* Border crop (#24): a wider crop only grows into space the side controls
+     don't need; it is never narrower than 4:3 at full height. */
+  :root[data-border-crop-on] .screen { max-width: max(calc(100dvh * 4 / 3), calc(100vw - 2 * (var(--dpad) + var(--gap)))); }
   .pad { position: absolute; inset: 0; min-height: 0; pointer-events: none; }
   .vpad {
     height: 100%;
@@ -484,7 +491,97 @@ body {
 @media (orientation: landscape) and (max-height: 600px) {
   .battle-panel { display: none !important; }
 }
+/* Landscape with the battle scene crop (#235, Labs flag `battle-crop`;
+   <html data-battle-crop-on>). The picture keeps the full frame's width
+   (4:3 at full height), so the crop's aspect (--screen-aspect, from
+   semantic/regions.js via js/main.js) makes it shorter, and it sits at the top.
+   The panel is one row of four 44 px buttons in the band that frees below it,
+   between the d-pad and the face buttons and above Start/Select. Its left and
+   right edges are the pad's own sizes (padding + d-pad + gap; padding + three
+   face buttons + gap), plus the safe-area insets when `safe-layout` insets the
+   pad. Outside a cropped battle the panel stays hidden in landscape, as above. */
+@media (orientation: landscape) and (max-height: 600px) {
+  :root[data-battle-crop-on] .screen {
+    --scene-h: calc(100dvh * 4 / 3 / var(--screen-aspect, 1.3333));
+    width: calc(100dvh * 4 / 3);
+    height: var(--scene-h);
+    align-self: flex-start;
+  }
+  :root[data-battle-crop-on] .battle-panel:not([hidden]) {
+    display: block !important;
+    position: absolute;
+    z-index: 4;
+    top: calc(env(safe-area-inset-top) + 100dvh * 4 / 3 / var(--screen-aspect, 1.3333) + 4px);
+    left: calc(2 * var(--gap) + var(--dpad));
+    right: calc(2 * var(--gap) + 3 * var(--face));
+    padding: 0;
+    background: none;
+  }
+  :root[data-safe-layout][data-battle-crop-on] .battle-panel:not([hidden]) {
+    left: calc(env(safe-area-inset-left) + 2 * var(--gap) + var(--dpad));
+    right: calc(env(safe-area-inset-right) + 2 * var(--gap) + 3 * var(--face));
+  }
+  :root[data-battle-crop-on] .bp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  :root[data-battle-crop-on] .bp-btn { padding: 0 4px; font-size: 13px; white-space: nowrap; }
+}
 @media not all and (orientation: landscape) and (max-height: 600px) {
   :root[data-safe-layout][data-battle-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }
   :root[data-safe-layout][data-battle-panel-on] .screen { width: 100%; max-height: none; }
 }
+
+/* Native Item screen (#135), Labs flag `native-item` (off by default): a panel
+   that covers the picture while the game's Item screen is open (js/native-item.js,
+   <html data-native-item-on>). It sits inside .screen, so it takes the
+   picture's size in portrait and landscape and never moves the pad. Ten item
+   rows in two columns, three party rows, then Back and Hide; every button is
+   at least 44 px tall, and the panel scrolls inside itself when the picture
+   is too short. Disabled buttons (empty rows, the page not in use) are greyed. */
+.native-item {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg, #000);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.native-item[hidden] { display: none; }
+.ni-head, .ne-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.ni-title, .ne-title { font-weight: 600; }
+.ni-msg, .ne-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ni-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ni-party { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.ni-nav, .ne-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.native-item .btn { flex: none; min-height: 44px; min-width: 44px; font-size: 14px; padding: 0 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.native-item .btn:disabled { opacity: 0.4; }
+.native-item .btn[data-cursor] { outline: 2px solid #ffd479; outline-offset: -2px; }
+.native-item .btn[data-chosen] { background: #ffd47933; }
+.ni-nav .btn, .ne-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+
+/* Native Equip screen (#121), Labs flag `native-equip` (off by default): the
+   same panel as the native Item screen (.native-item; ne- classes mirror its
+   ni- ones), with member rows
+   (text, not buttons) and spare-weapon buttons (js/native-equip.js,
+   <html data-native-equip-on>). The known member's row is highlighted. */
+.ne-members { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.ne-weapons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ne-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ne-member[data-chosen] { background: #ffd47933; }
+
+/* Native Materia screen (#250), Labs flag `native-materia` (off by default):
+   the same panel as the native Item screen (.native-item; nm- classes mirror
+   its ni- ones): the member line, two weapon slot buttons (the chosen one
+   highlighted) and one button per inventory materia; the panel scrolls, the
+   page does not (js/native-materia.js, <html data-native-materia-on>). */
+.nm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.nm-title { font-weight: 600; }
+.nm-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; }
+.nm-slots, .nm-list, .nm-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.nm-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }

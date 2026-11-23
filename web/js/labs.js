@@ -9,6 +9,9 @@
 //   if (isOn('my-feature')) { ... }
 
 export const STORAGE_KEY = 'ff7web.labs';
+// One optional choice per flag (#251), such as the CRT filter's strength:
+// { [flag]: value }, kept apart from the on/off list so that format is unchanged.
+export const SETTINGS_KEY = 'ff7web.labs.settings';
 
 const flags = new Map(); // name -> { name, label, description, pr, checklist }
 const stored = new Set(); // names switched on and persisted
@@ -41,10 +44,13 @@ const emit = (name) => { for (const cb of listeners) cb(name, isOn(name)); };
 // `pr` and `checklist` (#137) are the PR that added the flag and its Tier 3
 // checklist (at most 5 lines, the same as on the trip log #123), shown under the
 // toggle so the owner can check a flag on the iPhone without going to GitHub.
-export function registerFlag(name, { label = name, description = '', pr = null, checklist = [] } = {}) {
+//
+// `setting` (#251) is an optional choice shown under the toggle while the flag
+// is on: { label, choices: [{ value, label }], initial }. Read it with getSetting().
+export function registerFlag(name, { label = name, description = '', pr = null, checklist = [], setting = null } = {}) {
   if (flags.has(name)) return;
   const lines = Array.isArray(checklist) ? checklist.filter((l) => typeof l === 'string' && l).slice(0, 5) : [];
-  flags.set(name, { name, label, description, pr: Number.isInteger(pr) ? pr : null, checklist: lines });
+  flags.set(name, { name, label, description, pr: Number.isInteger(pr) ? pr : null, checklist: lines, setting: cleanSetting(setting) });
   if (storedNames.has(name)) stored.add(name);
   if (urlNames.has(name)) visit.add(name);
 }
@@ -59,13 +65,49 @@ export function setFlag(name, on) {
   writeStored(keep);
   emit(name);
 }
-export const listFlags = () => [...flags.values()].map((f) => ({ ...f, checklist: [...f.checklist], on: isOn(f.name), thisVisit: visit.has(f.name) }));
+export const listFlags = () => [...flags.values()].map((f) => ({
+  ...f, checklist: [...f.checklist], on: isOn(f.name), thisVisit: visit.has(f.name),
+  ...(f.setting && { setting: { ...f.setting, choices: f.setting.choices.map((c) => ({ ...c })), value: getSetting(f.name) } }),
+}));
+
+function cleanSetting(s) {
+  if (!s || !Array.isArray(s.choices)) return null;
+  const choices = s.choices.filter((c) => c && typeof c.value === 'string' && c.value)
+    .map((c) => ({ value: c.value, label: typeof c.label === 'string' && c.label ? c.label : c.value }));
+  if (!choices.length) return null;
+  const initial = choices.some((c) => c.value === s.initial) ? s.initial : choices[0].value;
+  return { label: typeof s.label === 'string' && s.label ? s.label : 'Setting', choices, initial };
+}
+function readSettings() {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(SETTINGS_KEY));
+    if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+  } catch { /* Blocked storage or junk: every setting at its initial value. */ }
+  return {};
+}
+const settings = readSettings();
+// The flag's chosen value, or its initial one; null for a flag with no setting.
+export function getSetting(name) {
+  const s = flags.get(name)?.setting;
+  if (!s) return null;
+  const v = settings[name];
+  return s.choices.some((c) => c.value === v) ? v : s.initial;
+}
+export function setSetting(name, value) {
+  const s = flags.get(name)?.setting;
+  if (!s || !s.choices.some((c) => c.value === value)) return;
+  settings[name] = value;
+  try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* Optional. */ }
+  emit(name);
+}
 // "Reset all flags" (#137): every flag off, the stored choice removed (unknown
 // names too), and ?labs= dropped from the address so a reload stays off.
 export function resetFlags() {
   const wasOn = [...flags.keys()].filter(isOn);
   stored.clear();
   visit.clear();
+  for (const k of Object.keys(settings)) delete settings[k];
+  try { window.localStorage.removeItem(SETTINGS_KEY); } catch { /* Optional. */ }
   storedNames.clear();
   urlNames.clear();
   try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* Optional. */ }
@@ -112,6 +154,25 @@ export function createLabsPanel({ button, panel }) {
       col.append(text, hint);
       row.append(box, col);
       item.append(row);
+      if (f.setting && f.on) {
+        const pick = document.createElement('label');
+        pick.className = 'labs-setting';
+        const name = document.createElement('small');
+        name.textContent = f.setting.label;
+        const select = document.createElement('select');
+        select.className = 'btn';
+        select.dataset.setting = f.name;
+        for (const c of f.setting.choices) {
+          const o = document.createElement('option');
+          o.value = c.value;
+          o.textContent = c.label;
+          o.selected = c.value === f.setting.value;
+          select.append(o);
+        }
+        select.addEventListener('change', () => setSetting(f.name, select.value));
+        pick.append(name, select);
+        item.append(pick);
+      }
       if (f.checklist.length) {
         const check = document.createElement('div');
         check.className = 'labs-checklist';

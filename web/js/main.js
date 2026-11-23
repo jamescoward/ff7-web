@@ -6,6 +6,7 @@ import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { createBorderCrop, CROP_FLAG } from './border-crop.js';
 import { cropAspect } from './crop.js';
+import { createCrtFilter, CRT_DEFAULT, CRT_FLAG, CRT_LEVELS } from './crt-filter.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { BATTLE_CROP_FLAG, createBattleCrop } from './battle-crop.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
@@ -237,6 +238,19 @@ labs.registerFlag(BATTLE_CROP_FLAG, {
     'Landscape, in a battle: is the command row below the picture easy to reach, and clear of the pad and Start/Select?',
   ],
 });
+labs.registerFlag(CRT_FLAG, {
+  label: 'CRT filter',
+  description: 'A subtle scanline look on the picture: one dimmed line per game line, drawn after any crop. Only the shown picture changes; overlays and panels stay sharp. Choose the strength below.',
+  pr: 251,
+  setting: { label: 'Strength', choices: CRT_LEVELS.map(({ value, label }) => ({ value, label })), initial: CRT_DEFAULT },
+  checklist: [
+    'Field and battle, portrait and landscape: does the picture look subtle, not blurry or darker overall?',
+    'Do you see moiré or uneven lines (bands that come and go) anywhere?',
+    'At 1x and 2x speed (Speed flag): any stutter with the filter on that is not there with it off?',
+    'Debug overlay, panels and labels on top: are they sharp (not lined)?',
+    'Try each strength in the Labs panel: is Subtle the right default?',
+  ],
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -316,6 +330,9 @@ const battleCrop = createBattleCrop({
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
 });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
+// CRT filter (#251): redraw the last frame when it is switched or its strength changes.
+const crt = createCrtFilter({ canvas, ctx: ctx2d, labs });
+labs.onChange((name) => { if (name === CRT_FLAG && lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; });
 
 function draw() {
   requestAnimationFrame(draw);
@@ -336,11 +353,15 @@ function draw() {
       stage.style.removeProperty('--screen-aspect');
       delete root.dataset.borderCropOn;
     }
-    if (canvas.width !== f.width || canvas.height !== f.height) {
-      canvas.width = f.width;
-      canvas.height = f.height;
+    if (crt.on) {
+      crt.draw(f, { x: 0, y: 0, w: f.width, h: f.height });
+    } else {
+      if (canvas.width !== f.width || canvas.height !== f.height) {
+        canvas.width = f.width;
+        canvas.height = f.height;
+      }
+      ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
     }
-    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
   }
   shown = { x: c?.x ?? 0, y: c?.y ?? 0, w: c?.w ?? f.width, h: c?.h ?? f.height };
   drawn = f.frame;
@@ -348,11 +369,15 @@ function draw() {
 // Only the crop is drawn, moved to the canvas origin; the screen box takes the
 // crop's share of 4:3, so the pixel aspect ratio is kept.
 function drawCropped(f, c) {
-  if (canvas.width !== c.w || canvas.height !== c.h) {
-    canvas.width = c.w;
-    canvas.height = c.h;
+  if (crt.on) {
+    crt.draw(f, c);
+  } else {
+    if (canvas.width !== c.w || canvas.height !== c.h) {
+      canvas.width = c.w;
+      canvas.height = c.h;
+    }
+    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
   }
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
   const aspect = cropAspect(c, f.width, f.height);
   if (Math.abs(aspect - shownAspect) > 1e-3) {
     shownAspect = aspect;
@@ -548,6 +573,7 @@ window.ff7web = {
   equipScreen,
   materiaScreen,
   battlePanel,
+  crt,
   suspend,
   drawnFrame: () => drawn,
   /** The part of the frame on screen: { x, y, w, h }, or null before a frame (#24). */

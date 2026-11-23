@@ -101,6 +101,17 @@ export const EQUIP_SCREEN_ACTIONS = Object.freeze({
 });
 
 /**
+ * Native Materia screen actions (#250, Labs flag `native-materia`). A tap
+ * runs the slot column plan, presses `select` (the list opens), runs the
+ * list plan, then presses `select` (the materia goes into the slot;
+ * save-boot-27a, semantic/materia-screen.js). Back presses Cross.
+ */
+export const MATERIA_SCREEN_ACTIONS = Object.freeze({
+  select: Object.freeze({ id: 'select', button: 'circle' }),
+  back: Object.freeze({ id: 'back', label: 'Back ✕', button: 'cross' }),
+});
+
+/**
  * Context-aware Interact labels (#25, Labs flag `interact-label`). The
  * Interact button still presses Circle; only its label changes, from a
  * nearby() result (semantic/layer.js, #112).

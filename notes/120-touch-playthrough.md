@@ -282,3 +282,19 @@ The eight sweeps (`touch-s2g-*`) are replaced by ten probes (`hintScenarios()`),
 | `touch-s2h-talk-{r150,l150}-up` | the same after a 150-frame step right / left (model 3 is to Cloud's right) | the same |
 
 A wait that times out stops its script and reports 0. md1_2 is the only end check, so the talk probes fail by design unless one reaches it.
+
+### Owner-hint attempt results (`5035cc4`, tier2: 109 pass, 2 fail, 8 error)
+`touch-playthrough` (stretch 1) passed with the same metrics as before (battle_wait 839, turn1 496, turn2 752, end_wait 482, next_wait 495, match 1).
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2h-info-entry | fail (by design) | off1 **1**, off2 0, off3 0, off4 0; n1 1, n2 1, n3 1, n4 1 |
+| touch-s2h-info-stall | fail (by design) | off1 **1**, off2 0, off3 0, off4 0; n1 1, n2 1, n3 1, n4 1 |
+| touch-s2h-talk-* (all 8) | **error** | none (not run, see below) |
+
+Reading:
+- **Models 2, 3 and 4 are talkable** (TalkOff 0); model 1 is not (TalkOff 1), at the entry and at the stall alike.
+- **No model is within talk range** (ground distance ≥ TalkRange_k + the player's SolidRange) at the entry or at the stall. So every Interact press at the stall in fresh attempts 1-3 could not have started a talk under the confirmed rule (#237), whichever window it would open. The hint is not tested yet: Cloud has to be brought into range of model 2, 3 or 4 first.
+- **The talk probes were most likely never started: the run hit Tier 2's time deadline.** `runner/tier2.js` stops starting scenarios after 1140 s (`--deadline-s`, under the sandbox's 1200 s limit) and reports the rest as `error`. The eval step ran 1149 s (04:50:21 to 05:09:30), and the eight errors are exactly the last eight scenarios in file order. A scenario fault isn't ruled out from this run alone, but the same steps load and pass every Tier 1 check. Tier 2's wall-clock budget, not the 128-slot cap, now limits how many probes a run can carry; main's own ~109 scenarios already take most of it.
+
+**Next (cheap, few scenarios):** one probe at the stall that brackets how far out of range models 2-4 are, with `near` checks at several `plus` values (for example model 3 at +32, +64, +128, +256 and models 2 and 4 at +64, +256), then a walk towards the nearest talkable model (model 3 is right of Cloud and above him) with Interact taps, watching window 1 and the near sign. Keep each push to two or three probe scenarios because of the time budget.

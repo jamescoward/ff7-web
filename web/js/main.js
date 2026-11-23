@@ -16,6 +16,7 @@ import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
 import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
 import { createWorkerBackend } from './backend.js';
+import { frameScale, hiResCoreOptions, HIRES_FLAG } from './hi-res.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
@@ -251,6 +252,26 @@ labs.registerFlag(CRT_FLAG, {
     'Try each strength in the Labs panel: is Subtle the right default?',
   ],
 });
+labs.registerFlag(HIRES_FLAG, {
+  label: '2x resolution',
+  description: 'The core draws 3D at twice the PS1 resolution (sharper models; 2D backgrounds stay as they are). It may run slower. Takes effect when the page is reloaded.',
+  pr: 252,
+  checklist: [
+    'Field and battle: are 3D models sharper, and do they still line up with the 2D backgrounds?',
+    'Does the game run at full speed at 1x (and 2x with the Speed flag), or does it stutter or step down?',
+    'Play for 10 minutes (field, battle, menu, a movie): no crash or freeze?',
+    'Suspend and resume (Suspend flag) with 2x on: does Resume land in the same place?',
+    'Turn it off and reload: is the picture as before?',
+  ],
+});
+// The core reads its options once, when it starts: freeze the flag for this load.
+const hiResActive = labs.isOn(HIRES_FLAG);
+if (hiResActive) document.documentElement.dataset.hiRes = '';
+labs.onChange((name) => {
+  if (name === HIRES_FLAG && labs.isOn(HIRES_FLAG) !== hiResActive) {
+    setStatus('2x resolution changes when the page is reloaded.', '', { clearAfter: NOTICE_MS });
+  }
+});
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
 
@@ -324,6 +345,7 @@ const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, la
 const borderCrop = createBorderCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
+  scaleOf: (f) => frameScale(f, hiResActive),
 });
 const battleCrop = createBattleCrop({
   labs,
@@ -397,6 +419,7 @@ async function persistCard(bytes) {
 }
 
 const backendReady = createWorkerBackend({
+  coreOptions: hiResCoreOptions(hiResActive),
   onAudio: (s) => audio.push(s),
   onCard: (bytes) => {
     if (!cardProblem(bytes)) persistCard(bytes);

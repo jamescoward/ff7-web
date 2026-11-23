@@ -178,3 +178,30 @@ Both budgets are spent (3 + 3 attempts). The fresh budget's results narrowed the
 4. The Tier 2 time budget is tight. 45 long scenarios took 16.4 of the sandbox's 20 minutes, so a search must be short scenarios with no long waits.
 
 The new `near` check (format 2) and its tests stay; the diagnostics are removed (definitions in `87d7724`, `f885ac7`, `d731bc3`).
+
+## Third budget (owner, 2026-11-23): from the mds7st1 window-1 lead
+The owner's method: rerun the down walk, press Circle through the message while watching window 1's state, pointerEnabled and pointerY, and make the pointer entries per-window if a choice appears.
+
+**The first two steps are already on main**, from #224 (`notes/224-window1-state.md`):
+- `save-boot-19a` repeats the down walk with a rerun match: window 1 reaches state 6 28 frames after Circle, with `ptr1` (window 1's pointerEnabled) at 0.
+- `save-boot-19b` presses Circle through the message: window 1 leaves 6 at once and reads 0 three frames later, and window 0 stays 0.
+- #237 showed this is model 7's talk (the talk rule holds there).
+
+So the window-1 lead is a **plain one-page message, not an ask**, and is deterministic. That route has no choice to find.
+
+### Attempt 1 plan: steering diagnostic in mds7st1
+The other talkable models in the field are 4-6 (#168) and 8-9 (#237), all TalkOff 0. No straight walk tried so far brings one into range. Steering to them needs:
+- the field camera's pad-to-world mapping;
+- each model's position relative to the player.
+
+So attempt 1 runs 8 short scenarios. Generator: `runner/test/unit/choice-cursor-scenarios.js`; tests: `choice-cursor.test.js`.
+
+| scenario | what | metrics |
+|---|---|---|
+| `save-boot-28a-steer-loaded` | load the save; check a settled field 144; keep snapshot `mds7st1-loaded` | `load_done`, `cnt` |
+| `save-boot-28b-steer-{up,down,left,right}` | from the snapshot, hold the direction 60 frames | `dx`, `dy`: the sign of the player's PosX / PosY change |
+| `save-boot-28c-steer-sides` | from the snapshot: which side of the player models 4, 5, 6 and 8 stand on | `sx<k>`, `sy<k>`: sign of model − player |
+| `save-boot-28d-steer-dist` | ground distance to models 4, 5, 6 and 8 against 256 and 1024 field units | `d<k>_256`, `d<k>_1024` |
+| `save-boot-28e-steer-rest` | the same for model 9, and for model 7 (the down walk reaches it, so it calibrates) | `sx9`, `sy9`, `d9_*`, `sx7`, `sy7`, `d7_*` |
+
+What decides attempt 2: for each candidate, the pad direction or directions that move towards it, and roughly how far. Attempt 2 then walks to each candidate in turn and talks, watching every window's state and pointerEnabled. A distance check may fail by design. Only the snapshot keeper (28a) and the steering walks must pass.

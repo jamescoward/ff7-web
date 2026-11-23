@@ -204,6 +204,7 @@ labs.registerFlag(EQUIP_FLAG, {
 labs.registerFlag(MATERIA_FLAG, {
   label: 'Native Materia screen',
   description: 'When the game\'s Materia screen is open, a native panel covers the picture: the member\'s weapon materia slots and every materia in the inventory (numbers and AP, no names). With one party member, tap an empty weapon slot, then a materia: the cursors move there one step at a time, Circle is pressed, and the panel reads both slots to confirm the move. Armor slots and larger parties are not offered yet. Back presses Cross; Hide shows the picture again.',
+  pr: 259,
   checklist: [
     'Main menu, Materia, pick Cloud: the panel covers the picture; leave Materia: the picture comes back.',
     'With only Cloud in the party: tap an empty weapon slot, then a materia far down the list. Does the panel say "Equipped", and does the game agree?',

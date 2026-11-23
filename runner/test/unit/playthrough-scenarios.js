@@ -524,43 +524,73 @@ const hintProbe = (name, what, input, assert, metrics) => ({
  *   leaves md1_1. End: md1_2 and the near signs of models 2-4.
  */
 export const STALL_SNAPSHOT = 'touch-stall';
-/** [model, plus] pairs for s2i-b-range: at most 8 metrics. */
-export const RANGE_BRACKETS = Object.freeze([[3, 32], [3, 64], [3, 128], [3, 256], [2, 64], [2, 256], [4, 64], [4, 256]]);
-/** [name, fixed approach legs with taps, facing while waiting for window 1]. */
-export const WALKS = Object.freeze([
-  ['up-right', [], 'up-right'],
-  ['right-up', [['right', 150]], 'up'],
+/**
+ * Third run (after `0b3d215`): every talkable model is more than 256 field
+ * units beyond talk range at the stall, and both walks towards model 3 timed
+ * out with window 1 closed (a timeout zeroes the end checks, so where they
+ * ended is unknown). So the range probe becomes per-axis brackets, and the
+ * walks have fixed lengths with no wait, so their end signs survive:
+ * - s2i-b-axis-3 / s2i-c-axis-24: the sign of |model k - Cloud| along PosX,
+ *   and along PosY (the other coordinate set to Cloud's own), minus plus.
+ * - s2i-walk-<dir>-<frames>: from the stall, drag that way with Interact taps
+ *   for a fixed time, then 30 still frames. Metrics: n3 and two wider
+ *   brackets for model 3, raw w0 and w1, Cloud's PosX / PosY signs since
+ *   the start, map_cur.
+ */
+/** [model, [plus...]] for the per-axis brackets: 2 axes x plus count <= 8 metrics per scenario. */
+export const AXIS_BRACKETS = Object.freeze([
+  ['3', [[3, [256, 512, 1024, 2048]]]],
+  ['24', [[2, [512, 2048]], [4, [512, 2048]]]],
 ]);
-const TALKABLE = [2, 3, 4];
+/** [drag direction, frames] for the fixed walks towards model 3 (right of Cloud and above him). */
+export const WALKS = Object.freeze([
+  ['right', 300],
+  ['up-right', 300],
+]);
 const nearPlus = (k, plus) => ({ near: { x: 'x0', y: 'y0', toX: `x${k}`, toY: `y${k}`, range: [`talk${k}`, 'solid0'], shift: 12, plus, is: 'within' }, metric: `n${k}p${plus}` });
+/** Sign of |model k - Cloud| along one axis (field units) minus plus; the other coordinate is Cloud's own. */
+const axisNear = (k, ax, plus) => ({
+  near: ax === 'x' ? { x: 'x0', y: 'y0', toX: `x${k}`, toY: 'y0', range: [], plus, shift: 12, is: 'within' } : { x: 'x0', y: 'y0', toX: 'x0', toY: `y${k}`, range: [], plus, shift: 12, is: 'within' },
+  metric: `a${ax}${k}_${plus}`,
+});
 
 export function hintScenarios() {
   const fromStall = (s) => ({ ...s, boot: { from: STALL_SNAPSHOT } });
   const stall = {
-    ...hintProbe('touch-s2i-a-stall', `Input: wait 30 frames; segment touch-2-stall (#200's stall point). End check: still md1_1 (0x${MD1_1.toString(16)}). Keeps the state as snapshot ${STALL_SNAPSHOT} for s2i-b .. s2i-d.`, [{ wait: { frames: 30 } }, { segment: STALL_SEGMENT }], [{ expect: { mem: 'map_cur', equals: MD1_1 } }], ['map_cur']),
+    ...hintProbe('touch-s2i-a-stall', `Input: wait 30 frames; segment touch-2-stall (#200's stall point). End check: still md1_1 (0x${MD1_1.toString(16)}). Keeps the state as snapshot ${STALL_SNAPSHOT} for the other s2i probes.`, [{ wait: { frames: 30 } }, { segment: STALL_SEGMENT }], [{ expect: { mem: 'map_cur', equals: MD1_1 } }], ['map_cur']),
     snapshot: STALL_SNAPSHOT,
   };
-  const range = fromStall(
-    hintProbe('touch-s2i-b-range', `Boots from ${STALL_SNAPSHOT}. Input: wait 1 frame. Metrics: n<k>p<plus>, the talk rule's distance sign for model k with plus field units added to the range (-1 within), for ${RANGE_BRACKETS.map(([k, p]) => `model ${k} +${p}`).join(', ')}. The near checks may fail by design.`, [{ wait: { frames: 1 } }], RANGE_BRACKETS.map(([k, p]) => nearPlus(k, p)), RANGE_BRACKETS.map(([k, p]) => `n${k}p${p}`)),
-  );
-  const walks = WALKS.map(([name, legs, face]) =>
+  const axes = AXIS_BRACKETS.map(([tag, groups], i) => {
+    const checks = groups.flatMap(([k, pluses]) => ['x', 'y'].flatMap((ax) => pluses.map((p) => axisNear(k, ax, p))));
+    return fromStall(
+      hintProbe(
+        `touch-s2i-${'bc'[i]}-axis-${tag}`,
+        `Boots from ${STALL_SNAPSHOT}. Input: wait 1 frame. Metrics: a<axis><k>_<n>, the sign of |model k's PosX - Cloud's| (axis x) or |PosY - Cloud's| (axis y), in field units, minus n: ${groups.map(([k, ps]) => `model ${k} at ${ps.join(', ')}`).join('; ')}. The checks may fail by design.`,
+        [{ wait: { frames: 1 } }],
+        checks,
+        checks.map((c) => c.metric),
+      ),
+    );
+  });
+  const walks = WALKS.map(([dir, frames]) =>
     fromStall(
       hintProbe(
-        `touch-s2i-walk-${name}`,
-        `Boots from ${STALL_SNAPSHOT}. Input: ${legs.map(([d, f]) => `${d} ${f} with Interact taps, then `).join('')}Interact taps while dragging ${face} until window 1 opens (w1_open, 900 frames); Interact taps until it closes (w1_close, 1800); 60 still frames; drag up until the field ID leaves md1_1 (exit, 1800). A timeout stops the script. End check: md1_2 (0x${MD1_2.toString(16)}). Metrics: w1_open, w1_close, exit, map_cur, n2 .. n4 (talk-rule distance signs at the end).`,
+        `touch-s2i-walk-${dir}-${frames}`,
+        `Boots from ${STALL_SNAPSHOT}. Input: mark go; drag ${dir} with Interact taps (15 of every 20 frames) for ${frames} frames; 30 still frames. No wait, so nothing can zero the end checks. End check: md1_1 still (0x${MD1_1.toString(16)}). Metrics: n3, n3p256, n3p1024 (model 3's talk-rule distance sign, plus 0 / 256 / 1024 field units), w0 and w1 (raw window states at the end), cx and cy (sign of Cloud's PosX / PosY change since go), map_cur. The near checks may fail by design.`,
+        [{ mark: 'go' }, ...tapLeg(dir, frames), { wait: { frames: 30 } }],
         [
-          ...legs.flatMap(([d, f]) => tapLeg(d, f)),
-          { wait: { until: { mem: 'w1', differs: 0 }, timeout: 900, press: tapPress(face) }, metric: 'w1_open' },
-          { wait: { until: { mem: 'w1', equals: 0 }, timeout: 1800, press: tapPress(null) }, metric: 'w1_close' },
-          { wait: { frames: 60 } },
-          walk('up', { mem: 'map_cur', differs: MD1_1 }, 1800, { metric: 'exit' }),
+          { expect: { mem: 'map_cur', equals: MD1_1 } },
+          talkNear(3),
+          nearPlus(3, 256),
+          nearPlus(3, 1024),
+          { change: { mem: 'x0', is: 'changed', signed: true, since: 'go' }, metric: 'cx' },
+          { change: { mem: 'y0', is: 'changed', signed: true, since: 'go' }, metric: 'cy' },
         ],
-        [{ expect: { mem: 'map_cur', equals: MD1_2 } }, ...TALKABLE.map(talkNear)],
-        ['w1_open', 'w1_close', 'exit', 'map_cur', ...TALKABLE.map((k) => `n${k}`)],
+        ['n3', 'n3p256', 'n3p1024', 'w0', 'w1', 'cx', 'cy', 'map_cur'],
       ),
     ),
   );
-  return [stall, range, ...walks];
+  return [stall, ...axes, ...walks];
 }
 
 /** [{ file, data }] for every generated file. */

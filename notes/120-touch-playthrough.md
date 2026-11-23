@@ -298,3 +298,33 @@ Reading:
 - **The talk probes were most likely never started: the run hit Tier 2's time deadline.** `runner/tier2.js` stops starting scenarios after 1140 s (`--deadline-s`, under the sandbox's 1200 s limit) and reports the rest as `error`. The eval step ran 1149 s (04:50:21 to 05:09:30), and the eight errors are exactly the last eight scenarios in file order. A scenario fault isn't ruled out from this run alone, but the same steps load and pass every Tier 1 check. Tier 2's wall-clock budget, not the 128-slot cap, now limits how many probes a run can carry; main's own ~109 scenarios already take most of it.
 
 **Next (cheap, few scenarios):** one probe at the stall that brackets how far out of range models 2-4 are, with `near` checks at several `plus` values (for example model 3 at +32, +64, +128, +256 and models 2 and 4 at +64, +256), then a walk towards the nearest talkable model (model 3 is right of Cloud and above him) with Interact taps, watching window 1 and the near sign. Keep each push to two or three probe scenarios because of the time budget.
+
+### Owner-hint attempt, run 2 results (`0b3d215`, tier2: 110 pass, 3 fail)
+`touch-playthrough` (stretch 1) passed unchanged. The eval step took 14.5 min with 113 scenarios, and nothing hit the deadline.
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2i-a-stall | pass | map_cur 117 (snapshot `touch-stall` kept) |
+| touch-s2i-b-range | fail (by design) | n3p32 1, n3p64 1, n3p128 1, n3p256 1; n2p64 1, n2p256 1; n4p64 1, n4p256 1 |
+| touch-s2i-walk-up-right | fail | w1_open 0 (timeout), so every later value is 0; map_cur 117 |
+| touch-s2i-walk-right-up | fail | the same |
+
+Reading:
+- The kept snapshot chains: the other three probes booted from `touch-stall`.
+- At the stall, **models 2, 3 and 4 are each more than 256 field units beyond talk range** (TalkRange_k + SolidRange_0 + 256).
+- Neither walk towards model 3 (up-right with Interact taps, or right 150 and then up) opened window 1 within 900 frames. The timeout zeroed the end checks, so it is not known where the walks ended or whether they came closer.
+
+### Owner-hint attempt, run 3 plan (`touch-s2i-*`)
+`touch-s2i-a-stall` stays. The range probe and the two waiting walks are replaced:
+- `touch-s2i-b-axis-3`: the sign of |model 3 − Cloud| along PosX and along PosY, minus 256, 512, 1024 and 2048 field units. A `near` check with the other coordinate set to Cloud's own gives one axis only.
+- `touch-s2i-c-axis-24`: the same for models 2 and 4, at 512 and 2048.
+- `touch-s2i-walk-right-300` and `touch-s2i-walk-up-right-300`: from the stall, drag with Interact taps for 300 frames, then 30 still frames. There is **no wait**, so nothing can zero the end values. Metrics:
+  - n3, n3p256 and n3p1024;
+  - raw w0 and w1;
+  - cx and cy, the sign of Cloud's PosX and PosY change;
+  - map_cur.
+
+What it decides:
+- A walk whose n3 bracket falls below the stall's (for example n3p256 −1) is heading into range. The next run lengthens that walk and taps until window 1 opens.
+- If neither walk moves Cloud closer (cx or cy 0, or the brackets unchanged), the way to model 3 is walled. Use the axis brackets to try a route round.
+- If nothing works, the hint attempt ends and the owner's third budget (line triggers and walkmesh) starts.

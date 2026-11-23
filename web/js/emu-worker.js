@@ -14,7 +14,8 @@
 //   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
-//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred; targetFrames: frames the time base asked for (#173)
+//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred; targetFrames: frames the time base asked for (#173);
+//                                                heapBytes: the Wasm heap's size (it only grows, so this is its high-water mark; #252)
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
@@ -163,7 +164,7 @@ function runFrames(n) {
   }
   drainAudio();
   const f = grabFrame();
-  if (f) post({ type: 'frame', frame, targetFrames, ...f }, [f.buffer]);
+  if (f) post({ type: 'frame', frame, targetFrames, heapBytes: m.HEAPU8.buffer.byteLength, ...f }, [f.buffer]);
 }
 
 function tick() {

@@ -133,6 +133,10 @@ export async function createWorkerBackend(opts = {}) {
     get targetFrames() {
       return lastFrame?.targetFrames ?? 0;
     },
+    /** The core's Wasm heap size in bytes, as of the last frame (its high-water mark; #252 report). */
+    get heapBytes() {
+      return lastFrame?.heapBytes ?? 0;
+    },
 
     /** Boot from the chosen files (read in place, never uploaded). */
     loadFiles(files, card = null) {

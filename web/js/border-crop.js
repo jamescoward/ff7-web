@@ -14,11 +14,14 @@ import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { createSemantic } from './semantic/layer.js';
 import { cropFor } from './semantic/regions.js';
 import { createCropTracker } from './crop.js';
+import { scaleInsets } from './hi-res.js';
 
 export const CROP_FLAG = 'border-crop';
 export const CROP_HZ = 4;
 
-export function createBorderCrop({ labs, timers = globalThis, hz = CROP_HZ, semanticFor = createSemantic, onChange = () => {} }) {
+// scaleOf(f): output pixels per PS1 framebuffer pixel for a frame (2x internal
+// resolution, #252); the insets in semantic/regions.js are in PS1 pixels.
+export function createBorderCrop({ labs, timers = globalThis, hz = CROP_HZ, semanticFor = createSemantic, onChange = () => {}, scaleOf = () => 1 }) {
   let gateActive = false;
   let backend = null;
   let source = null; // tests: async () => mode() sample
@@ -95,11 +98,12 @@ export function createBorderCrop({ labs, timers = globalThis, hz = CROP_HZ, sema
      */
     frame(f) {
       if (!flagOn() || !sample || !f?.buffer) return null;
-      const policy = cropFor(modeOf(sample), sample.confirmed, f.width, f.height);
+      const s = scaleOf(f);
+      const policy = cropFor(modeOf(sample), sample.confirmed, Math.floor(f.width / s), Math.floor(f.height / s));
       if (!policy) return null;
       const key = `${policyKey(sample)}:${f.width}x${f.height}`;
       if (!tracker || key !== trackerKey) {
-        tracker = createCropTracker({ maxInsets: policy.maxInsets });
+        tracker = createCropTracker({ maxInsets: scaleInsets(policy.maxInsets, s) });
         trackerKey = key;
       }
       const r = tracker.update(new Uint32Array(f.buffer), f.width, f.height, f.frame);

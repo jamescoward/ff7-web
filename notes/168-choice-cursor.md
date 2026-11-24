@@ -178,3 +178,152 @@ Both budgets are spent (3 + 3 attempts). The fresh budget's results narrowed the
 4. The Tier 2 time budget is tight. 45 long scenarios took 16.4 of the sandbox's 20 minutes, so a search must be short scenarios with no long waits.
 
 The new `near` check (format 2) and its tests stay; the diagnostics are removed (definitions in `87d7724`, `f885ac7`, `d731bc3`).
+
+## Third budget (owner, 2026-11-23): from the mds7st1 window-1 lead
+The owner's method: rerun the down walk, press Circle through the message while watching window 1's state, pointerEnabled and pointerY, and make the pointer entries per-window if a choice appears.
+
+**The first two steps are already on main**, from #224 (`notes/224-window1-state.md`):
+- `save-boot-19a` repeats the down walk with a rerun match: window 1 reaches state 6 28 frames after Circle, with `ptr1` (window 1's pointerEnabled) at 0.
+- `save-boot-19b` presses Circle through the message: window 1 leaves 6 at once and reads 0 three frames later, and window 0 stays 0.
+- #237 showed this is model 7's talk (the talk rule holds there).
+
+So the window-1 lead is a **plain one-page message, not an ask**, and is deterministic. That route has no choice to find.
+
+### Attempt 1 plan: steering diagnostic in mds7st1
+The other talkable models in the field are 4-6 (#168) and 8-9 (#237), all TalkOff 0. No straight walk tried so far brings one into range. Steering to them needs:
+- the field camera's pad-to-world mapping;
+- each model's position relative to the player.
+
+So attempt 1 runs 8 short scenarios. Generator: `runner/test/unit/choice-cursor-scenarios.js`; tests: `choice-cursor.test.js`.
+
+| scenario | what | metrics |
+|---|---|---|
+| `save-boot-28a-steer-loaded` | load the save; check a settled field 144; keep snapshot `mds7st1-loaded` | `load_done`, `cnt` |
+| `save-boot-28b-steer-{up,down,left,right}` | from the snapshot, hold the direction 60 frames | `dx`, `dy`: the sign of the player's PosX / PosY change |
+| `save-boot-28c-steer-sides` | from the snapshot: which side of the player models 4, 5, 6 and 8 stand on | `sx<k>`, `sy<k>`: sign of model − player |
+| `save-boot-28d-steer-dist` | ground distance to models 4, 5, 6 and 8 against 256 and 1024 field units | `d<k>_256`, `d<k>_1024` |
+| `save-boot-28e-steer-rest` | the same for model 9, and for model 7 (the down walk reaches it, so it calibrates) | `sx9`, `sy9`, `d9_*`, `sx7`, `sy7`, `d7_*` |
+
+What decides attempt 2: for each candidate, the pad direction or directions that move towards it, and roughly how far. Attempt 2 then walks to each candidate in turn and talks, watching every window's state and pointerEnabled. A distance check may fail by design. Only the snapshot keeper (28a) and the steering walks must pass.
+
+### Attempt 1 results (`de91358`, tier2: 115 pass, 2 fail; both fails are distance checks that may fail by design)
+`save-boot-28a`: load_done 392, cnt 10. Every earlier scenario passed unchanged.
+
+Pad mapping (28b, 60 frames each, sign of the player's PosX / PosY change):
+
+| pad | dx | dy |
+|---|---|---|
+| up | −1 | +1 |
+| down | +1 | −1 |
+| left | −1 | −1 |
+| right | +1 | +1 |
+
+So the camera turns the pad 45° against the world axes, and each diagonal moves along one axis: up+left −x, down+right +x, up+right +y, down+left −y (inferred from the four, not measured).
+
+Models (28c, 28d, 28e; side = sign of model − player, d = sign of ground distance − n):
+
+| model | sx | sy | pad towards it | d_256 | d_1024 |
+|---|---|---|---|---|---|
+| 4 | −1 | −1 | left | +1 | +1 |
+| 5 | −1 | +1 | up | +1 | +1 |
+| 6 | +1 | −1 | down | +1 | +1 |
+| 8 | −1 | +1 | up | +1 | +1 |
+| 9 | +1 | −1 | down | +1 | +1 |
+| 7 (talker) | +1 | −1 | down | +1 | **−1** |
+
+Reading:
+- Model 7 lies on the down side, 256–1024 field units away. That matches #224: the down walk reaches it. So the mapping and the sides agree.
+- Every candidate is more than 1024 field units away. 6 and 9 lie in the same quadrant as 7 and farther, so a down walk meets 7 first.
+- Straight walks of 300 frames (the fresh budget's attempt 3) did not bring 4, 5 or 6 into range in any of 8 directions. So either the walk speed is too low for these distances, or walls stop the walk. Routes need distances per axis.
+
+### Attempt 2 plan (one push)
+The steering probes 28b–28e are removed (definitions in `de91358`); 28a stays as the snapshot keeper. Two new groups:
+- **`save-boot-28f-axis-<k>`** for k = 4, 5, 6, 8, 9, 7: the sign of |model k − player| along PosX, and along PosY, minus 512, 1024, 2048 and 4096 field units (a `near` check with the other coordinate set to the player's own). This gives each candidate's offset per axis within a factor of 2, for a two-leg route along the diagonals.
+- **`save-boot-28g-talk-<dir>`**, 8 directions (the four pads and the four diagonals): walk with a Circle edge every 8 frames **until window 1 opens** (`win_wait`, timeout 600), then wait for window 1 to read 6 (`done_wait`, timeout 300). Reports window 1's pointerEnabled `ptr1` (1 is an ask) and raw `ptr0`, `w0` and `w2`, which survive a timeout. `n7` says whether model 7, #224's plain message, is the one in range. The fresh budget's sweeps in this field watched only window 0, and #224 showed this field's talk uses window 1. So these are the first sweeps here that could see a window-1 talk.
+
+What decides attempt 3 (the last in this budget):
+- a sweep with `ptr1` 1: an ask. Attempt 3 adds the acceptance chain (Down, Up, Circle; pointerY moves by one line and back; rerun) on that route.
+- a sweep with `win_wait` > 0, `ptr1` 0 and `n7` 1: a different model's plain message. Press through it and look for an ask after it.
+- no new talk: attempt 3 walks a two-leg route to the nearest candidate from 28f's brackets.
+
+Tier 2 count with this push: 124 of 128.
+
+### Attempt 2 results (`2b32561`, tier2: 111 pass, 13 fail; every fail is a diagnostic; eval step 9.8 min)
+`save-boot-28a`: passed, cnt 10. Every earlier scenario passed unchanged.
+
+Axis brackets (28f; sign of |model − player| along one axis minus 512 × n, for n = 1, 2, 4, 8; sides from attempt 1):
+
+| model | ax n=1,2,4,8 | ay n=1,2,4,8 | \|Δx\| | \|Δy\| | side (x, y) | world direction | pad |
+|---|---|---|---|---|---|---|---|
+| 4 | − − − − | + + − − | < 512 | 1024–2048 | −, − | mostly −y | down+left |
+| 5 | + − − − | + − − − | 512–1024 | 512–1024 | −, + | −x +y | up |
+| 6 | − − − − | + + − − | < 512 | 1024–2048 | +, − | mostly −y | down+left |
+| 7 (talker) | − − − − | + − − − | < 512 | 512–1024 | +, − | mostly −y | (down reaches it) |
+| 8 | − − − − | + + − − | < 512 | 1024–2048 | −, + | mostly +y | up+right |
+| 9 | − − − − | + + + − | < 512 | 2048–4096 | +, − | mostly −y | down+left |
+
+Talk sweeps (28g, Circle edge every 8 frames until window 1 opens, timeout 600):
+
+| direction | win_wait | done_wait | ptr1 | n7 | other values |
+|---|---|---|---|---|---|
+| down | 372 | 28 | 0 | −1 | ptr0 0, w0 0, w2 0 |
+| the other 7 | 0 (timeout) | 0 | 0 | 0 | all 0 |
+
+Reading:
+- **Down is model 7's plain message again** (`ptr1` 0, n7 −1), as in #224.
+- **The other seven sweeps timed out, and the timeout zeroed every value**, including the raw ones the plan expected to survive (a timed-out wait stops the script, `runner/format2.js` `play`). So they say only that window 1 did not open within 600 frames. They say nothing about window 0.
+- **Model 5 is the nearest candidate** (both axes 512–1024, along the up diagonal). Models 4, 6 and 8 lie 1024–2048 along one axis, and 9 farther.
+- Model 7 is in range after 300 frames of down (fresh budget attempt 3). So a walk covers very roughly 2–3 field units a frame per axis (an estimate; nothing measured it). At that speed, 600 frames of up should pass model 5. The up sweep found no window-1 talk, so either a wall stops the walk, or model 5's talk uses window 0, or it has no talk at this progress value.
+
+### Attempt 3 plan (the last in this budget; one push)
+28f and 28g are removed (definitions in `2b32561`); 28a stays. New group **`save-boot-28h-route-<name>`**, 13 fixed routes from the snapshot. Each holds its pad legs for a fixed number of frames **with no Circle**, waits 10 frames, presses Circle for 4 frames and waits 40. No step waits on a condition, so nothing can time out and zero the values. Metrics (8 at most): `w0`, `w1` (raw window state; 6 is a message waiting), `ptr0`, `ptr1` (raw pointerEnabled; 1 is an ask), `n<k>` for each target (talk rule's distance half, −1 in range), and `ay<k>` / `ax<k>` (sign of |model − player| along that axis minus 256) while room is left.
+
+| route | target | legs |
+|---|---|---|
+| 5-up-150 / 250 / 350 / 450 | 5 | up 150 / 250 / 350 / 450 |
+| 5-ul-up | 5 | up+left 100, then up 200 |
+| 5-ur-up | 5 | up+right 100, then up 200 |
+| 8-ur-300 / 450 / 600 | 8 | up+right 300 / 450 / 600 |
+| 46-dl-300 / 450 / 600 | 4 and 6 | down+left 300 / 450 / 600 |
+| 9-dl-1000 | 9 | down+left 1000 |
+
+What it tells:
+- a route with `ptr0` or `ptr1` 1: an ask. The acceptance chain (Down, Up, Circle; pointerY moves one line and back; rerun) goes on that route. That is a new attempt, so it needs a new budget or a follow-up issue.
+- a route with `n<k>` −1 and a window at 6 but pointerEnabled 0: a plain message from that model. Pressing through it is the next step.
+- `n<k>` −1 and both windows 0: in range but no talk (facing, or no talk handler at this progress value).
+- no `n<k>` −1: the axis signs over the lengths show how far each route got, and whether it stalls (a wall).
+
+Tier 2 count with this push: 123 of 128.
+
+### Attempt 3 results (`6512c27`, tier2 run 463: 110 pass, 13 fail; every fail is a route diagnostic; eval step 17.4 min)
+Recorded 2026-11-24 from the `eval` job log. Every earlier scenario passed unchanged, `save-boot-28a` included.
+
+| route | w0 | w1 | ptr0 | ptr1 | n (target) | axis signs (vs 256) |
+|---|---|---|---|---|---|---|
+| 5-up-150 | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 +1 |
+| 5-up-250 / 350 / 450 | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 5-ul-up | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 5-ur-up | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 8-ur-300 / 450 / 600 | 0 | 0 | 0 | 0 | n8 +1 | ax8 −1, ay8 +1 |
+| 46-dl-300 / 450 / 600 | 0 | 0 | 0 | 0 | n4 +1, n6 +1 | ay4 +1, ay6 +1 |
+| 9-dl-1000 | 0 | 0 | 0 | 0 | n9 +1 | ax9 +1, ay9 +1 |
+
+Reading:
+- **No route opened a window, and no target came into talk range.** No ask was seen.
+- Model 5: from 250 frames of up on, Δy is within 256 but Δx stays above 256, and nothing changes up to 450 frames, nor with an up+left or up+right first leg. The walk most likely stalls against a wall short of model 5 (a hypothesis: the position itself is not reported).
+- Model 8: the same signs at 300, 450 and 600 frames of up+right (Δx within 256, Δy above). Again a stall, most likely.
+- Models 4 and 6: Δy stays above 256 at 300, 450 and 600 frames of down+left. A stall again.
+- So in mds7st1, straight and two-leg pad walks from the save's start point stop before every candidate except model 7, whose message is plain.
+
+## Blockers after the third budget (2026-11-24)
+The third budget (owner, 2026-11-23) is spent: 3 + 3 + 3 attempts. What is known:
+1. The mds7st1 window-1 lead is model 7's plain one-page message (#224), not an ask.
+2. The other talkable models in mds7st1 (4, 5, 6, 8, 9) are out of reach of pad walks from the generated save's start point: walks stall short of them (attempt 3).
+3. Earlier budgets: mktinn and md8_1 have no talkable model at progress 6; md1_2, nmkin_1 and mds7 have talkable models that straight walks don't reach.
+
+What could unblock it (each a new attempt budget, which needs the owner; rule 11's one agent-default budget is used):
+- **A walkmesh-aware route:** read the field's walkmesh triangles in the sandbox and report only a route (pad legs) to a talkable model, never the mesh. This is the same capability #120's third budget would build for md1_1, so it should be built once, there or as its own issue.
+- **A generated save placed next to a talkable model** (a different start position in the savemap), if the savemap's field position fields are confirmed.
+- **A known ask from the owner's play memory** (a field, an NPC and a progress value), as #120's route hint did.
+
+The diagnostics (generator `runner/test/unit/choice-cursor-scenarios.js`, its test and the 28* scenarios) are not merged; their definitions are in `de91358`, `2b32561` and `6512c27` on branch `issue-168-choice-cursor-3`.

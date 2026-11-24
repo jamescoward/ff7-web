@@ -247,3 +247,50 @@ What decides attempt 3 (the last in this budget):
 - no new talk: attempt 3 walks a two-leg route to the nearest candidate from 28f's brackets.
 
 Tier 2 count with this push: 124 of 128.
+
+### Attempt 2 results (`2b32561`, tier2: 111 pass, 13 fail; every fail is a diagnostic; eval step 9.8 min)
+`save-boot-28a`: passed, cnt 10. Every earlier scenario passed unchanged.
+
+Axis brackets (28f; sign of |model − player| along one axis minus 512 × n, for n = 1, 2, 4, 8; sides from attempt 1):
+
+| model | ax n=1,2,4,8 | ay n=1,2,4,8 | \|Δx\| | \|Δy\| | side (x, y) | world direction | pad |
+|---|---|---|---|---|---|---|---|
+| 4 | − − − − | + + − − | < 512 | 1024–2048 | −, − | mostly −y | down+left |
+| 5 | + − − − | + − − − | 512–1024 | 512–1024 | −, + | −x +y | up |
+| 6 | − − − − | + + − − | < 512 | 1024–2048 | +, − | mostly −y | down+left |
+| 7 (talker) | − − − − | + − − − | < 512 | 512–1024 | +, − | mostly −y | (down reaches it) |
+| 8 | − − − − | + + − − | < 512 | 1024–2048 | −, + | mostly +y | up+right |
+| 9 | − − − − | + + + − | < 512 | 2048–4096 | +, − | mostly −y | down+left |
+
+Talk sweeps (28g, Circle edge every 8 frames until window 1 opens, timeout 600):
+
+| direction | win_wait | done_wait | ptr1 | n7 | other values |
+|---|---|---|---|---|---|
+| down | 372 | 28 | 0 | −1 | ptr0 0, w0 0, w2 0 |
+| the other 7 | 0 (timeout) | 0 | 0 | 0 | all 0 |
+
+Reading:
+- **Down is model 7's plain message again** (`ptr1` 0, n7 −1), as in #224.
+- **The other seven sweeps timed out, and the timeout zeroed every value**, including the raw ones the plan expected to survive (a timed-out wait stops the script, `runner/format2.js` `play`). So they say only that window 1 did not open within 600 frames. They say nothing about window 0.
+- **Model 5 is the nearest candidate** (both axes 512–1024, along the up diagonal). Models 4, 6 and 8 lie 1024–2048 along one axis, and 9 farther.
+- Model 7 is in range after 300 frames of down (fresh budget attempt 3). So a walk covers very roughly 2–3 field units a frame per axis (an estimate; nothing measured it). At that speed, 600 frames of up should pass model 5. The up sweep found no window-1 talk, so either a wall stops the walk, or model 5's talk uses window 0, or it has no talk at this progress value.
+
+### Attempt 3 plan (the last in this budget; one push)
+28f and 28g are removed (definitions in `2b32561`); 28a stays. New group **`save-boot-28h-route-<name>`**, 13 fixed routes from the snapshot. Each holds its pad legs for a fixed number of frames **with no Circle**, waits 10 frames, presses Circle for 4 frames and waits 40. No step waits on a condition, so nothing can time out and zero the values. Metrics (8 at most): `w0`, `w1` (raw window state; 6 is a message waiting), `ptr0`, `ptr1` (raw pointerEnabled; 1 is an ask), `n<k>` for each target (talk rule's distance half, −1 in range), and `ay<k>` / `ax<k>` (sign of |model − player| along that axis minus 256) while room is left.
+
+| route | target | legs |
+|---|---|---|
+| 5-up-150 / 250 / 350 / 450 | 5 | up 150 / 250 / 350 / 450 |
+| 5-ul-up | 5 | up+left 100, then up 200 |
+| 5-ur-up | 5 | up+right 100, then up 200 |
+| 8-ur-300 / 450 / 600 | 8 | up+right 300 / 450 / 600 |
+| 46-dl-300 / 450 / 600 | 4 and 6 | down+left 300 / 450 / 600 |
+| 9-dl-1000 | 9 | down+left 1000 |
+
+What it tells:
+- a route with `ptr0` or `ptr1` 1: an ask. The acceptance chain (Down, Up, Circle; pointerY moves one line and back; rerun) goes on that route. That is a new attempt, so it needs a new budget or a follow-up issue.
+- a route with `n<k>` −1 and a window at 6 but pointerEnabled 0: a plain message from that model. Pressing through it is the next step.
+- `n<k>` −1 and both windows 0: in range but no talk (facing, or no talk handler at this progress value).
+- no `n<k>` −1: the axis signs over the lengths show how far each route got, and whether it stalls (a wall).
+
+Tier 2 count with this push: 123 of 128.

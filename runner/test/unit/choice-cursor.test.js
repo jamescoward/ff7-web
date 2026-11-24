@@ -9,7 +9,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
-import { AXIS, CANDIDATES, SNAPSHOT, SWEEP, TALKER, WINDOW_STRIDE, memory, scenarios, sweepMemory } from './choice-cursor-scenarios.js';
+import { CANDIDATES, NEAR_AXIS, ROUTES, SNAPSHOT, TALKER, WINDOW_STRIDE, memory, routeMemory, scenarios } from './choice-cursor-scenarios.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCENARIOS = path.resolve(HERE, '../../../harness/scenarios');
@@ -46,37 +46,42 @@ describe('#168 choice-cursor scenarios', () => {
     }
   });
 
-  test('every talkable candidate and the talker get both axis brackets', () => {
-    const metrics = new Set(scenarios().flatMap((s) => s.metrics));
-    for (const k of [...CANDIDATES, TALKER]) {
-      for (const ax of ['x', 'y']) for (const p of AXIS) assert.ok(metrics.has(`a${ax}${k}_${p / 512}`), `a${ax}${k}_${p / 512}`);
-    }
-    const ax = scenarios().find((s) => s.name === 'save-boot-28f-axis-4');
-    const bx = ax.assert.find((a) => a.metric === 'ax4_1').near;
-    assert.deepEqual([bx.y, bx.toY, bx.toX], ['y0', 'y0', 'x4'], 'the x bracket keeps the player\'s own PosY');
-    const by = ax.assert.find((a) => a.metric === 'ay4_1').near;
-    assert.deepEqual([by.x, by.toX, by.toY], ['x0', 'x0', 'y4'], 'the y bracket keeps the player\'s own PosX');
-  });
-
-  test('sweeps: 8 directions, each walks with Circle edges until window 1 opens, then waits for state 6', () => {
-    const sweeps = scenarios().filter((s) => s.name.includes('-talk-'));
-    assert.equal(sweeps.length, 8);
-    assert.deepEqual(sweeps.map((s) => s.input[0].wait.press.buttons), Object.values(SWEEP).map((b) => [...b, 'circle']));
-    for (const s of sweeps) {
-      const [walk, done] = s.input;
-      assert.deepEqual(walk.wait.until, { mem: 'w1', differs: 0 }, s.name);
-      assert.ok(walk.wait.press.hold < walk.wait.press.every, s.name);
-      assert.deepEqual(done.wait.until, { mem: 'w1', equals: 6 }, s.name);
-      assert.ok(s.metrics.includes('ptr1'), s.name);
+  test('routes: every candidate is a target, and no step waits on a condition (a timeout would zero the values)', () => {
+    const routes = scenarios().filter((sc) => sc.name.includes('-route-'));
+    assert.equal(routes.length, ROUTES.length);
+    assert.deepEqual([...new Set(ROUTES.flatMap((r) => r.target))].sort(), [...CANDIDATES].sort());
+    for (const sc of routes) {
+      for (const step of sc.input) assert.ok(step.buttons || (step.wait && 'frames' in step.wait), `${sc.name}: fixed steps only`);
+      const last = sc.input.slice(-3);
+      assert.deepEqual(last[1], { buttons: ['circle'], frames: 4 }, `${sc.name}: one Circle after the walk`);
+      assert.ok(!sc.input.slice(0, -3).some((st) => st.buttons?.includes('circle')), `${sc.name}: no Circle while walking`);
+      assert.deepEqual(sc.metrics.slice(0, 4), ['w0', 'w1', 'ptr0', 'ptr1'], sc.name);
     }
   });
 
-  test('sweep window locations: window k at the entry + k * 0x30', () => {
-    const m = sweepMemory();
-    for (const k of [0, 1, 2, 3]) assert.equal(Number(m[`w${k}`].addr), entry('dialogState').address + k * WINDOW_STRIDE, `w${k}`);
+  test('routes: each target gets the talk-rule sign, and axis brackets keep the other coordinate', () => {
+    for (const r of ROUTES) {
+      const sc = scenarios().find((x) => x.name === `save-boot-28h-route-${r.name}`);
+      for (const k of r.target) {
+        const n = sc.assert.find((a) => a.metric === `n${k}`).near;
+        assert.deepEqual(n.range, [`talk${k}`, 'solid0'], r.name);
+      }
+      for (const a of sc.assert.filter((x) => /^a[xy]\d$/.test(x.metric ?? ''))) {
+        assert.equal(a.near.plus, NEAR_AXIS);
+        if (a.metric[1] === 'x') assert.deepEqual([a.near.y, a.near.toY], ['y0', 'y0'], a.metric);
+        else assert.deepEqual([a.near.x, a.near.toX], ['x0', 'x0'], a.metric);
+      }
+    }
+  });
+
+  test('route window locations: window k at the entry + k * 0x30', () => {
+    const m = routeMemory([5]);
+    for (const k of [0, 1]) assert.equal(Number(m[`w${k}`].addr), entry('dialogState').address + k * WINDOW_STRIDE, `w${k}`);
     for (const k of [0, 1]) assert.equal(Number(m[`ptr${k}`].addr), entry('dialogPointer').address + k * WINDOW_STRIDE, `ptr${k}`);
     assert.equal(m.w1.addr, '0x800832d0', 'window 1 state as #224');
     assert.equal(m.ptr1.addr, '0x800832be', 'window 1 pointerEnabled as save-boot-19a');
+    const e = entry('fieldTalkRange');
+    assert.equal(Number(m.talk5.addr), e.address + 5 * e.stride);
   });
 
   test('positions come from the address table: element k at address + k * stride', () => {

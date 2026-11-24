@@ -216,13 +216,18 @@ export function equipListRows(inventory, kind) {
  * - cursors: an equipCursors() value; the slot cursor must read and the
  *   list cursor must read row 0, offset 0, the state the list shows on the
  *   slot page (#216 18a), so the plans start from confirmed values;
- * - rows: equipListRows() for that slot's kind.
+ * - rows: equipListRows() for that slot's kind;
+ * - slotPage: true while the screen is known to show the slot page, not a
+ *   list. No page variable is read (#216), so a caller knows it only from
+ *   the screen's opening state (#121: it opens on the slots) and its own
+ *   completed taps, with no other input since.
  */
 export function equipV2TapAllowed(state, slot, index) {
   if (!state?.open) return { ok: false, reason: 'closed' };
   if (state.memberSlot === null || state.memberSlot === undefined || !state.member) return { ok: false, reason: 'party pick not read' };
   if (equipSlotKind(slot) === null) return { ok: false, reason: 'slot not planned' };
   if (!(Number.isInteger(index) && Array.isArray(state.rows) && state.rows.some((r) => r.index === index))) return { ok: false, reason: 'no entry' };
+  if (state.slotPage !== true) return { ok: false, reason: 'page not known' };
   const c = state.cursors;
   if (!(c && Number.isInteger(c.slot) && c.listRow === 0 && c.listOffset === 0)) return { ok: false, reason: 'cursor not read' };
   if (!(Number.isInteger(state.framesOpen) && state.framesOpen >= EQUIP_SETTLE_FRAMES)) return { ok: false, reason: 'settling' };

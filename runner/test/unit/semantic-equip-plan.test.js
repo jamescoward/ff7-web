@@ -74,7 +74,7 @@ describe('#254 Equip v2 plans', () => {
   });
 
   const member = { weapon: 0, armor: 0, accessory: null };
-  const ok = { open: true, framesOpen: EQUIP_SETTLE_FRAMES, memberSlot: 1, member, cursors: { slot: 0, listRow: 0, listOffset: 0 }, rows: [{ index: 0 }, { index: 1 }] };
+  const ok = { open: true, framesOpen: EQUIP_SETTLE_FRAMES, memberSlot: 1, member, cursors: { slot: 0, listRow: 0, listOffset: 0 }, rows: [{ index: 0 }, { index: 1 }], slotPage: true };
   test('equipV2TapAllowed', () => {
     assert.deepEqual(equipV2TapAllowed(ok, 1, 1), { ok: true, reason: null });
     assert.equal(equipV2TapAllowed({ ...ok, open: false }, 1, 1).reason, 'closed');
@@ -83,6 +83,7 @@ describe('#254 Equip v2 plans', () => {
     assert.equal(equipV2TapAllowed(ok, 1, 2).reason, 'no entry');
     assert.equal(equipV2TapAllowed({ ...ok, cursors: { slot: 0, listRow: 1, listOffset: 0 } }, 1, 1).reason, 'cursor not read');
     assert.equal(equipV2TapAllowed({ ...ok, cursors: { slot: null, listRow: 0, listOffset: 0 } }, 1, 1).reason, 'cursor not read');
+    assert.equal(equipV2TapAllowed({ ...ok, slotPage: false }, 1, 1).reason, 'page not known');
     assert.equal(equipV2TapAllowed({ ...ok, framesOpen: 10 }, 1, 1).reason, 'settling');
   });
 

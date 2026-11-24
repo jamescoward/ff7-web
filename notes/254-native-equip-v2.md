@@ -5,6 +5,13 @@ Option (a) from the issue: the panel offers the game's list rows **by index** (o
 
 The member is the one the game opened Equip for (`partyPick`, confirmed on the Equip screen by #215). Switching member means Back and a pick in the game's menu; no in-screen member switch is planned.
 
+## Panel (`web/js/native-equip.js`)
+v2 replaces v1's spare-weapon rows: three slot buttons (the game's slot is chosen first), then one list row per spare of that kind. A tap runs `equipSlotPlan`, Circle, 60 frames, `equipListPlan`, a final cursor check, Circle, each step checked against `equipCursors()`; any stop releases everything and sends nothing more. The outcome reads the whole party's equipment (`equipV2Outcome`).
+
+**Page not read.** #216 found no variable for "list open". So taps need `slotPage`: the screen's opening state (#121: it opens on the slots), or the panel's own tap that ended "Equipped", with no other input since (v1's mixer watch). After a stop, "something else changed", "no change seen" or Back, taps stay off until Equip is closed and reopened. That Circle on a list entry returns to the slot page is a **hypothesis** from #216 18b (the slot cursor reads 0 afterwards); it only decides whether the next tap is offered without reopening.
+
+With the slot cursor on Weapon and list row 1, the presses are v1's (Circle, 60 frames, Circle; save-boot-15c).
+
 ## Semantic (`semantic/equip-screen.js`)
 - `EQUIP_SLOT_KINDS` (0 weapon, 1 armor, 2 accessory), `equipSlotPlan(from, to)` (Up/Down, no wrap).
 - `EQUIP_LIST_PAGE` = 8, `equipListIndex`, `equipListStep`, `equipListPlan(from, to)`: as the Materia list (#248), over index = offset + row. `equipListPlan({0,0}, 9)` gives exactly the path #216 18b observed.

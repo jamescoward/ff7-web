@@ -601,6 +601,7 @@ window.ff7web = {
   itemScreen,
   equipScreen,
   materiaScreen,
+  gameNames,
   battlePanel,
   crt,
   suspend,

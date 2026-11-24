@@ -87,7 +87,7 @@ export function createGameNames({ labs, onStatus = () => {} }) {
   labs.registerFlag(NAMES_FLAG, {
     label: 'Game names',
     description: 'Show item, weapon, armor and materia names in the native Item, Equip and Materia screens, read from your disc on this device. Nothing is stored or sent.',
-    pr: null,
+    pr: 271,
     checklist: [
       'Turn on Game names and Native Equip, open Equip: do the weapon, armor and accessory rows show names?',
       'Native Materia: do the weapon slots and the materia list show names?',

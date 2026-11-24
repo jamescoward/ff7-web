@@ -27,5 +27,20 @@ Save `harness/saves/disc1-md1stin-party3-gear.json`: #215's party3 save plus arm
 - `save-boot-28a-equip-plan-armor`: pick party slot 1 (Barret), `equipSlotPlan(0, 1)`, Circle, `equipListPlan({0,0}, 2)`, Circle. Barret's armor changes (H3: to 3), nothing else does.
 - `save-boot-28b-equip-plan-accessory`: pick party slot 2 (Tifa), `equipSlotPlan(0, 2)`, Circle, `equipListPlan({0,0}, 1)`, Circle. Tifa's accessory changes (H3: to 1).
 
-## Results
-_Pending: first Tier 2 run._
+## Results: `2d28dbd` (tier2 check 138118011187) and `eef8a54` (138121368113), 111 pass, 0 fail each
+The scenario files are the same in both commits, and every 28a/28b metric is identical across the two runs:
+| scenario | metrics |
+|---|---|
+| 28a equip-plan-armor | ovl_wait 1, w_slot 1, w_list 1, e_chg 1, e_idx 1, match 1 |
+| 28b equip-plan-accessory | ovl_wait 1, w_slot 1, w_list 1, e_chg -1, e_idx 1, match 1 |
+
+What this shows:
+- **H1 holds.** For both members, the slot plan's Downs read slot 1 and slot 2, and Circle there opened the Armor and Accessory lists. The list entry that Circle then took went into Barret's armor and Tifa's accessory. Their other equipment and the other members' armor or accessory were unchanged (checked).
+- **H2 holds.** Both lists opened on row 0, offset 0. Each list-plan step read the expected row with the offset unchanged, for party slots 1 and 2.
+- **H3 holds for this save.** Barret's armor became 3, the third spare armor in inventory order. Tifa's accessory became 1, the second spare accessory. `e_chg` -1 in 28b only means the value went down: from the baseline (none, 0xFF) to 1. This is observed for this save only. The panel still reads the savemap rather than relying on H3.
+- All earlier scenarios (15-18 Equip, 25-27 Materia) passed with their earlier metrics.
+
+## Limits
+- List rows are an upper bound. A row past the member's real list makes the plan stop at the first press that doesn't move the cursor.
+- Up in the Equip list (the scroll-back rule) is planned but not run. Plans from the opening state press only Down.
+- That Circle on a list entry returns to the slot page is still a hypothesis. It only decides whether the next tap is offered without reopening Equip.

@@ -19,7 +19,11 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+import { battleListIndex } from './battle-lists.js';
+import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, BATTLE_WIDGET_ITEM, BATTLE_WIDGET_MAGIC, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
+
+/** #253: which battle sub-list a battleMenuWidget value shows. */
+const BATTLE_LIST_OF_WIDGET = Object.freeze({ [BATTLE_WIDGET_MAGIC]: 'magic', [BATTLE_WIDGET_ITEM]: 'item' });
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -244,7 +248,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
   const label = (name, raw) => entries.get(name)?.values?.[raw] ?? 'unknown';
   const movieSamples = []; // { frame, value } movieFrame reads in the window, oldest first (pushMovieSample)
 
-  return {
+  const api = {
     active: gate.active,
     inactiveReason: gate.reason,
     table,
@@ -397,6 +401,8 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
      * actor: the party slot (0-2) whose command menu is open, null when none
      * is (or not in battle). row: that slot's command cursor row. targeting:
      * target selection is showing, with index = the unit the cursor is on.
+     * While a Magic or Item list is open (#253) every field is null, as with
+     * no menu open; battleList() reports the list.
      * As in partyStatus, every field comes only from confirmed entries and is
      * null otherwise. confirmed: the game state and widget reads were
      * confirmed values.
@@ -410,7 +416,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       if (!w.values) return fail(w);
       if (!w.confirmed) return { value: none, confirmed: false };
       const widget = w.values.battleMenuWidget;
-      if (widget === BATTLE_WIDGET_NONE) return { value: none, confirmed: true };
+      if (widget === BATTLE_WIDGET_NONE || BATTLE_LIST_OF_WIDGET[widget]) return { value: none, confirmed: true };
       const one = async (name, index = 0) => {
         const r = await read([name], index);
         return r.values && r.confirmed ? r.values[name] : null;
@@ -423,6 +429,41 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         value.targeting = index === null ? null : { index };
       }
       return { value, confirmed: true };
+    },
+
+    /**
+     * #253: the open battle sub-list. { value: { actor, list, index, row, offset, column } }:
+     * list 'magic' or 'item' (null when no list is open), and its cursor:
+     * row and offset (scroll) and, for Magic, column; index is the list entry
+     * under the cursor (semantic/battle-lists.js battleListIndex: the
+     * enabledMagic slot for Magic, the inventory slot for Item). Fields come
+     * only from confirmed entries and are null otherwise.
+     */
+    async battleList() {
+      const none = { actor: null, list: null, index: null, row: null, offset: null, column: null };
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (!(g.confirmed && g.values.gameState === BATTLE_GAME_STATE)) return { value: none, confirmed: g.confirmed, reason: 'not in battle' };
+      const w = await read(['battleMenuWidget']);
+      if (!w.values) return fail(w);
+      const list = BATTLE_LIST_OF_WIDGET[w.values.battleMenuWidget] ?? null;
+      if (!w.confirmed || list === null) return { value: none, confirmed: w.confirmed };
+      const one = async (name) => {
+        if (entries.get(name)?.status !== 'confirmed') return null;
+        const r = await read([name]);
+        return r.values && r.confirmed ? r.values[name] : null;
+      };
+      const a = await one('battleActor');
+      const actor = a !== null && a <= 2 ? a : null;
+      if (actor === null) return { value: { ...none, list }, confirmed: true };
+      const [rowName, offsetName, columnName] = list === 'magic'
+        ? [`battleMagicRow${actor}`, `battleMagicOffset${actor}`, `battleMagicColumn${actor}`]
+        : [`battleItemRow${actor}`, `battleItemScroll${actor}`, null];
+      const row = await one(rowName);
+      const offset = await one(offsetName);
+      const column = columnName ? await one(columnName) : null;
+      const index = battleListIndex(list, { row, offset, column: columnName ? column : 0 });
+      return { value: { actor, list, index, row, offset, column }, confirmed: true };
     },
 
     /**
@@ -671,6 +712,7 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       return r.values ? { value: [r.values.partyHp0, r.values.partyHp1, r.values.partyHp2], confirmed: r.confirmed } : fail(r);
     },
   };
+  return api;
 }
 
 /**

@@ -1,0 +1,39 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "kernel-names-3-materia",
+  "description": "#260 part 1 Tier 2: the materia name table in disc 1's INIT/KERNEL.BIN (sections from semantic/game-text.js KERNEL_NAME_SECTIONS), read inside the run by runner/kernel-names.js. Input: one frame from the title boot point (the check reads the disc, not the run). <kind>_ok: the table builds, no entry fails to decode, and the entry count equals the count measured in tier2 run 479 (PR #266 at 2df958a): item 128, weapon 128, armor 32, accessory 32, materia 96. <kind>_n, <kind>_empty, <kind>_bad: entries, empty entries and entries that fail to decode. Only numbers leave; no name, string or byte.",
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "from": "title"
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 1
+      }
+    }
+  ],
+  "assert": [
+    {
+      "kernelNames": {
+        "kind": "materia",
+        "report": {
+          "count": "materia_n",
+          "empty": "materia_empty",
+          "failed": "materia_bad"
+        },
+        "min": 96,
+        "max": 96
+      },
+      "metric": "materia_ok"
+    }
+  ],
+  "metrics": [
+    "materia_ok",
+    "materia_n",
+    "materia_empty",
+    "materia_bad"
+  ]
+}

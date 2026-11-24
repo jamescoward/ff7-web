@@ -85,15 +85,11 @@ function firstOfType(bytes, type) {
 }
 
 /**
- * The initialization data: the first section of file type KERNEL_INIT_TYPE
- * (sections after it are not looked at),
- * decompressed. Throws BaselineError if there is none, it does not
- * decompress, its length is not the header's, or it does not fit the
- * savemap from INIT_OFFSET.
+ * Decompress one section ({ offset, packed, unpacked } from parseBinGzip)
+ * of an archive. `what` names it in errors. Throws BaselineError if it does
+ * not decompress or its length is not the header's.
  */
-export function initData(kernel) {
-  const sec = firstOfType(kernel, KERNEL_INIT_TYPE);
-  if (!sec) throw new BaselineError(`no section of file type ${KERNEL_INIT_TYPE}`);
+export function unpackSection(kernel, sec, what = 'the section') {
   const gz = kernel.subarray(sec.offset, sec.offset + sec.packed);
   let data;
   try {
@@ -103,15 +99,47 @@ export function initData(kernel) {
     // stream after a plain 10-byte header (flags 0, as the wiki shows), and
     // let the length check below decide.
     if (gz.length < 10 || gz[0] !== 0x1f || gz[1] !== 0x8b || gz[2] !== 8 || gz[3] !== 0) {
-      throw new BaselineError(`the initialization data is not gzip data (${e.code ?? e.message})`);
+      throw new BaselineError(`${what} is not gzip data (${e.code ?? e.message})`);
     }
     try {
       data = new Uint8Array(inflateRawSync(gz.subarray(10), { finishFlush: zlibConstants.Z_SYNC_FLUSH }));
     } catch (e2) {
-      throw new BaselineError(`the initialization data does not decompress (${e2.code ?? e2.message})`);
+      throw new BaselineError(`${what} does not decompress (${e2.code ?? e2.message})`);
     }
   }
-  if (data.length !== sec.unpacked) throw new BaselineError('the initialization data is not the length its header gives');
+  if (data.length !== sec.unpacked) throw new BaselineError(`${what} is not the length its header gives`);
+  return data;
+}
+
+/** Section `index` (0-based, archive order) of a KERNEL.BIN archive, decompressed. Throws BaselineError. */
+export function kernelSection(kernel, index) {
+  const sections = parseBinGzip(kernel);
+  if (!Number.isInteger(index) || index < 0 || index >= sections.length) throw new BaselineError(`no section ${index} (the archive has ${sections.length})`);
+  return unpackSection(kernel, sections[index], `section ${index}`);
+}
+
+/** The KERNEL.BIN archive's bytes from a disc image (disc.js openDisc). Throws DiscError. */
+export function kernelFromDisc(discFile) {
+  const disc = openDisc(discFile);
+  try {
+    const kernel = disc.read(KERNEL_PATH);
+    return new Uint8Array(kernel.buffer, kernel.byteOffset, kernel.byteLength);
+  } finally {
+    disc.close();
+  }
+}
+
+/**
+ * The initialization data: the first section of file type KERNEL_INIT_TYPE
+ * (sections after it are not looked at),
+ * decompressed. Throws BaselineError if there is none, it does not
+ * decompress, its length is not the header's, or it does not fit the
+ * savemap from INIT_OFFSET.
+ */
+export function initData(kernel) {
+  const sec = firstOfType(kernel, KERNEL_INIT_TYPE);
+  if (!sec) throw new BaselineError(`no section of file type ${KERNEL_INIT_TYPE}`);
+  const data = unpackSection(kernel, sec, 'the initialization data');
   if (data.length === 0 || INIT_OFFSET + data.length > SAVEMAP_SIZE) {
     throw new BaselineError('the initialization data does not fit the savemap');
   }
@@ -191,11 +219,5 @@ export const baselineFromKernel = (kernel) => newGameSavemap(initData(kernel));
  * BaselineError if the archive is not what the documentation describes.
  */
 export function baselineFromDisc(discFile) {
-  const disc = openDisc(discFile);
-  try {
-    const kernel = disc.read(KERNEL_PATH);
-    return baselineFromKernel(new Uint8Array(kernel.buffer, kernel.byteOffset, kernel.byteLength));
-  } finally {
-    disc.close();
-  }
+  return baselineFromKernel(kernelFromDisc(discFile));
 }

@@ -548,14 +548,23 @@ export const STALL_SNAPSHOT = 'touch-stall';
  * n3 and n3p256, model 3's per-axis signs against 256, raw w0 and w1, and
  * Cloud's PosX / PosY signs since the start.
  */
+/**
+ * Fifth run (after `5190ebf`): from the stall, up does not move Cloud (cx, cy
+ * 0: walled), up-left moves him -x -y and away. Up-right 450 and 600 both end
+ * with model 3 within 256 along PosY but beyond 256 along PosX (he drifts past
+ * it in x), still beyond TalkRange + SolidRange + 256. So each route is now
+ * up-right, then a correcting leg (left, or up-left) of a fixed length, then
+ * settle, one Interact press, wait. cx / cy give way to sx3 / sy3, model 3's
+ * side of Cloud, so a further leg's direction is known.
+ */
 export const AXIS_BRACKETS = Object.freeze([]);
-/** [drag direction, frames] for the fixed walks towards model 3 (above Cloud, x within 256). */
+/** [route name, legs]: each leg [drag direction, frames]; routes towards model 3 from the stall. */
 export const WALKS = Object.freeze([
-  ['up-right', 450],
-  ['up-right', 600],
-  ['up', 300],
-  ['up', 450],
-  ['up-left', 300],
+  ['ur450-l60', [['up-right', 450], ['left', 60]]],
+  ['ur450-l120', [['up-right', 450], ['left', 120]]],
+  ['ur450-l200', [['up-right', 450], ['left', 200]]],
+  ['ur600-l120', [['up-right', 600], ['left', 120]]],
+  ['ur450-ul100', [['up-right', 450], ['up-left', 100]]],
 ]);
 /** Frames between the drag's end and Interact, Interact's hold, and the wait after it (#224: window 1 reached 6 28 frames after Circle). */
 export const WALK_SETTLE = 10;
@@ -586,22 +595,22 @@ export function hintScenarios() {
       ),
     );
   });
-  const walks = WALKS.map(([dir, frames]) =>
+  const walks = WALKS.map(([route, legs]) =>
     fromStall(
       hintProbe(
-        `touch-s2i-go-${dir}-${frames}`,
-        `Boots from ${STALL_SNAPSHOT}. Input: mark go; drag ${dir} (no Interact) for ${frames} frames; ${WALK_SETTLE} still frames; Interact for ${WALK_PRESS} frames; ${WALK_AFTER} still frames. No wait, so nothing can zero the end checks. End check: md1_1 still (0x${MD1_1.toString(16)}). Metrics: n3, n3p256 (model 3's talk-rule distance sign, plus 0 / 256 field units), ax3_256 and ay3_256 (sign of |model 3 - Cloud| along PosX / PosY minus 256), w0 and w1 (raw window states at the end: 6 is a message waiting), cx and cy (sign of Cloud's PosX / PosY change since go). The near checks may fail by design.`,
-        [{ mark: 'go' }, { buttons: dragButtons(dir), frames }, { wait: { frames: WALK_SETTLE } }, { buttons: [fieldButton('interact')], frames: WALK_PRESS }, { wait: { frames: WALK_AFTER } }],
+        `touch-s2i-go-${route}`,
+        `Boots from ${STALL_SNAPSHOT}. Input: mark go; drag (no Interact) ${legs.map(([d, f]) => `${d} ${f} frames`).join(', then ')}; ${WALK_SETTLE} still frames; Interact for ${WALK_PRESS} frames; ${WALK_AFTER} still frames. No wait, so nothing can zero the end checks. End check: md1_1 still (0x${MD1_1.toString(16)}). Metrics: n3, n3p256 (model 3's talk-rule distance sign, plus 0 / 256 field units), ax3_256 and ay3_256 (sign of |model 3 - Cloud| along PosX / PosY minus 256), w0 and w1 (raw window states at the end: 6 is a message waiting), sx3 and sy3 (sign of model 3's PosX / PosY minus Cloud's). The near checks may fail by design.`,
+        [{ mark: 'go' }, ...legs.map(([d, f]) => ({ buttons: dragButtons(d), frames: f })), { wait: { frames: WALK_SETTLE } }, { buttons: [fieldButton('interact')], frames: WALK_PRESS }, { wait: { frames: WALK_AFTER } }],
         [
           { expect: { mem: 'map_cur', equals: MD1_1 } },
           talkNear(3),
           nearPlus(3, 256),
           axisNear(3, 'x', 256),
           axisNear(3, 'y', 256),
-          { change: { mem: 'x0', is: 'changed', signed: true, since: 'go' }, metric: 'cx' },
-          { change: { mem: 'y0', is: 'changed', signed: true, since: 'go' }, metric: 'cy' },
+          { compare: { mem: 'x3', with: 'x0', shift: 0, is: 'unequal', signed: true }, metric: 'sx3' },
+          { compare: { mem: 'y3', with: 'y0', shift: 0, is: 'unequal', signed: true }, metric: 'sy3' },
         ],
-        ['n3', 'n3p256', 'ax3_256', 'ay3_256', 'w0', 'w1', 'cx', 'cy'],
+        ['n3', 'n3p256', 'ax3_256', 'ay3_256', 'w0', 'w1', 'sx3', 'sy3'],
       ),
     ),
   );

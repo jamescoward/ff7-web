@@ -360,3 +360,36 @@ What it decides:
 - **A walk ends in range (n3 −1) and a window reads 6:** model 3's talk opens. Next, press through it and drag up to the exit, as the owner's hint expects.
 - **In range but no window:** the hint fails for model 3. Try models 2 and 4 the same way, or start the third budget (line triggers and walkmesh).
 - **Not in range:** the per-axis signs show which leg to add (x within 256 and y within 256 means close).
+
+### Owner-hint attempt, run 4 results (`5190ebf`, tier2 run 464: 110 pass, 5 fail; the fails are the walks, md1_2 not reached by design)
+Recorded 2026-11-24 from the `eval` job log. `touch-playthrough` (stretch 1) and `touch-s2i-a-stall` (map_cur 117) passed unchanged. Eval step 10.1 min.
+
+| walk | cx | cy | n3 | n3p256 | ax3_256 | ay3_256 | w0 | w1 |
+|---|---|---|---|---|---|---|---|---|
+| up 300 | 0 | 0 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up 450 | 0 | 0 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up-left 300 | −1 | −1 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up-right 450 | +1 | +1 | 1 | 1 | **+1** | **−1** | 0 | 0 |
+| up-right 600 | +1 | +1 | 1 | 1 | +1 | −1 | 0 | 0 |
+
+Reading:
+- **Up does not move Cloud at all from the stall** (cx, cy 0): a wall, most likely.
+- Up-left moves him −x −y, away from model 3 (which is on his +y side).
+- **Up-right lines Cloud up with model 3 along PosY** (Δy within 256) but carries him more than 256 past it along PosX, and he stays beyond TalkRange + SolidRange + 256. 450 and 600 frames give the same signs, so he may stall there as well (a hypothesis).
+- No window was open after any walk.
+
+### Owner-hint attempt, run 5 plan (`touch-s2i-go-*`, two legs)
+The run 4 walks are replaced by five two-leg routes from the stall: up-right, then a correcting leg back along −x. The right drag moved Cloud +x −y (run 3), so left is taken to move −x +y (inferred, not measured in md1_1).
+
+| route | legs |
+|---|---|
+| ur450-l60 / l120 / l200 | up-right 450, then left 60 / 120 / 200 |
+| ur600-l120 | up-right 600, then left 120 |
+| ur450-ul100 | up-right 450, then up-left 100 |
+
+Each leg is dragged with no Interact, then 10 still frames, Interact for 4 frames, and 40 still frames. No step waits on a condition. Metrics: n3, n3p256, ax3_256, ay3_256, w0, w1, and **sx3, sy3** (the sign of model 3's PosX / PosY minus Cloud's), which take the place of cx and cy, so the side of any remaining gap is known.
+
+What it decides:
+- **n3 −1 and a window at 6:** model 3's talk opened. Next, press through it and drag up to the exit.
+- **n3 −1 and no window:** in range but no talk (facing, or no talk at this progress value). Try models 2 and 4, or start the third budget (line triggers and walkmesh).
+- **n3 +1:** the sides show which way the gap is. One more corrective run at most; if model 3 still can't be reached, the hint attempt ends and the third budget (walkmesh-aware routing, which #168 also needs) starts.

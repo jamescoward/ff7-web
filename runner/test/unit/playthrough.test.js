@@ -135,14 +135,15 @@ describe('#120 touch playthrough', () => {
       assert.ok(keeper.name < p.name, p.name);
     }
     for (const [, groups] of AXIS_BRACKETS) assert.ok(groups.reduce((n, [, ps]) => n + 2 * ps.length, 0) <= 8);
-    // Run 4 walks: fixed steps only (no wait can time out), no Interact while dragging, one Interact press after.
+    // Run 5 routes: fixed steps only (no wait can time out), no Interact while dragging, one Interact press after.
     for (const p of fromStall.filter((x) => x.name.includes('-go-'))) {
       assert.ok(p.input.every((st) => st.mark || st.buttons || 'frames' in (st.wait ?? {})), p.name);
       const presses = p.input.filter((st) => st.buttons);
-      assert.equal(presses.length, 2, p.name);
+      const legs = WALKS.find(([r]) => p.name === `touch-s2i-go-${r}`)[1];
+      assert.equal(presses.length, legs.length + 1, p.name);
       const interact = FIELD_ACTIONS.find((a) => a.id === 'interact').button;
-      assert.ok(!presses[0].buttons.includes(interact), p.name);
-      assert.deepEqual(presses[1], { buttons: [interact], frames: WALK_PRESS }, p.name);
+      for (const st of presses.slice(0, -1)) assert.ok(!st.buttons.includes(interact), p.name);
+      assert.deepEqual(presses.at(-1), { buttons: [interact], frames: WALK_PRESS }, p.name);
     }
     assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
     assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));

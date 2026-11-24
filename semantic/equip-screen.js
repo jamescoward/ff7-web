@@ -24,6 +24,7 @@
 // to say what was equipped (#254 option (a)).
 // Original project code, GPL-2.0-or-later.
 
+import { nameFor } from './game-text.js';
 import { planCursorMove } from './planner.js';
 
 /** Frames the Equip screen must have been open before the first press (save-boot-15c: 120). */
@@ -109,17 +110,21 @@ export function equipOutcome(before, after, wanted) {
   return after === wanted ? 'equipped' : 'other';
 }
 
-/** A member row's text: slot, weapon, armor and accessory numbers. IDs only. */
-export function equipMemberLabel(slot, eq) {
+/**
+ * A member row's text: slot, weapon, armor and accessory numbers. IDs only,
+ * unless `names` holds tables built on the device (#260, game-text.js
+ * nameFor); without them the text is unchanged.
+ */
+export function equipMemberLabel(slot, eq, names = null) {
   if (!eq) return `Slot ${slot + 1}: —`;
-  const n = (v) => (Number.isInteger(v) ? `#${v}` : '?');
-  return `Slot ${slot + 1}  Wpn ${n(eq.weapon)}  Arm ${n(eq.armor)}  Acc ${eq.accessory === null ? 'none' : n(eq.accessory)}`;
+  const n = (kind, v) => (Number.isInteger(v) ? nameFor(kind, v, names, `#${v}`) : '?');
+  return `Slot ${slot + 1}  Wpn ${n('weapon', eq.weapon)}  Arm ${n('armor', eq.armor)}  Acc ${eq.accessory === null ? 'none' : n('accessory', eq.accessory)}`;
 }
 
-/** A spare weapon row's text. IDs only. */
-export function spareWeaponLabel(w) {
+/** A spare weapon row's text. IDs only, unless `names` is given (#260). */
+export function spareWeaponLabel(w, names = null) {
   if (!w) return '—';
-  return `weapon #${w.number} ×${w.quantity}`;
+  return `${nameFor('weapon', w.number, names, `weapon #${w.number}`)} ×${w.quantity}`;
 }
 
 // --- Native Equip v2 (#254, Labs flag `native-equip`) ---
@@ -262,12 +267,12 @@ export function equipV2Outcome(before, after, memberSlot, kind) {
   return target ? 'equipped' : 'none';
 }
 
-/** A slot row button's text: kind and the member's current item number. IDs only. */
-export function equipSlotLabel(slot, member) {
+/** A slot row button's text: kind and the member's current item number. IDs only, unless `names` is given (#260). */
+export function equipSlotLabel(slot, member, names = null) {
   const kind = equipSlotKind(slot);
   const name = { weapon: 'Weapon', armor: 'Armor', accessory: 'Accessory' }[kind] ?? '?';
   const v = member?.[kind];
-  return `${name}: ${v === null && kind === 'accessory' ? 'none' : Number.isInteger(v) ? `#${v}` : '?'}`;
+  return `${name}: ${v === null && kind === 'accessory' ? 'none' : Number.isInteger(v) ? nameFor(kind, v, names, `#${v}`) : '?'}`;
 }
 
 /** A list row's text: its position in the game's list (names and contents are not read). */

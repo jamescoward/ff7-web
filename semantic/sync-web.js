@@ -34,8 +34,11 @@ export const SHARED = [...SOURCES.keys()].sort();
 // WORK_TOP_DIRS), so a semantic/ module that runner code imports gets a
 // byte-identical copy in runner/semantic/. Only modules with no imports.
 const RUNNER_DEST = path.resolve(HERE, '../runner/semantic');
-/** semantic/ modules copied to runner/semantic/ (#260: the kernelNames check decodes names). */
-export const RUNNER_SHARED = ['game-text.js'];
+/**
+ * semantic/ modules copied to runner/semantic/ (#260: the kernelNames check
+ * decodes names; part 2 moved the BIN-GZIP split here from runner/savegen).
+ */
+export const RUNNER_SHARED = ['bin-gzip.js', 'game-text.js'];
 
 /** Names of the copies that are missing or differ from their source. */
 export function drift() {

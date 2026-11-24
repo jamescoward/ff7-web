@@ -34,6 +34,7 @@ import {
   MATERIA_CONFIRMED_COLUMNS, MATERIA_LIST_OPEN_FRAMES, MATERIA_TAP_ROW, materiaColumnLabel, materiaColumnPlan,
   materiaEquipOutcome, materiaLabel, materiaListPlan, materiaListSlot, materiaTapAllowed,
 } from './semantic/materia-screen.js';
+import { nameFor } from './semantic/game-text.js';
 import { createSemantic } from './semantic/layer.js';
 import { createPlanExecutor } from './semantic/planner.js';
 import { PAD } from './pad.js';
@@ -86,7 +87,9 @@ export function buildMateriaScreen(root) {
   root.append(head, member, slots, list, nav);
 }
 
-export function createMateriaScreen({ root, mixer, labs, timers = globalThis, hz = MATERIA_HZ, semanticFor = createSemantic }) {
+// `names` (#260, Labs flag `game-names`): a getter for the name tables built on
+// the device (game-names.js), or null; with null every label is the ID label.
+export function createMateriaScreen({ root, mixer, labs, timers = globalThis, hz = MATERIA_HZ, semanticFor = createSemantic, names = () => null }) {
   let gateActive = false;
   let backend = null;
   let source = null; // tests: { materiaCursors(), materia(), equipment(slot), frame }
@@ -174,7 +177,7 @@ export function createMateriaScreen({ root, mixer, labs, timers = globalThis, hz
     if (m) m.textContent = ms === null ? (members.some(Boolean) ? 'Party member: not read' : '—') : `Slot ${ms + 1}`;
     for (const b of root.querySelectorAll('.nm-slot')) {
       const c = Number(b.dataset.column);
-      b.textContent = Array.isArray(wm) && wm.length > c ? materiaColumnLabel(c, wm[c]) : `Wpn ${c + 1}: ?`;
+      b.textContent = Array.isArray(wm) && wm.length > c ? materiaColumnLabel(c, wm[c], names()) : `Wpn ${c + 1}: ?`;
       b.disabled = !(idle() && Array.isArray(wm) && wm.length > c && wm[c] === null);
       b.toggleAttribute('data-chosen', column === c);
       b.toggleAttribute('data-cursor', cursors?.row === MATERIA_TAP_ROW && cursors?.column === c);
@@ -192,7 +195,7 @@ export function createMateriaScreen({ root, mixer, labs, timers = globalThis, hz
     materia.forEach((mt, i) => {
       const b = list.children[i];
       b.dataset.slot = String(mt.slot);
-      b.textContent = `${mt.slot + 1}. ${materiaLabel(mt)}`;
+      b.textContent = `${mt.slot + 1}. ${materiaLabel(mt, names())}`;
       const a = materiaTapAllowed(st, column, mt.slot);
       b.disabled = !(a.ok && idle());
       if (!a.ok && why === null) why = a.reason;
@@ -233,7 +236,7 @@ export function createMateriaScreen({ root, mixer, labs, timers = globalThis, hz
     if (out === 'none' && c.polls < CONFIRM_POLLS) return;
     check = null;
     last = { ok: out === 'equipped', outcome: out, column: c.column, slot: c.slot, before: c.before, after };
-    if (out === 'equipped') setMsg(`Equipped: materia #${c.before.inventory.id} → weapon slot ${c.column + 1}`);
+    if (out === 'equipped') setMsg(`Equipped: ${nameFor('materia', c.before.inventory.id, names(), `materia #${c.before.inventory.id}`)} → weapon slot ${c.column + 1}`);
     else if (out === 'other') setMsg('Something else changed; check the game\'s screen');
     else setMsg('No change seen');
   }

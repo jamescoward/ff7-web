@@ -82,7 +82,9 @@ export function memberLabel(slot, status) {
   return `Slot ${slot + 1}  HP ${pair(status.hp, status.maxHp)}  MP ${pair(status.mp, status.maxMp)}`;
 }
 
-export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = ITEM_HZ, semanticFor = createSemantic }) {
+// `names` (#260, Labs flag `game-names`): a getter for the name tables built on
+// the device (game-names.js), or null; with null every label is the ID label.
+export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = ITEM_HZ, semanticFor = createSemantic, names = () => null }) {
   let gateActive = false;
   let backend = null;
   let source = null; // tests: { itemScreen(), inventory(), partyStatus(slot), frame }
@@ -141,7 +143,7 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     root.dataset.page = page ?? '';
     for (const b of root.querySelectorAll('.ni-item')) {
       const r = rows[Number(b.dataset.row)];
-      b.textContent = r ? itemRowLabel(r.item) : '—';
+      b.textContent = r ? itemRowLabel(r.item, names()) : '—';
       b.disabled = !(ready && page === 'list' && r?.item);
       b.toggleAttribute('data-cursor', page === 'list' && view.listRow === Number(b.dataset.row));
       b.toggleAttribute('data-chosen', page === 'target' && chosen !== null && r?.slot === chosen.slot);

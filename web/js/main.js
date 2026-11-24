@@ -15,6 +15,7 @@ import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
 import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
+import { createGameNames } from './game-names.js';
 import { createWorkerBackend } from './backend.js';
 import { frameScale, hiResCoreOptions, HIRES_FLAG } from './hi-res.js';
 import { ACCEPT } from './files.js';
@@ -215,6 +216,9 @@ labs.registerFlag(MATERIA_FLAG, {
     'The classic pad still works while the panel is up (portrait and landscape).',
   ],
 });
+// Game names (#260): registers its Labs flag; tables built on the device from the imported disc; the
+// panels show ID labels whenever names() is null (flag off or not read).
+const gameNames = createGameNames({ labs, onStatus: (msg) => setStatus(msg, '', { clearAfter: NOTICE_MS }) });
 labs.registerFlag(CROP_FLAG, {
   label: 'Crop black borders',
   description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
@@ -339,9 +343,9 @@ const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const interactLabel = createInteractLabel({ fieldRoot: $('field'), labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
-const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
-const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs });
-const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs });
+const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs, names: gameNames.names });
+const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs, names: gameNames.names });
+const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs, names: gameNames.names });
 const borderCrop = createBorderCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
@@ -438,6 +442,7 @@ const backendReady = createWorkerBackend({
     itemScreen.setGate(gate);
     equipScreen.setGate(gate);
     materiaScreen.setGate(gate);
+    gameNames.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -460,6 +465,7 @@ const backendReady = createWorkerBackend({
   itemScreen.setBackend(b);
   equipScreen.setBackend(b);
   materiaScreen.setBackend(b);
+  gameNames.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     const c = borderCrop.frame(f);

@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-29d-battle-item-use",
-  "description": "#253 attempt 1, H5 (Item list index = inventory slot, and a restorative used). Boot point \"lists-battle\" (save-boot-29): Cloud alone (HP 200/600, MP 300/300; author-chosen), materia 53 (AP 40000) in weapon slot 0 and 49 (AP 0) in slot 1, inventory slots 0-6 = item 1 x3, item 3 x2, item 0 x5, item 0 x9 x4. A press is 4 frames, then a wait of up to 30 frames for the expected read, then 8 frames. A wait metric is frames waited, 0 on a timeout (which stops the script). Only frame counts, 1/0 and small menu values leave. First menu: Down, Down to Item, Circle, wait until the widget leaves 1, 30 frames. Down, Down: row 2 (w_plan; inventory slot 2 = item 0 x5 under H5). Mark, Circle: target selection (tgt_wait). 20 frames, Circle: the command is taken (use_wait). Wait until g_BattleItemList[2].count reads 4 (count_wait), then 300 frames. Checks: entry 2 reads 4, entries 0 and 1 unchanged (3, 2); HP higher than at the mark; match: a rerun.",
+  "description": "#253 attempt 3, H4/H5 with a scroll (Item list index = scroll + row = inventory slot). Boot point \"lists-battle\" (save-boot-29): Cloud alone (HP 200/600, MP 300/300; author-chosen), materia 53 (AP 40000) in weapon slot 0 and 49 (AP 0) in slot 1, inventory slots 0-6 = item 1 x3, item 3 x2, item 0 x5, item 0 x9 x4. A press is 4 frames, then a wait of up to 30 frames for the expected read, then 8 frames. A wait metric is frames waited, 0 on a timeout (which stops the script). Only frame counts, 1/0 and small menu values leave. First menu: Down, Down to Item (command row 3), Circle, wait until the widget reads 5 (the Item list; attempt 1 29c), 30 frames. The battleListPlan from index 0 to index 3: Down (row 1), Down (row 2), Down (scroll 1, row 2; w_plan). Mark, Circle: target selection (tgt_wait). 20 frames, Circle: the command is taken (use_wait). Wait until g_BattleItemList[3].count reads 8 (count_wait), then 300 frames. Checks: entry 3 reads 8, entries 0-2 unchanged (3, 2, 5); HP higher than at the mark; match: a rerun.",
   "boot": {
     "from": "lists-battle"
   },
@@ -57,6 +57,11 @@
       "addr": "0x801671c6",
       "type": "u8",
       "description": "g_BattleItemList[2].count: hypothesis. Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    },
+    "bi3": {
+      "addr": "0x801671cc",
+      "type": "u8",
+      "description": "g_BattleItemList[3].count: hypothesis. Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
     }
   },
   "input": [
@@ -133,7 +138,7 @@
       "wait": {
         "until": {
           "mem": "widget",
-          "differs": 1
+          "equals": 5
         },
         "timeout": 60
       }
@@ -147,6 +152,15 @@
       "wait": {
         "until": {
           "mem": "i_row",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "i_scroll",
           "equals": 0
         },
         "timeout": 1
@@ -185,12 +199,41 @@
           "equals": 2
         },
         "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "i_scroll",
+          "equals": 1
+        },
+        "timeout": 30
       },
       "metric": "w_plan"
     },
     {
       "wait": {
         "frames": 8
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "i_row",
+          "equals": 2
+        },
+        "timeout": 1
       }
     },
     {
@@ -236,8 +279,8 @@
     {
       "wait": {
         "until": {
-          "mem": "bi2",
-          "equals": 4
+          "mem": "bi3",
+          "equals": 8
         },
         "timeout": 900
       },
@@ -252,8 +295,14 @@
   "assert": [
     {
       "expect": {
+        "mem": "bi3",
+        "equals": 8
+      }
+    },
+    {
+      "expect": {
         "mem": "bi2",
-        "equals": 4
+        "equals": 5
       }
     },
     {
@@ -291,7 +340,6 @@
     "tgt_wait",
     "use_wait",
     "count_wait",
-    "bi2",
     "match"
   ]
 }

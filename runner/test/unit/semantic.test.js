@@ -100,7 +100,9 @@ describe('address table', () => {
       // #237
       'fieldZ', 'fieldTalkOff', 'fieldTalkRange',
       // #244
-      'materiaSlotColumn', 'materiaSlotRow', 'materiaListRow', 'materiaListOffset'];
+      'materiaSlotColumn', 'materiaSlotRow', 'materiaListRow', 'materiaListOffset',
+      // #253
+      'battleMagicColumn0', 'battleMagicRow0', 'battleMagicOffset0', 'battleItemCount'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

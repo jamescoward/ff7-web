@@ -64,6 +64,12 @@ describe('battle list plan (#253)', () => {
     assert.deepEqual(moves(battleListPlan('item', at(0), 2)), [['down', 1], ['down', 2]]);
   });
 
+  test('item index 3 from the start: Down, Down, then a scroll (29d attempt 3)', () => {
+    const plan = battleListPlan('item', at(0), 3);
+    assert.deepEqual(moves(plan), [['down', 1], ['down', 2], ['down', 3]]);
+    assert.deepEqual([plan.steps[2].row, plan.steps[2].offset], [2, 1]);
+  });
+
   test('rows first, then columns; each step carries its position', () => {
     const plan = battleListPlan('magic', at(0), 11);
     assert.deepEqual(moves(plan), [['down', 3], ['down', 6], ['down', 9], ['right', 10], ['right', 11]]);

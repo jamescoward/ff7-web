@@ -292,11 +292,17 @@ export const DIALOG_STATE_ENTRIES = Object.freeze(['dialogState', 'dialogState1'
  */
 const BATTLE_MENU_SOURCE = `${DECOMP_130} config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B)`;
 /** g_BattleMenuModalWidgetId: the battle menu widget taking input. */
-export const BATTLE_WIDGETS = Object.freeze({ '-1': 'none', 0: 'target', 1: 'command' });
+export const BATTLE_WIDGETS = Object.freeze({ '-1': 'none', 0: 'target', 1: 'command', 5: 'item', 6: 'magic' });
 export const BATTLE_WIDGET_NONE = -1;
 export const BATTLE_WIDGET_TARGET = 0;
 export const BATTLE_WIDGET_COMMAND = 1;
+/** #253: the Item list (29c, 29d) and the Magic list (29a, 29b), read in Tier 2; their handlers are still asm in the decomp. */
+export const BATTLE_WIDGET_ITEM = 5;
+export const BATTLE_WIDGET_MAGIC = 6;
 const BATTLE_MENU_SLOTS = 0x800f90b4;
+const BATTLE_LISTS_SOURCE = `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable)`;
+const LISTS_29A = 'save-boot-29a-battle-magic-cursor';
+const LISTS_29D = 'save-boot-29d-battle-item-use';
 const BATTLE_MENU_SLOT_SIZE = 0x240;
 
 const BATTLE_MENU_ENTRIES = [
@@ -305,11 +311,11 @@ const BATTLE_MENU_ENTRIES = [
     address: 0x800f3896,
     type: 's16',
     meaning: 'battle menu widget taking input (g_BattleMenuModalWidgetId): -1 none (no command menu open), 1 the command menu, 0 target selection; other values are sub-menus (magic, item, ...) and stay unlabelled',
-    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110, notes/110-battle-input.md): in the first guard battle it reads 1 once Cloud's ATB gauge fills (60 frames after the "battle" snapshot), 0 one frame after Circle on Attack (reactor-mode-4f), and -1 one frame after a second Circle takes Attack, still -1 10 frames later (reactor-mode-4h); in a random battle with party Cloud, Barret, Tifa it reads 1, 0, -1 and 1 again for the next member (save-boot-11c); reruns match. Sub-menu values were not read`,
+    source: `${BATTLE_MENU_SOURCE}. Tier 2 (#110, notes/110-battle-input.md): in the first guard battle it reads 1 once Cloud's ATB gauge fills (60 frames after the "battle" snapshot), 0 one frame after Circle on Attack (reactor-mode-4f), and -1 one frame after a second Circle takes Attack, still -1 10 frames later (reactor-mode-4h); in a random battle with party Cloud, Barret, Tifa it reads 1, 0, -1 and 1 again for the next member (save-boot-11c); reruns match. Tier 2 (#253, notes/253-battle-lists.md): Circle on the Magic command makes it read 6 while the Magic list is open (save-boot-29a), Circle on the Item command 5 while the Item list is open (save-boot-29c, 29d)`,
     status: 'confirmed',
     scenario: SC('reactor-mode-4f-battle-command-right'),
     values: BATTLE_WIDGETS,
-    confirmedValues: Object.freeze({ '-1': SC('reactor-mode-4h-battle-command-taken'), 0: SC('reactor-mode-4f-battle-command-right'), 1: SC('reactor-mode-4f-battle-command-right') }),
+    confirmedValues: Object.freeze({ '-1': SC('reactor-mode-4h-battle-command-taken'), 0: SC('reactor-mode-4f-battle-command-right'), 1: SC('reactor-mode-4f-battle-command-right'), 5: SC(LISTS_29D), 6: SC(LISTS_29A) }),
   },
   {
     name: 'battleActor',
@@ -331,6 +337,33 @@ const BATTLE_MENU_ENTRIES = [
     status: 'confirmed',
     scenario: i === 0 ? SC('reactor-mode-4f-battle-command-right') : SC(i === 2 ? 'save-boot-11d-battle-command-rows' : 'save-boot-11e-battle-command-row-slot1'),
   })),
+  ...[0, 1, 2].flatMap((i) => {
+    const base = BATTLE_MENU_SLOTS + i * BATTLE_MENU_SLOT_SIZE;
+    const magic = i === 0
+      ? { status: 'confirmed', scenario: SC(LISTS_29A), evidence: `Tier 2 (#253, notes/253-battle-lists.md): Cloud alone with two magic materia (lists-battle); the Magic list opens at column 0, row 0, offset 0; Right, Right read column 1, 2; Left, Left 0; Down, Down row 1, 2; a third Down offset 1 with the row still 2; Up row 1; Up row 0; Up offset 0 (save-boot-29a); a rerun matches` }
+      : { status: 'hypothesis', evidence: `slot ${i} at + ${i} * 0x240, as slot 0 (#253 confirmed slot 0 only)` };
+    const item = { status: 'hypothesis', evidence: i === 0 ? 'Tier 2 (#253 attempt 1, notes/253-battle-lists.md): the Item list opens at row 0, scroll 0; Down, Down read row 1, 2; a third Down scroll 1 with the row still 2 (save-boot-29c, one run); save-boot-29d attempt 3 checks it again' : `slot ${i} at + ${i} * 0x240, as slot 0` };
+    const s = (x) => ({ status: x.status, ...(x.scenario ? { scenario: x.scenario } : {}) });
+    return [
+      { name: `battleMagicColumn${i}`, address: base + 0x24 + 0x0a, type: 's8', meaning: `Magic list cursor column (0-2) of party slot ${i} (D_800F90B4[${i}].table24.column). The entry under the cursor is (battleMagicOffset + battleMagicRow) × 3 + battleMagicColumn = the enabledMagic slot. Meaningful only while battleMenuWidget reads 6`, source: `${BATTLE_LISTS_SOURCE}. ${magic.evidence}`, ...s(magic) },
+      { name: `battleMagicRow${i}`, address: base + 0x24 + 0x0b, type: 's8', meaning: `Magic list cursor row on the page (0-2) of party slot ${i} (table24.row; 3 rows a page)`, source: `${BATTLE_LISTS_SOURCE}. ${magic.evidence}`, ...s(magic) },
+      { name: `battleMagicOffset${i}`, address: base + 0x24 + 0x02, type: 's16', meaning: `Magic list scroll of party slot ${i}: the list row on the top visible row (table24.rowOffset)`, source: `${BATTLE_LISTS_SOURCE}. ${magic.evidence}`, ...s(magic) },
+      { name: `battleItemRow${i}`, address: base + 0x12 + 0x0b, type: 's8', meaning: `Item list cursor row on the page (0-2) of party slot ${i} (D_800F90B4[${i}].widget.cursorRow). The entry under the cursor is battleItemScroll + battleItemRow = the inventory slot. Meaningful only while battleMenuWidget reads 5`, source: `${BATTLE_LISTS_SOURCE}. ${item.evidence}`, ...s(item) },
+      { name: `battleItemScroll${i}`, address: base + 0x12 + 0x02, type: 's16', meaning: `Item list scroll of party slot ${i}: the entry on the top visible row (widget.scroll)`, source: `${BATTLE_LISTS_SOURCE}. ${item.evidence}`, ...s(item) },
+      { name: `battleMagicId${i}`, address: 0x8009d84c + i * 0x440 + 0x108, type: 'u8', stride: 8, count: 54, meaning: `the spell id at each Magic list entry of party slot ${i} (g_ActiveCharacters[${i}].enabledMagic[n].id; slots follow attack ids; 0xFF = none)`, source: `${BATTLE_LISTS_SOURCE}; include/game.h (ActiveCharacterData +0x108, MagicRecord 8 bytes). ${i === 0 ? 'Tier 2 (#253 attempt 1): with materia 53 at AP 40000 it reads 0 at entry 0 and 0xFF at entry 3 (save-boot-29b)' : 'Not read'}`, status: 'hypothesis' },
+    ];
+  }),
+  {
+    name: 'battleItemCount',
+    address: 0x801671b8 + 2,
+    type: 'u8',
+    stride: 6,
+    count: 320,
+    meaning: 'battle copy of each inventory slot\'s count (g_BattleItemList[n].count; entry n = inventory slot n; 0 = empty). Counts go back to the savemap when the battle ends',
+    source: `${BATTLE_LISTS_SOURCE}; config/symbols.battle.txt (g_BattleItemList 0x801671B8), src/battle/battle.h (BattleItemEntry, 6 bytes, count at +2), src/battle/batini.c (BattleInitItemList copies inventory slot i to entry i). Tier 2 (#253): from the author-chosen inventory of lists-battle, entries 0-2 read 3, 2, 5; using Item list index 2 makes entry 2 read 4 on the first frame checked, entries 0 and 1 unchanged (save-boot-29d); a rerun matches`,
+    status: 'confirmed',
+    scenario: SC(LISTS_29D),
+  },
   {
     name: 'battleTarget',
     address: 0x800f38a9,

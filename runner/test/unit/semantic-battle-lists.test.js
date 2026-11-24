@@ -56,6 +56,10 @@ describe('battle list plan (#253)', () => {
     assert.deepEqual(moves(battleListPlan('magic', at(0), 3)), [['down', 3]]);
   });
 
+  test('magic index 0 from index 3: one Up (29b attempt 2)', () => {
+    assert.deepEqual(moves(battleListPlan('magic', at(1), 0)), [['up', 0]]);
+  });
+
   test('item index 2 from the start: Down, Down (29d)', () => {
     assert.deepEqual(moves(battleListPlan('item', at(0), 2)), [['down', 1], ['down', 2]]);
   });

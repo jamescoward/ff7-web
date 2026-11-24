@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-29-lists-battle",
-  "description": "#253: boot harness/saves/disc1-md1stin-battle-lists.json (Cloud alone; author-chosen HP/MP, two magic materia on the weapon, restoratives in inventory slots 0-6), load as save-boot-11 does, and hold Up+Left until a random battle in md1_1. Keeps \"lists-battle\" at the first frame of battle mode, for 29a-29d. match: a rerun from the title snapshot.",
+  "description": "#253: boot harness/saves/disc1-md1stin-battle-lists.json (Cloud alone; author-chosen HP/MP, two magic materia on the weapon, restoratives in inventory slots 0-6), load as save-boot-11 does, and hold Up+Left until a random battle in md1_1. Keeps \"lists-battle\" at the first frame of battle mode, for 29a-29d. No rerun here (Tier 2 time budget, #253 notes): 29a, 29b and 29d each rerun from this snapshot.",
   "boot": {
     "disc": 1,
     "save": "disc1-md1stin-battle-lists",
@@ -85,17 +85,12 @@
         "mem": "game_state",
         "equals": 2
       }
-    },
-    {
-      "sameState": "rerun",
-      "metric": "match"
     }
   ],
   "snapshot": "lists-battle",
   "metrics": [
     "load_done",
     "battle_wait",
-    "map_cur",
-    "match"
+    "map_cur"
   ]
 }

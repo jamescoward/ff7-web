@@ -3,7 +3,7 @@
   "format": 2,
   "tier": 2,
   "name": "save-boot-29b-battle-magic-cast",
-  "description": "#253 attempt 1, H3 (Magic list index = (offset + row) x 3 + column, and a restorative cast). Boot point \"lists-battle\" (save-boot-29): Cloud alone (HP 200/600, MP 300/300; author-chosen), materia 53 (AP 40000) in weapon slot 0 and 49 (AP 0) in slot 1, inventory slots 0-6 = item 1 x3, item 3 x2, item 0 x5, item 0 x9 x4. A press is 4 frames, then a wait of up to 30 frames for the expected read, then 8 frames. A wait metric is frames waited, 0 on a timeout (which stops the script). Only frame counts, 1/0 and small menu values leave. First menu: Down to command row 1, Circle, wait until the widget leaves 1, 30 frames. Down: row 1 (w_plan; index 3 under H3). Mark, Circle: target selection, widget 0 (tgt_wait). 20 frames, Circle: widget 0xffff, the command is taken (cast_wait). Wait until MP leaves 300 (mp_wait), then 400 frames. Checks: MP lower and HP higher than at the mark; e0 and e3 (end values) are the spell ids at list index 0 and 3; match: a rerun.",
+  "description": "#253 attempt 2, H3 (Magic list index = (offset + row) x 3 + column) and a restorative cast. Boot point \"lists-battle\" (save-boot-29): Cloud alone (HP 200/600, MP 300/300; author-chosen), materia 53 (AP 40000) in weapon slot 0 and 49 (AP 0) in slot 1, inventory slots 0-6 = item 1 x3, item 3 x2, item 0 x5, item 0 x9 x4. A press is 4 frames, then a wait of up to 30 frames for the expected read, then 8 frames. A wait metric is frames waited, 0 on a timeout (which stops the script). Only frame counts, 1/0 and small menu values leave. Attempt 1 read spell id 0 at index 0 and none (0xff) at index 3, so Circle on index 3 did nothing. First menu: Down to command row 1, Circle, wait until the widget reads 6 (the Magic list, attempt 1), 30 frames. Down: row 1 (index 3). Then the battleListPlan from index 3 to index 0: Up, row 0 (w_plan). Mark, Circle: target selection, widget 0 (tgt_wait). 20 frames, Circle: widget 0xffff, the command is taken (cast_wait). Wait until MP leaves 300 (mp_wait), then 400 frames. Checks: MP lower and HP higher than at the mark; e0 (spell id at index 0) reads 0; e1 and e2 (end values) are the ids at indexes 1 and 2; match: a rerun.",
   "boot": {
     "from": "lists-battle"
   },
@@ -58,10 +58,15 @@
       "type": "u8",
       "description": "g_ActiveCharacters[0].enabledMagic[0].id (+0x108, 8 bytes an entry; 0xff = none): hypothesis, the spell at Magic list index 0 (include/game.h ActiveCharacterData, MagicRecord; the slots follow attack ids). Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
     },
-    "e3": {
-      "addr": "0x8009d96c",
+    "e1": {
+      "addr": "0x8009d95c",
       "type": "u8",
-      "description": "g_ActiveCharacters[0].enabledMagic[3].id: hypothesis, the spell at Magic list index 3. Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+      "description": "g_ActiveCharacters[0].enabledMagic[1].id: hypothesis, the spell at Magic list index 1. Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    },
+    "e2": {
+      "addr": "0x8009d964",
+      "type": "u8",
+      "description": "g_ActiveCharacters[0].enabledMagic[2].id: hypothesis, the spell at Magic list index 2. Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
     }
   },
   "input": [
@@ -118,7 +123,7 @@
       "wait": {
         "until": {
           "mem": "widget",
-          "differs": 1
+          "equals": 6
         },
         "timeout": 60
       }
@@ -148,6 +153,26 @@
         "until": {
           "mem": "m_row",
           "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 0
         },
         "timeout": 30
       },
@@ -216,6 +241,12 @@
   ],
   "assert": [
     {
+      "expect": {
+        "mem": "e0",
+        "equals": 0
+      }
+    },
+    {
       "change": {
         "mem": "mp0",
         "is": "decreased",
@@ -245,8 +276,8 @@
     "tgt_wait",
     "cast_wait",
     "mp_wait",
-    "e0",
-    "e3",
+    "e1",
+    "e2",
     "match"
   ]
 }

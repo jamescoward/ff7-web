@@ -294,3 +294,36 @@ What it tells:
 - no `n<k>` −1: the axis signs over the lengths show how far each route got, and whether it stalls (a wall).
 
 Tier 2 count with this push: 123 of 128.
+
+### Attempt 3 results (`6512c27`, tier2 run 463: 110 pass, 13 fail; every fail is a route diagnostic; eval step 17.4 min)
+Recorded 2026-11-24 from the `eval` job log. Every earlier scenario passed unchanged, `save-boot-28a` included.
+
+| route | w0 | w1 | ptr0 | ptr1 | n (target) | axis signs (vs 256) |
+|---|---|---|---|---|---|---|
+| 5-up-150 | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 +1 |
+| 5-up-250 / 350 / 450 | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 5-ul-up | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 5-ur-up | 0 | 0 | 0 | 0 | n5 +1 | ax5 +1, ay5 −1 |
+| 8-ur-300 / 450 / 600 | 0 | 0 | 0 | 0 | n8 +1 | ax8 −1, ay8 +1 |
+| 46-dl-300 / 450 / 600 | 0 | 0 | 0 | 0 | n4 +1, n6 +1 | ay4 +1, ay6 +1 |
+| 9-dl-1000 | 0 | 0 | 0 | 0 | n9 +1 | ax9 +1, ay9 +1 |
+
+Reading:
+- **No route opened a window, and no target came into talk range.** No ask was seen.
+- Model 5: from 250 frames of up on, Δy is within 256 but Δx stays above 256, and nothing changes up to 450 frames, nor with an up+left or up+right first leg. The walk most likely stalls against a wall short of model 5 (a hypothesis: the position itself is not reported).
+- Model 8: the same signs at 300, 450 and 600 frames of up+right (Δx within 256, Δy above). Again a stall, most likely.
+- Models 4 and 6: Δy stays above 256 at 300, 450 and 600 frames of down+left. A stall again.
+- So in mds7st1, straight and two-leg pad walks from the save's start point stop before every candidate except model 7, whose message is plain.
+
+## Blockers after the third budget (2026-11-24)
+The third budget (owner, 2026-11-23) is spent: 3 + 3 + 3 attempts. What is known:
+1. The mds7st1 window-1 lead is model 7's plain one-page message (#224), not an ask.
+2. The other talkable models in mds7st1 (4, 5, 6, 8, 9) are out of reach of pad walks from the generated save's start point: walks stall short of them (attempt 3).
+3. Earlier budgets: mktinn and md8_1 have no talkable model at progress 6; md1_2, nmkin_1 and mds7 have talkable models that straight walks don't reach.
+
+What could unblock it (each a new attempt budget, which needs the owner; rule 11's one agent-default budget is used):
+- **A walkmesh-aware route:** read the field's walkmesh triangles in the sandbox and report only a route (pad legs) to a talkable model, never the mesh. This is the same capability #120's third budget would build for md1_1, so it should be built once, there or as its own issue.
+- **A generated save placed next to a talkable model** (a different start position in the savemap), if the savemap's field position fields are confirmed.
+- **A known ask from the owner's play memory** (a field, an NPC and a progress value), as #120's route hint did.
+
+The diagnostics (generator `runner/test/unit/choice-cursor-scenarios.js`, its test and the 28* scenarios) are not merged; their definitions are in `de91358`, `2b32561` and `6512c27` on branch `issue-168-choice-cursor-3`.

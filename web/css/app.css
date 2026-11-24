@@ -567,13 +567,16 @@ body {
 .native-item .btn[data-chosen] { background: #ffd47933; }
 .ni-nav .btn, .ne-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
 
-/* Native Equip screen (#121), Labs flag `native-equip` (off by default): the
-   same panel as the native Item screen (.native-item; ne- classes mirror its
-   ni- ones), with member rows
-   (text, not buttons) and spare-weapon buttons (js/native-equip.js,
-   <html data-native-equip-on>). The known member's row is highlighted. */
+/* Native Equip screen (#121, v2 #254), Labs flag `native-equip` (off by
+   default): the same panel as the native Item screen (.native-item; ne-
+   classes mirror its ni- ones), with member rows (text, not buttons), three
+   slot buttons (the chosen one highlighted, the game's cursor outlined) and
+   one button per list row; the panel scrolls, the page does not
+   (js/native-equip.js, <html data-native-equip-on>). The known member's row
+   is highlighted. */
 .ne-members { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
-.ne-weapons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ne-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.ne-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .ne-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ne-member[data-chosen] { background: #ffd47933; }
 

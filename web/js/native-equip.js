@@ -1,37 +1,49 @@
-// Native Equip screen (#121), behind the Labs flag `native-equip` (off by
-// default). While the game's Equip screen is open (semantic equipScreen():
-// a confirmed menu mode and the Equip overlay), a native panel covers the
-// picture: each party member's weapon, armor and accessory (IDs from
-// equipment(), no names) and the spare weapons in the inventory (IDs and
-// counts from inventory()).
+// Native Equip screen (#121 v1, #254 v2), behind the Labs flag
+// `native-equip` (off by default). While the game's Equip screen is open
+// (semantic equipScreen(): a confirmed menu mode and the Equip overlay), a
+// native panel covers the picture: each party member's weapon, armor and
+// accessory (IDs from equipment(), no names), the three slots of the member
+// whose screen this is, and the rows of the game's list for the chosen slot.
 //
-// Only what Tier 2 showed is offered (#121 part 1, save-boot-15c): from the
-// screen's opening state, with one party member, Circle and then Circle 60
-// frames later equips the first weapon in the game's list. So the first
-// spare weapon is tappable only when exactly one party slot is occupied
-// (with more, the main-menu party pick marks the chosen member, #215, but
-// the game's list holds only that member's weapons, which is not read),
-// the screen has been open EQUIP_SETTLE_FRAMES, and no other input has been
-// seen since it opened (the opening Circle's release aside). The tap presses
-// Circle, waits EQUIP_STEP_FRAMES game frames, presses Circle, then reads
-// the member's weapon to confirm the change, or to say no change, or a
-// different one, was seen. After one tap the opening state is gone, so taps
-// stay off until the Equip screen is closed and opened again. Back presses
-// Cross; Hide uncovers the picture until the Equip screen closes. Facts,
-// rules and buttons come from semantic/; this file only draws, reads and
-// presses. Input only: no game memory is written.
+// The member is the one the game opened Equip for: the confirmed party pick
+// (#215), or the only member of a party of one. The game's list holds only
+// what that member can equip (kernel data, not read), so list rows are
+// offered by index, one per spare of that kind in the inventory (an upper
+// bound), and the savemap says afterwards what was equipped (#254 option
+// (a), notes/254-native-equip-v2.md).
 //
-// Stop rules (as the native Item screen, #135): leaving the Equip screen,
-// the flag or the gate cancels a running tap and releases its buttons.
+// Tap a slot, then a list row. The panel runs, one game frame at a time and
+// checking equipCursors() at every step:
+//   1. equipSlotPlan from the read slot cursor to the chosen slot;
+//   2. Circle, then EQUIP_LIST_OPEN_FRAMES frames (the list opens);
+//   3. equipListPlan from the read list cursor (row 0, offset 0) to the row;
+//   4. a check that the slot and list cursors read the target, then Circle.
+// Afterwards it reads the party's equipment: "Equipped" when only that
+// member's slot changed, else "something else changed" or "no change seen".
+// With the slot cursor on Weapon and list row 1, this is v1's tap (Circle,
+// 60 frames, Circle; save-boot-15c).
+//
+// No page variable is read (#216), so taps run only while the slot page is
+// known: from the screen's opening state, or after the panel's own tap
+// equipped something, with no other input since (v1's watch on the mixer).
+//
+// Facts, rules, plans and buttons come from semantic/; this file only draws,
+// reads and presses. Input only: no game memory is written. Stop rules (as
+// the native Item and Materia screens): any executor stop or failed check
+// releases everything and sends nothing more, Circle included. Leaving the
+// Equip screen, the flag or the gate cancels and releases. Back presses
+// Cross; Hide uncovers the picture until the Equip screen closes.
 // Original project code, GPL-2.0-or-later.
 
 import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { EQUIP_SCREEN_ACTIONS } from './semantic/controls.js';
 import {
-  EQUIP_FIRST_WEAPON_PRESSES, EQUIP_PARTY_SLOTS, equipChosenSlot, equipMemberLabel, equipMemberSlot, equipOutcome,
-  equipTapAllowed, spareWeaponLabel, spareWeapons,
+  EQUIP_LIST_OPEN_FRAMES, EQUIP_PARTY_SLOTS, EQUIP_SLOT_KINDS, equipChosenSlot, equipListIndex, equipListPlan,
+  equipListRowLabel, equipListRows, equipMemberLabel, equipSlotKind, equipSlotLabel, equipSlotPlan, equipV2Outcome,
+  equipV2TapAllowed,
 } from './semantic/equip-screen.js';
 import { createSemantic } from './semantic/layer.js';
+import { createPlanExecutor } from './semantic/planner.js';
 import { PAD } from './pad.js';
 
 export const EQUIP_FLAG = 'native-equip';
@@ -39,23 +51,23 @@ export const EQUIP_HZ = 4;
 /** Loop period while a tap runs: about one game frame (60 Hz). */
 export const LOOP_MS = 16;
 export const PRESS_MS = 100;
-/** Polls (at EQUIP_HZ) to wait for the weapon to change before saying no change was seen. */
+/** Polls (at EQUIP_HZ) to wait for the change to show before saying no change was seen. */
 export const CONFIRM_POLLS = 8;
-/** Spare weapon rows shown. */
-export const WEAPON_ROWS = 6;
 const SOURCE = 'native-equip';
 
 const REASON_TEXT = Object.freeze({
-  'party pick not read': 'Equip with the pad: with more than one member, the weapon list for the party pick is not read',
-  'not the opening state': 'Equip with the pad: close and reopen Equip to use the panel again',
-  'list order not read': '',
+  'party pick not read': 'Equip with the pad: whose screen this is is not read',
+  'page not known': 'Equip with the pad: close and reopen Equip to use the panel again',
+  'cursor not read': 'Move the game\'s cursor back to the slots, list closed, to use the panel',
+  'no entry': '',
   settling: '',
 });
+const KIND_TEXT = Object.freeze({ weapon: 'weapon', armor: 'armor', accessory: 'accessory' });
 
-/** Build the panel's fixed parts once: a header, three member rows, weapon rows, Back and Hide. */
+/** Build the panel's fixed parts once: a header, three member rows, three slot buttons, a list, Back and Hide. */
 export function buildEquipScreen(root) {
   const doc = root.ownerDocument;
-  if (root.querySelector('.ne-weapons')) return;
+  if (root.querySelector('.ne-rows')) return;
   const el = (tag, cls, text) => {
     const e = doc.createElement(tag);
     if (cls) e.className = cls;
@@ -70,13 +82,14 @@ export function buildEquipScreen(root) {
     d.dataset.slot = String(slot);
     members.append(d);
   }
-  const weapons = el('div', 'ne-weapons');
-  for (let row = 0; row < WEAPON_ROWS; row++) {
-    const b = el('button', 'btn ne-weapon', '—');
+  const slots = el('div', 'ne-slots');
+  EQUIP_SLOT_KINDS.forEach((_, s) => {
+    const b = el('button', 'btn ne-slot', '');
     b.type = 'button';
-    b.dataset.row = String(row);
-    weapons.append(b);
-  }
+    b.dataset.equipSlot = String(s);
+    slots.append(b);
+  });
+  const rows = el('div', 'ne-rows');
   const nav = el('div', 'ne-nav');
   const back = el('button', 'btn ne-back', EQUIP_SCREEN_ACTIONS.back.label);
   back.type = 'button';
@@ -85,30 +98,32 @@ export function buildEquipScreen(root) {
   hide.type = 'button';
   hide.dataset.action = 'hide';
   nav.append(back, hide);
-  root.append(head, members, weapons, nav);
+  root.append(head, members, slots, rows, nav);
 }
 
 export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz = EQUIP_HZ, semanticFor = createSemantic }) {
-  // Without a way to see other input, the opening state can't be trusted: never pristine.
+  // Without a way to see other input, the page can't be known: taps stay off.
   const canWatch = typeof mixer.onChange === 'function';
   let gateActive = false;
   let backend = null;
-  let source = null; // tests: { equipScreen(), equipment(slot), inventory(), frame }
+  let source = null; // tests: { equipScreen(), equipCursors(), equipment(slot), inventory(), partyPick(), frame }
   let semantic = null;
   let handle = null; // poll
   let busy = false;
   let open = false;
   let openFrame = null; // game frame when the open screen was first seen
-  let pristine = false; // still in the opening state: no tap and no other input since it opened
-  let armed = false; // the opening press has been released, so later input counts
-  let ours = 0; // the mask this screen holds in the mixer
   let members = [null, null, null];
   let pick = null; // partyPick() while the Equip screen is open (#215), or null
-  let weapons = [];
+  let cursors = null; // the last equipCursors() value
+  let inventory = [];
+  let chosen = null; // the slot row (0-2) the next tap fills
+  let slotPage = false; // the slot page is known to show: opening state or after our own tap, no other input since
+  let armed = false; // the opening press has been released, so later input counts
+  let ours = 0; // the mask this screen holds in the mixer
   let peek = false;
-  let run = null; // { loop, start, next, memberSlot, wanted, before } while a tap's presses run
+  let run = null; // the running tap: { phase, exec, loop, slot, index, before, memberSlot, waitFrom, busy, lastFrame }
   let pressing = null;
-  let check = null; // { memberSlot, wanted, before, polls } while confirming
+  let check = null; // { memberSlot, kind, before, polls } while confirming
   let last = null;
 
   const doc = root.ownerDocument;
@@ -131,7 +146,12 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     const f = frameNow();
     return Number.isInteger(f) && Number.isInteger(openFrame) ? f - openFrame : null;
   };
-  const tapState = () => ({ open, framesOpen: framesOpen(), pristine, memberSlot: equipMemberSlot(members), weapons });
+  const memberSlot = () => equipChosenSlot(members, pick);
+  const rowsFor = (slot) => equipListRows(inventory, equipSlotKind(slot));
+  const tapState = () => {
+    const ms = memberSlot();
+    return { open, framesOpen: framesOpen(), memberSlot: ms, member: ms === null ? null : members[ms], cursors, rows: rowsFor(chosen), slotPage };
+  };
 
   function show(on) {
     root.hidden = !on;
@@ -141,58 +161,83 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     if (run) { timers.clearInterval(run.loop); run = null; }
     if (pressing !== null) timers.clearTimeout(pressing);
     pressing = null;
-    ours = 0;
-    mixer.set(SOURCE, 0);
+    hold(0);
+  }
+  function hold(mask) {
+    ours = mask;
+    mixer.set(SOURCE, mask);
   }
   function pressFor(button) {
-    ours = PAD[button];
-    mixer.set(SOURCE, ours);
-    pressing = timers.setTimeout(() => { pressing = null; ours = 0; mixer.set(SOURCE, 0); }, PRESS_MS);
+    hold(PAD[button]);
+    pressing = timers.setTimeout(() => { pressing = null; hold(0); render(); }, PRESS_MS);
   }
   function reset() {
     release();
     open = false;
     openFrame = null;
-    pristine = false;
-    armed = false;
     peek = false;
     check = null;
-    weapons = [];
+    chosen = null;
+    slotPage = false;
+    armed = false;
+    cursors = null;
+    inventory = [];
     members = [null, null, null];
     pick = null;
   }
 
   /**
-   * Every change of the pad mask: while pristine, input from another source
-   * (after the opening press is released) ends the opening state.
+   * Every change of the pad mask: input from another source (after the
+   * opening press is released) means the page is no longer known.
    */
   function onPad(mask) {
-    if (!open || !pristine) return;
+    if (!open || !slotPage) return;
     const others = mask & ~ours;
     if (!armed) { if (others === 0) armed = true; return; }
     if (others !== 0) {
-      pristine = false;
+      slotPage = false;
       render();
     }
   }
 
   function render() {
     const st = tapState();
+    const ms = st.memberSlot;
     for (const d of root.querySelectorAll('.ne-member')) {
       const slot = Number(d.dataset.slot);
       d.textContent = equipMemberLabel(slot, members[slot]);
-      d.toggleAttribute('data-chosen', equipChosenSlot(members, pick) === slot);
+      d.toggleAttribute('data-chosen', ms === slot);
     }
+    for (const b of root.querySelectorAll('.ne-slot')) {
+      const s = Number(b.dataset.equipSlot);
+      b.textContent = equipSlotLabel(s, st.member);
+      b.disabled = !(idle() && st.member);
+      b.toggleAttribute('data-chosen', chosen === s);
+      b.toggleAttribute('data-cursor', cursors?.slot === s);
+    }
+    const list = root.querySelector('.ne-rows');
+    const rows = st.rows;
+    while (list.children.length < rows.length) {
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'btn ne-row';
+      list.append(b);
+    }
+    while (list.children.length > rows.length) list.lastChild.remove();
     let why = null;
-    for (const b of root.querySelectorAll('.ne-weapon')) {
-      const row = Number(b.dataset.row);
-      const w = weapons[row];
-      b.textContent = spareWeaponLabel(w);
-      const a = equipTapAllowed(st, row);
+    rows.forEach((r, i) => {
+      const b = list.children[i];
+      b.dataset.index = String(r.index);
+      b.textContent = equipListRowLabel(r);
+      const a = equipV2TapAllowed(st, chosen, r.index);
       b.disabled = !(a.ok && idle());
-      if (row === 0 && w) why = a.reason;
+      if (!a.ok && why === null) why = a.reason;
+    });
+    if (idle() && !last) {
+      if (why) setMsg(REASON_TEXT[why] ?? '');
+      else if (st.member && chosen !== null && rows.length === 0) setMsg(`No spare ${KIND_TEXT[equipSlotKind(chosen)]}`);
+      else setMsg('');
     }
-    if (idle() && !last) setMsg(why ? REASON_TEXT[why] ?? '' : '');
   }
 
   async function readMembers(sem) {
@@ -215,17 +260,28 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     try { r = await sem.inventory(); } catch { r = null; }
     return r?.confirmed === true && Array.isArray(r.value) ? r.value : null;
   }
+  async function readCursors(sem) {
+    if (!sem || typeof sem.equipCursors !== 'function') return null;
+    let r;
+    try { r = await sem.equipCursors(); } catch { r = null; }
+    return r?.confirmed === true && r.value ? r.value : null;
+  }
 
   function confirmChange() {
     const c = check;
-    const after = members[c.memberSlot]?.weapon ?? null;
     c.polls += 1;
-    const out = equipOutcome(c.before, after, c.wanted);
+    const out = equipV2Outcome(c.before, members, c.memberSlot, c.kind);
     if (out === 'none' && c.polls < CONFIRM_POLLS) return;
     check = null;
-    last = { ok: out === 'equipped', outcome: out, before: c.before, after, wanted: c.wanted };
-    if (out === 'equipped') setMsg(`Equipped: weapon #${c.before} → #${after}`);
-    else if (out === 'other') setMsg(`Changed to weapon #${after}, not #${c.wanted}`);
+    const was = c.before[c.memberSlot]?.[c.kind];
+    const now = members[c.memberSlot]?.[c.kind];
+    last = { ok: out === 'equipped', outcome: out, memberSlot: c.memberSlot, kind: c.kind, before: was, after: now };
+    const n = (v) => (Number.isInteger(v) ? `#${v}` : 'none');
+    // Circle on a list entry returns to the slot page (#216 18b: the slot
+    // cursor reads afterwards); after anything else the page is not known.
+    slotPage = out === 'equipped';
+    if (out === 'equipped') setMsg(`Equipped: ${KIND_TEXT[c.kind]} ${n(was)} → ${n(now)}`);
+    else if (out === 'other') setMsg('Something else changed; check the game\'s screen');
     else setMsg('No change seen');
   }
 
@@ -247,14 +303,16 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
       if (!open) {
         open = true;
         openFrame = frameNow();
-        pristine = canWatch;
-        last = null;
+        slotPage = canWatch; // the screen opens on the slot page (#121)
         armed = (mixer.mask & ~ours) === 0;
+        last = null;
       }
       members = await readMembers(sem);
       pick = await readPick(sem);
       const inv = await readInventory(sem);
-      if (inv) weapons = spareWeapons(inv).slice(0, WEAPON_ROWS);
+      if (inv) inventory = inv;
+      if (run === null) cursors = await readCursors(sem);
+      if (chosen === null) chosen = Number.isInteger(cursors?.slot) ? cursors.slot : 0;
       if (check) confirmChange();
       render();
       show(!peek);
@@ -263,41 +321,89 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     }
   }
 
-  /** One turn of a tap: press each planned button once its game frame has come. */
-  function turn() {
+  function fail(reason, extra = {}) {
     const r = run;
-    if (!r) return;
-    if (!shouldRun() || !open) { release(); return; }
-    const f = frameNow();
-    if (!Number.isInteger(f)) return;
-    r.start ??= f;
-    const p = EQUIP_FIRST_WEAPON_PRESSES[r.next];
-    if (!p || pressing !== null || f - r.start < p.at) return;
-    pressFor(EQUIP_SCREEN_ACTIONS[p.action].button);
-    r.next += 1;
-    if (r.next < EQUIP_FIRST_WEAPON_PRESSES.length) return;
-    timers.clearInterval(r.loop);
-    run = null;
-    check = { memberSlot: r.memberSlot, wanted: r.wanted, before: r.before, polls: 0 };
-    setMsg('Checking…');
+    release();
+    slotPage = false;
+    last = { ok: false, slot: r?.slot ?? null, index: r?.index ?? null, error: { reason, ...extra } };
+    setMsg('Stopped: the cursor did not move as planned');
+    render();
   }
 
-  /** A tap on spare-weapon row `row`. */
-  function tapWeapon(row) {
+  /** One turn of a running tap: read the frame and cursors, then advance its phase. */
+  async function turn() {
+    const r = run;
+    if (!r || r.busy) return;
+    if (!shouldRun() || !open) { release(); return; }
+    const frame = frameNow();
+    if (!Number.isInteger(frame) || frame === r.lastFrame) return;
+    r.busy = true;
+    const cur = await readCursors(reader());
+    r.busy = false;
+    if (run !== r) return;
+    r.lastFrame = frame;
+    if (r.phase === 'slot') {
+      const out = r.exec.step(frame, Number.isInteger(cur?.slot) ? cur.slot : null);
+      hold(out.mask);
+      if (out.state === 'running') return;
+      if (out.state !== 'done') { fail(out.error.reason, { phase: 'slot' }); return; }
+      r.phase = 'open';
+      r.waitFrom = frame;
+      pressFor(EQUIP_SCREEN_ACTIONS.select.button);
+      return;
+    }
+    if (r.phase === 'open') {
+      if (pressing !== null || frame - r.waitFrom < EQUIP_LIST_OPEN_FRAMES) return;
+      const from = cur ? { row: cur.listRow, offset: cur.listOffset } : null;
+      if (!from || equipListIndex(from.row, from.offset) === null) { fail('unread', { phase: 'list' }); return; }
+      let plan;
+      try { plan = equipListPlan(from, r.index); } catch { fail('range', { phase: 'list' }); return; }
+      r.phase = 'list';
+      r.exec = createPlanExecutor(plan);
+      // fall through to the first list step on this frame
+    }
+    if (r.phase === 'list') {
+      const index = cur ? equipListIndex(cur.listRow, cur.listOffset) : null;
+      const out = r.exec.step(frame, index);
+      hold(out.mask);
+      if (out.state === 'running') return;
+      if (out.state !== 'done') { fail(out.error.reason, { phase: 'list' }); return; }
+      // The final check before the press that equips.
+      if (!(cur && cur.slot === r.slot && index === r.index)) { fail('check', { phase: 'equip' }); return; }
+      const target = r;
+      release();
+      check = { memberSlot: target.memberSlot, kind: equipSlotKind(target.slot), before: target.before, polls: 0 };
+      setMsg('Checking…');
+      pressFor(EQUIP_SCREEN_ACTIONS.select.button);
+      render();
+    }
+  }
+
+  /** A tap on slot row `s` (0 Weapon, 1 Armor, 2 Accessory): chooses what the next list tap fills. */
+  function tapSlot(s) {
+    if (!shouldRun() || !open || !idle() || equipSlotKind(s) === null) return;
+    chosen = s;
+    last = null;
+    render();
+  }
+
+  /** A tap on list row `index` of the chosen slot. */
+  function tapRow(index) {
     if (!shouldRun() || !idle()) return;
     const st = tapState();
-    const a = equipTapAllowed(st, row);
-    if (!a.ok) { last = { ok: false, row, error: { reason: a.reason } }; return; }
-    const before = members[st.memberSlot]?.weapon;
-    if (!Number.isInteger(before)) { last = { ok: false, row, error: { reason: 'unread' } }; return; }
-    pristine = false;
+    const a = equipV2TapAllowed(st, chosen, index);
+    if (!a.ok) { last = { ok: false, slot: chosen, index, error: { reason: a.reason } }; return; }
+    let plan;
+    try { plan = equipSlotPlan(cursors.slot, chosen); } catch { last = { ok: false, slot: chosen, index, error: { reason: 'range' } }; return; }
     last = null;
-    run = { loop: null, start: null, next: 0, memberSlot: st.memberSlot, wanted: weapons[row].number, before };
+    const before = members.map((m) => (m ? { ...m } : null));
+    run = { phase: 'slot', exec: createPlanExecutor(plan), loop: null, slot: chosen, index, before, memberSlot: st.memberSlot, waitFrom: null, busy: false, lastFrame: null };
     run.loop = timers.setInterval(turn, LOOP_MS);
     setMsg('Equipping…');
     render();
     turn();
   }
+
   function tapAction(id) {
     if (id === 'hide') {
       if (!open) return;
@@ -307,8 +413,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     }
     const a = EQUIP_SCREEN_ACTIONS[id];
     if (!a || !shouldRun() || !open || !idle()) return;
-    // Any press of ours leaves the opening state too.
-    pristine = false;
+    slotPage = false;
     last = null;
     setMsg('');
     pressFor(a.button);
@@ -332,7 +437,8 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
   root.addEventListener('click', (e) => {
     const b = e.target?.closest?.('button');
     if (!b || !root.contains(b) || b.disabled) return;
-    if (b.dataset.row !== undefined) tapWeapon(Number(b.dataset.row));
+    if (b.dataset.equipSlot !== undefined) tapSlot(Number(b.dataset.equipSlot));
+    else if (b.dataset.index !== undefined) tapRow(Number(b.dataset.index));
     else if (b.dataset.action) tapAction(b.dataset.action);
   });
   labs.onChange((name) => { if (name === EQUIP_FLAG) sync(); });
@@ -341,7 +447,8 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
   return {
     tick,
     turn,
-    tapWeapon,
+    tapSlot,
+    tapRow,
     tapAction,
     setGate(gate) {
       gateActive = Boolean(gate?.active);
@@ -354,8 +461,11 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     stop,
     get running() { return handle !== null; },
     get open() { return open; },
-    get pristine() { return pristine; },
     get busy() { return !idle(); },
+    get chosen() { return chosen; },
+    get slotPage() { return slotPage; },
+    /** v1's name for the opening state (#121). */
+    get pristine() { return slotPage; },
     get last() { return last; },
   };
 }

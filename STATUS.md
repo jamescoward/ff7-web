@@ -16,6 +16,7 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - PR #191 (#149, sandbox memory report) is merged. #147 stays parked: it unblocks nothing else. The native shell stays unplanned (it needs a Mac).
 
 **Done in M2:**
+- **#253 part 1** (PR #268): the battle Magic and Item lists are confirmed in Tier 2 for party slot 0. Magic is `D_800F90B4[slot].table24` (3 columns, 3 rows a page; widget 6), and its index is the `enabledMagic` slot. Item is the widget at record +0x12 (one column, 3 rows a page; widget 5), and its index is the inventory slot. The new `semantic/battle-lists.js` `battleListPlan` is proved in Tier 2: a planned Up casts spell 0, and MP falls and HP rises (29b). A plan through a scroll uses inventory slot 3, whose count goes from 9 to 8 (29d). `battleList()` reads the open list. Part 2 (the `battle-panel` list view) is next. Tier 2 is now at its time limit (#269, needs-owner) (`notes/253-battle-lists.md`). Done by the second implementer as overflow work.
 - **#254** (PR #265): Labs flag `native-equip` v2. The panel equips any slot (weapon, armor, accessory) for the member the game opened Equip for. It offers list rows by index, one per spare of that kind (agent default: equip masks are not read), and reads the savemap afterwards to say what was equipped.
   - Each tap runs `equipSlotPlan`, Circle, `equipListPlan`, Circle, checking `equipCursors()` at every step; any mismatch stops input.
   - Taps run only while the slot page is known: from the opening state, or after the panel's own successful tap.

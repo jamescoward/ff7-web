@@ -1,6 +1,7 @@
 // Unit: battle sub-list positions and plans (#253). Plain data only.
 // Original project code, GPL-2.0-or-later.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 import { BATTLE_LISTS, battleListIndex, battleListPlan, battleListStep } from '../../../semantic/battle-lists.js';
@@ -106,5 +107,28 @@ describe('battle list plan (#253)', () => {
     }
     assert.equal(r.state, 'done');
     assert.equal(battleListIndex('magic', pos), 4);
+  });
+});
+
+describe('Tier 2 scenarios follow the planner (#253)', () => {
+  const ROOT = new URL('../../../', import.meta.url);
+  const load = (name) => JSON.parse(readFileSync(new URL(`harness/scenarios/${name}.json`, ROOT), 'utf8'));
+  // The presses after the list opens (the wait on its widget value) and before the "mark" step.
+  const listPresses = (doc, widget) => {
+    const steps = doc.input;
+    const open = steps.findIndex((s) => s.wait?.until?.mem === 'widget' && s.wait.until.equals === widget);
+    const mark = steps.findIndex((s) => s.mark);
+    assert.ok(open >= 0 && mark > open, `${doc.name}: list open and mark steps`);
+    return steps.slice(open, mark).filter((s) => s.buttons).map((s) => s.buttons.join('+'));
+  };
+
+  test('29b: one Down to index 3, then the plan from index 3 to index 0', () => {
+    const plan = battleListPlan('magic', at(1), 0);
+    assert.deepEqual(listPresses(load('save-boot-29b-battle-magic-cast'), 6), ['down', ...plan.steps.map((s) => s.button)]);
+  });
+
+  test('29d: the plan from index 0 to index 3, through a scroll', () => {
+    const plan = battleListPlan('item', at(0), 3);
+    assert.deepEqual(listPresses(load('save-boot-29d-battle-item-use'), 5), plan.steps.map((s) => s.button));
   });
 });

@@ -102,7 +102,7 @@ describe('address table', () => {
       // #244
       'materiaSlotColumn', 'materiaSlotRow', 'materiaListRow', 'materiaListOffset',
       // #253
-      'battleMagicColumn0', 'battleMagicRow0', 'battleMagicOffset0', 'battleItemCount'];
+      'battleMagicColumn0', 'battleMagicRow0', 'battleMagicOffset0', 'battleItemCount', 'battleItemRow0', 'battleItemScroll0', 'battleMagicId0'];
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
     const tier2 = (file) => {
       const doc = JSON.parse(readFileSync(path.join(root, file), 'utf8'));

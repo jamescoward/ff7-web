@@ -59,6 +59,42 @@ What this shows:
 - 29c is removed (its result above stands as a single-run observation) and save-boot-29 no longer reruns its
   5236-frame walk from the title, to fit the time budget. 29a, 29b and 29d keep their reruns.
 
+### Attempt 2 (`e5e35fa`, tier2 check 138325109139): success (all pass)
+29b passes with the planned Up from index 3 to index 0. The run reached `touch-playthrough`.
+
+## Attempt 3 (`d2cdbb2`, tier2 check 138326785176, eval job 138326716747): 115 pass, 0 fail, in 15 min
+- 29d now waits for widget 5 and plans to Item index 3 (Down, Down, Down: row 1, row 2, then scroll 1 with row 2).
+- The address table gains the list entries; `battleList()` reads them (semantic/layer.js).
+
+| scenario | metrics |
+|---|---|
+| 29 lists-battle | battle_wait 5236, map_cur 117 |
+| 29a magic-cursor | cmd_magic 1, mw_wait 1, r_right 1, d_row2 1, d_off1 1, u_row 1, widget 6, match 1 (as attempt 1) |
+| 29b magic-cast | w_plan 1, tgt_wait 1, cast_wait 1, **mp_wait 365**, **e1 1, e2 2**, match 1 |
+| 29d item-use | w_plan 1 (scroll 1), tgt_wait 1, use_wait 1, count_wait 1 (slot 3: 9 → 8), match 1 |
+
+What this shows:
+- **H3 holds**: index 0 is enabledMagic slot 0 (spell 0). With the cursor at index 3, the planned Up reads row 0; Circle
+  opens target selection (widget 0) one frame later, a second Circle takes the command (0xFFFF), MP leaves 300 after
+  365 frames, and 400 frames later MP is lower and HP higher than at the mark. Entries 1 and 2 hold spells 1 and 2;
+  entry 3 is empty. Which spell each id is is not read (no game text); the panel shows ids only.
+- **H4 and H5 hold through a scroll**: the third Down scrolls (scroll 1, row 2), and Circle, Circle uses inventory slot 3
+  (battle count 9 → 8, slots 0-2 unchanged, HP higher). So list index = scroll + row = inventory slot.
+- The whole suite ran in 15 min and reached `touch-playthrough` (the run time varies; see below).
+
+## Outcome (part 1)
+- **Confirmed** (address table, slot 0): `battleMagicColumn0`, `battleMagicRow0`, `battleMagicOffset0`,
+  `battleItemRow0`, `battleItemScroll0`, `battleMagicId0`, `battleItemCount`, and `battleMenuWidget` values 5 (Item
+  list) and 6 (Magic list).
+- **Hypotheses**: the same cursors for party slots 1 and 2 (the same table at + slot × 0x240, as #171 found for the
+  command rows); the Summon list (table36, widget 7 per the decomp; the save has no summon materia).
+- **Planner**: `semantic/battle-lists.js` `battleListPlan` (rows first, then columns, never wraps). The presses of
+  29b and 29d equal its output (unit test `semantic-battle-lists.test.js`). Up at row 0 with offset 0 is never
+  planned; Up at row 0 with offset > 0 scrolls back (29a).
+- **Reader**: `battleList()` → `{ actor, list, index, row, offset, column }`. `battleInput()` reports nothing while a
+  list is open, so the existing `battle-panel` command view hides there, as before.
+- Part 2 (the panel's list view, Labs flag `battle-panel`) is next on this issue.
+
 ## Tier 2 time budget
 The whole Tier 2 suite now runs close to the deadline: PR #266's tier2 took 18 min 51 s and passed, PR #265's 11 min
 20 s (runner speed varies). Attempt 1 added five scenarios, one of them a 5236-frame walk run twice, and the run

@@ -412,3 +412,36 @@ Model 3 (and models 2 and 4, in the same band, run 3) can't be brought into talk
 - Report **only** the pad legs (direction and frames), the path's triangle count and pass/fail. No mesh coordinates leave.
 - If an off-device search is too much for one attempt, start smaller: report which neighbour triangle each of the stall triangle's three edges leads to (−1 for a wall). That is enough to choose legs by hand.
 - #168 (blocked) needs the same routing for mds7st1, so build it once in a reusable runner module.
+
+## Third budget (owner, 2026-11-23): route over md1_1's walkmesh
+
+### Attempt 1 (2026-11-24): the format 2 `route` step
+Blind pad sweeps can't tell a wall from a lock, and they can't steer round corners. So the sandbox now does the routing itself. A new script step, `{ "route": { "to": { "gateway": k } | { "model": k }, "timeout": n, "report": {...}, "leg": [...] } }`, works in three parts:
+- `semantic/walkmesh.js` (pure, synced to `runner/semantic/` and `web/js/semantic/`) reads the walkmesh, adjacency and locks, finds a triangle path (A*), and picks pad directions;
+- `runner/route.js` runs the closed loop. Each frame it reads Cloud's triangle and position, steers at the next portal midpoint (or at the goal in the last triangle), presses one of the 8 pad directions, and re-plans if Cloud leaves the path;
+- it stops when the goal is reached, after 60 frames without moving (stuck), on leaving field mode (a random battle, say), or at the timeout.
+
+**Only numbers leave:**
+- the outcome code;
+- the path length in triangles with and without blocked accesses (`path`, `free`);
+- the locked-triangle count;
+- frames;
+- the pad legs, packed as code × 10000 + frames.
+
+The emulator is deterministic, so a reported leg list replays exactly as ordinary drags from the same snapshot. That is how the playthrough will use it: touch-layer drags only.
+
+**Layout (reference only, no code):** Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705.
+- `src/field/field_private.h`: `FieldWalkmesh` is a u16 triangle count and a u16 pad, then count × 3 SVECTOR (s16 x, y, z, pad), then count × `FieldWalkmeshAccess` (3 × s16, −1 is a wall). `D_8009A044` is a `FieldWalkmesh**`.
+- `src/field/field_loop.c` and `config/symbols.field.us.txt`: `g_WalkmeshTriangles` (0x800E4274) is the vertex data, and `g_WalkmeshAccesses` (0x80114458) follows it. The reader requires both pointers to agree with the header's, or it reports no walkmesh.
+- `src/field/field_entity.c`:
+  - `FieldEntityWalkmeshCross`: a point is inside when all three edge cross products are ≥ 0, and edge k (vertex k → k+1) leads to access k. A set bit `access` in `g_FieldState.blockedAccesses` (IDLCK) also stops the move.
+  - `FieldEntityMovementUpdate`: the pad sets MoveDir to up 0, up-left 32, left 64, …, up-right 224, then adds `FieldTriggers.controlDirection`.
+  - `FieldEntityMove`: the player stops dead on contact with a solid model, and slides along walkmesh edges.
+- `include/game.h`: `FieldState.blockedAccesses` is at +0xB2 (64 bytes) of 0x8009ABF4 (offsets counted from the struct; `modelCount` at +0x28 checks the count). `FieldTriggers.controlDirection` is at +0x09, and `FieldEntity.PosI` (the triangle a model stands in) at +0x72.
+
+**Probes (Tier 2):** these replace the s2i hint probes and the stall segment. All boot from `touch-md1-1`.
+- `touch-s2r-gw1`: route to gateway 1 (md1_2). `path` = 0 with `free` > 0 means IDLCK locks close the way.
+- `touch-s2r-m2`, `-m3`, `-m4`: route to the talk range of models 2, 3 and 4, then one Interact press. `w0` and `w1` show whether a message opened.
+- `touch-s2r-m3-gw1`: route to model 3, tap Interact through any message, then route to gateway 1. Compare `locked_g` with s2r-gw1's `locked`: did the talk unlock triangles?
+
+Untested hypotheses: the field updates the player every frame (closed-loop steering doesn't depend on it), and the md1_1 snapshot is settled with the walkmesh loaded.

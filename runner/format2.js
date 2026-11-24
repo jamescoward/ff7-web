@@ -33,6 +33,7 @@ import { BaselineError, baselineFromDisc, kernelFromDisc } from './savegen/basel
 import { descriptionProblems, generateCard } from './savegen/index.js';
 import { cardOutcome } from './savegen/read.js';
 import { NAME_KINDS, NAME_REPORT, nameCounts, namesHold } from './kernel-names.js';
+import { routeMetrics, runRoute } from './route.js';
 import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
@@ -185,6 +186,12 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
       if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no restart`);
       return { kind: 'restart', index: i };
     }
+    if (s.route !== undefined) {
+      // A route step (#120, runner/route.js): walks the walkmesh to a goal.
+      if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no route`);
+      const r = s.route;
+      return { kind: 'route', to: { ...r.to }, timeout: r.timeout, report: { ...(r.report ?? {}) }, leg: [...(r.leg ?? [])], legFrom: r.legFrom ?? 0, index: i };
+    }
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);
     const press = loadPress(s.wait.press, `${w}.wait.press`);
@@ -319,6 +326,11 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
   };
   const steps = loadScript(input ?? doc.input, memory, 'input');
   steps.forEach((s) => (s.kind === 'until' || s.kind === 'still') && name(s.metric, `input[${s.index}]`));
+  for (const s of steps) {
+    if (s.kind !== 'route') continue;
+    for (const [k, m] of Object.entries(s.report)) name(m, `input[${s.index}].route.report.${k}`);
+    s.leg.forEach((m, j) => name(m, `input[${s.index}].route.leg[${j}]`));
+  }
   const marks = new Set();
   for (const s of steps) {
     if (s.kind !== 'mark') continue;
@@ -530,7 +542,8 @@ function readAll(backend, memory) {
 /**
  * Play script steps on a backend. Returns { frames, waits: Map(step ->
  * frames waited, 0 = timed out), marks: Map(mark name -> Map(memory name ->
- * value)), timedOut }. A timed-out wait stops the script; marks after it
+ * value)), routes: Map(route step -> runRoute result), timedOut }. A
+ * timed-out wait stops the script; marks after it
  * are not reached. restartState: the boot point's state bytes, which a
  * restart step loads again (#228); a restart without it throws.
  */
@@ -538,6 +551,7 @@ export function playScript(backend, steps, memory, onMark = null, restartState =
   let frames = 0;
   const waits = new Map();
   const marks = new Map();
+  const routes = new Map(); // route step -> runRoute result (#120)
   const frame = (mask = 0, port = 0) => {
     backend.setPad(port === 0 ? mask : 0, 0);
     backend.setPad(port === 1 ? mask : 0, 1);
@@ -561,6 +575,8 @@ export function playScript(backend, steps, memory, onMark = null, restartState =
       const card = backend.getCard();
       backend.setCard(card);
       backend.loadState(restartState);
+    } else if (s.kind === 'route') {
+      routes.set(s, runRoute(backend, s, (mask) => frame(mask, 0)));
     } else if (s.kind === 'press') {
       for (let i = 0; i < s.frames; i++) frame(s.mask, s.port);
     } else if (s.kind === 'wait') {
@@ -576,7 +592,7 @@ export function playScript(backend, steps, memory, onMark = null, restartState =
         }
       }
       waits.set(s, waited);
-      if (!waited) return { frames, waits, marks, timedOut: true };
+      if (!waited) return { frames, waits, marks, routes, timedOut: true };
     } else {
       // still: the same picture, not one colour, for stillFrames frames in a row.
       let waited = 0;
@@ -600,10 +616,10 @@ export function playScript(backend, steps, memory, onMark = null, restartState =
         }
       }
       waits.set(s, waited);
-      if (!waited) return { frames, waits, marks, timedOut: true };
+      if (!waited) return { frames, waits, marks, routes, timedOut: true };
     }
   }
-  return { frames, waits, marks, timedOut: false };
+  return { frames, waits, marks, routes, timedOut: false };
 }
 
 /**
@@ -1105,6 +1121,11 @@ export async function runScenario2(sc, opts = {}) {
 
   const namedMetrics = new Map();
   sc.steps.forEach((s) => isWait(s) && s.metric !== undefined && namedMetrics.set(s.metric, run?.waits.get(s) ?? 0));
+  for (const s of sc.steps) {
+    if (s.kind !== 'route') continue;
+    // A stopped run reports nothing done (outcome 0), as a timed-out wait does.
+    for (const [k, v] of routeMetrics(s, stopped ? null : run?.routes.get(s))) namedMetrics.set(k, v);
+  }
   sc.asserts.forEach((a, i) => {
     if (a.kind === 'track') {
       // metric: the number of matches; found: their addresses (0 past the last).

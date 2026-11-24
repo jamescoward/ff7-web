@@ -520,6 +520,43 @@
           }
         },
         {
+          "description": "Walk the player along the current field's walkmesh to a goal (#120, runner/route.js): a gateway line (`to.gateway`, its index) or talk range of a field model (`to.model`). Inside the run it reads the walkmesh, searches a triangle path and presses one pad direction a frame, for at most `timeout` frames, then the script goes on whatever the outcome. Only numbers leave: report names metrics for outcome (1 reached, 2 stuck, 3 timeout, 4 left field mode, 5 no walkmesh, 6 no goal, 7 no path; 0 not run), path and free (path length in triangles with and without blocked accesses, 0 for none), locked (triangles blocked), frames and legs (count); leg names metrics for the pressed legs legFrom, legFrom + 1, ..., each direction code (0 up, clockwise to 7 up-left) * 10000 + frames, 0 past the last.",
+          "type": "object",
+          "required": ["route"],
+          "additionalProperties": false,
+          "properties": {
+            "route": {
+              "type": "object",
+              "required": ["to", "timeout"],
+              "additionalProperties": false,
+              "properties": {
+                "to": {
+                  "oneOf": [
+                    { "type": "object", "required": ["gateway"], "additionalProperties": false, "properties": { "gateway": { "type": "integer", "minimum": 0, "maximum": 11 } } },
+                    { "type": "object", "required": ["model"], "additionalProperties": false, "properties": { "model": { "type": "integer", "minimum": 0, "maximum": 15 } } }
+                  ]
+                },
+                "timeout": { "type": "integer", "minimum": 1, "maximum": 36000 },
+                "report": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "outcome": { "$ref": "#/$defs/metricName" },
+                    "path": { "$ref": "#/$defs/metricName" },
+                    "free": { "$ref": "#/$defs/metricName" },
+                    "locked": { "$ref": "#/$defs/metricName" },
+                    "frames": { "$ref": "#/$defs/metricName" },
+                    "legs": { "$ref": "#/$defs/metricName" }
+                  }
+                },
+                "leg": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/metricName" } },
+                "legFrom": { "type": "integer", "minimum": 0, "maximum": 4096 }
+              }
+            },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "Record the value of every u8/u16/u32 memory location at this point (#38), for change checks with \"since\". Takes no frames; nothing leaves the run.",
           "type": "object",
           "required": ["mark"],

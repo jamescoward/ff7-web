@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { ROUTE_MODELS, ROUTE_TIMEOUT, routeScenarios, AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -191,5 +191,31 @@ describe('#120 touch playthrough', () => {
     const dlg = ADDRESS_TABLE.entries.find((x) => x.name === 'dialogState');
     assert.equal(dlg.status, 'confirmed');
     assert.equal(Number(PROBE_MEMORY.dlg.addr), dlg.address);
+  });
+  test('stretch 2 route probes (third budget): route steps and touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
+    const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
+    const probes = routeScenarios();
+    assert.deepEqual(probes.map((p) => p.name), ['touch-s2r-gw1', ...ROUTE_MODELS.map((k) => `touch-s2r-m${k}`), 'touch-s2r-m3-gw1']);
+    const files = new Set(playthroughFiles().map((f) => f.data.name));
+    for (const p of probes) {
+      assert.ok(files.has(p.name), p.name);
+      assert.equal(p.tier, 2);
+      assert.deepEqual(p.boot, { from: 'touch-md1-1' }, p.name);
+      assert.ok([`${p.name}.json`, 'touch-playthrough.json'].sort()[0] === 'touch-playthrough.json', p.name);
+      assert.ok(p.metrics.length <= 8, p.name);
+      const named = new Set(Object.keys(p.memory));
+      for (const s of p.input) {
+        for (const b of s.buttons ?? []) assert.ok(offered.has(b), `${p.name}: ${b}`);
+        if (s.route) {
+          assert.equal(s.route.timeout, ROUTE_TIMEOUT, p.name);
+          for (const m of [...Object.values(s.route.report), ...(s.route.leg ?? [])]) named.add(m);
+        }
+      }
+      for (const m of p.metrics) assert.ok(named.has(m), `${p.name}: ${m}`);
+      // Route metrics only: no position or coordinate memory is reported.
+      for (const m of p.metrics) assert.ok(!/^[xy]\d/.test(m), `${p.name}: ${m}`);
+    }
+    // The hint probes they replace are no longer generated.
+    for (const n of files) assert.ok(!n.startsWith('touch-s2i-'), n);
   });
 });

@@ -36,9 +36,10 @@ export const SHARED = [...SOURCES.keys()].sort();
 const RUNNER_DEST = path.resolve(HERE, '../runner/semantic');
 /**
  * semantic/ modules copied to runner/semantic/ (#260: the kernelNames check
- * decodes names; part 2 moved the BIN-GZIP split here from runner/savegen).
+ * decodes names; part 2 moved the BIN-GZIP split here from runner/savegen;
+ * #120: the route step reads the walkmesh).
  */
-export const RUNNER_SHARED = ['bin-gzip.js', 'game-text.js'];
+export const RUNNER_SHARED = ['bin-gzip.js', 'game-text.js', 'walkmesh.js'];
 
 /** Names of the copies that are missing or differ from their source. */
 export function drift() {

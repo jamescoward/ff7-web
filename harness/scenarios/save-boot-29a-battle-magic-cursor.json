@@ -1,0 +1,420 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "name": "save-boot-29a-battle-magic-cursor",
+  "description": "#253 attempt 1, H1/H2 (Magic list cursor). Boot point \"lists-battle\" (save-boot-29): Cloud alone (HP 200/600, MP 300/300; author-chosen), materia 53 (AP 40000) in weapon slot 0 and 49 (AP 0) in slot 1, inventory slots 0-6 = item 1 x3, item 3 x2, item 0 x5, item 0 x9 x4. A press is 4 frames, then a wait of up to 30 frames for the expected read, then 8 frames. A wait metric is frames waited, 0 on a timeout (which stops the script). Only frame counts, 1/0 and small menu values leave. First menu: Down to command row 1 (cmd_magic; with magic materia the Magic command is there), Circle, wait until the widget leaves 1 (mw_wait), 30 frames. The list cursor must read column 0, row 0, offset 0. Right, Right: column 2 (r_right). Left, Left: column 0. Down, Down: row 2 (d_row2). Down: offset 1 with the row still 2 (d_off1; 3 rows a page, scrolls by one). Up: row 1, offset 1 (u_row). Up: row 0. Up: offset 0, row 0. End: column, row and offset 0, still battle, the widget neither 1 nor 0; widget (end value) is the Magic list's widget id; match: a rerun.",
+  "boot": {
+    "from": "lists-battle"
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): battle 2."
+    },
+    "widget": {
+      "addr": "0x800f3896",
+      "type": "u16",
+      "description": "g_BattleMenuModalWidgetId (s16 as u16; confirmed #110 for -1, 0, 1): 1 the command menu, 0 target selection, 0xffff none. Which value a Magic or Item list reads is what #253 asks; the decomp names 7 for the Summon list (src/battle/battle3.c BattleMenuInputState7). Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    },
+    "actor": {
+      "addr": "0x800f38a0",
+      "type": "u8",
+      "description": "g_BattleMenuPartySlot (confirmed #110, #171)."
+    },
+    "row0": {
+      "addr": "0x800f90bf",
+      "type": "u8",
+      "description": "battleCommandRow0 (confirmed #110): D_800F90B4[0].table00.row."
+    },
+    "m_off": {
+      "addr": "0x800f90da",
+      "type": "u16",
+      "description": "D_800F90B4[0].table24.rowOffset (s16 as u16): hypothesis, the Magic list's top visible row. BattleMenuWidgetSubReset sets table24 to 3 columns, 3 rows a page, 0x12 rows, wrapModeY 0, and refreshes MENU_LIST_MAGIC (src/battle/battle3.c; MenuTable in include/game.h, rowOffset at +0x02). Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    },
+    "m_col": {
+      "addr": "0x800f90e2",
+      "type": "u8",
+      "description": "D_800F90B4[0].table24.column (+0x0A): hypothesis, the Magic list cursor column (0-2). Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    },
+    "m_row": {
+      "addr": "0x800f90e3",
+      "type": "u8",
+      "description": "D_800F90B4[0].table24.row (+0x0B): hypothesis, the Magic list cursor row on the page (0-2). Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705 (reference only, no code)"
+    }
+  },
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "widget",
+          "equals": 1
+        },
+        "timeout": 1800
+      }
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "actor",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "cmd_magic"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "widget",
+          "differs": 1
+        },
+        "timeout": 60
+      },
+      "metric": "mw_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_col",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "right"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_col",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "right"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_col",
+          "equals": 2
+        },
+        "timeout": 30
+      },
+      "metric": "r_right"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "left"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_col",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "left"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_col",
+          "equals": 0
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 2
+        },
+        "timeout": 30
+      },
+      "metric": "d_row2"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_off",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "d_off1"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 2
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "u_row"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_off",
+          "equals": 1
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_row",
+          "equals": 0
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "up"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "m_off",
+          "equals": 0
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "m_col",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "m_row",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "m_off",
+        "equals": 0
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 2
+      }
+    },
+    {
+      "expect": {
+        "mem": "widget",
+        "differs": 1
+      }
+    },
+    {
+      "expect": {
+        "mem": "widget",
+        "differs": 0
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "cmd_magic",
+    "mw_wait",
+    "r_right",
+    "d_row2",
+    "d_off1",
+    "u_row",
+    "widget",
+    "match"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "name": "kernel-names-2-armor-accessory",
+  "description": "#260 part 1 Tier 2: the armor and accessory name tables in disc 1's INIT/KERNEL.BIN (sections from semantic/game-text.js KERNEL_NAME_SECTIONS), read inside the run by runner/kernel-names.js. Input: one frame from the title boot point (the check reads the disc, not the run). <kind>_ok: the table builds, no entry fails to decode, and the entry count is 1 to the kind's ID count (NAME_KIND_COUNTS). <kind>_n, <kind>_empty, <kind>_bad: entries, empty entries and entries that fail to decode. Only numbers leave; no name, string or byte.",
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "from": "title"
+  },
+  "input": [
+    {
+      "wait": {
+        "frames": 1
+      }
+    }
+  ],
+  "assert": [
+    {
+      "kernelNames": {
+        "kind": "armor",
+        "report": {
+          "count": "armor_n",
+          "empty": "armor_empty",
+          "failed": "armor_bad"
+        }
+      },
+      "metric": "armor_ok"
+    },
+    {
+      "kernelNames": {
+        "kind": "accessory",
+        "report": {
+          "count": "accessory_n",
+          "empty": "accessory_empty",
+          "failed": "accessory_bad"
+        }
+      },
+      "metric": "accessory_ok"
+    }
+  ],
+  "metrics": [
+    "armor_ok",
+    "armor_n",
+    "armor_empty",
+    "armor_bad",
+    "accessory_ok",
+    "accessory_n",
+    "accessory_empty",
+    "accessory_bad"
+  ]
+}

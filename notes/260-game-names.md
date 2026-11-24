@@ -54,5 +54,11 @@ Part 1 (game-state lane): facts, a pure decoder in `semantic/game-text.js`, Tier
 
 ## Part 1 plan
 1. **Done in the first push:** `semantic/game-text.js` with `decodeFf7Text`, `nameTable`, `nameFor`, `KERNEL_NAME_SECTIONS` and `NAME_KIND_COUNTS`, synced to `web/js/semantic/`. Tests: `runner/test/unit/semantic-game-text.test.js`, on author-made strings only.
-2. **Next:** a Tier 2 check from disc 1 that reports only numbers. For each kind: the table builds, `count`, `empty` and `failed`, and whether count ≥ the kind's ID count. It needs a sandbox-side reader. Plan: a runner-side helper that unpacks the section with `baseline.js`'s reader and gunzip, plus either a format 2 check kind (`harness/schema/`, allowed) or a disc-only Tier 2 entry. Find the smallest existing hook first (how `save-boot` reads KERNEL.BIN in the sandbox).
+2. **Second push: the Tier 2 count check (format 2 `kernelNames`).**
+   - `runner/savegen/baseline.js` gains `unpackSection` (the gunzip path `initData` already had, moved rather than copied), `kernelSection(kernel, i)` and `kernelFromDisc(discFile)`. `initData` and `baselineFromDisc` now use them, with the same errors as before.
+   - `runner/kernel-names.js`: `nameCounts(kernel, kind)` gives `{ built, count, empty, failed }`, numbers only. `namesHold` passes when the table builds, no entry fails, and count is between min and max (defaults: 1 and `NAME_KIND_COUNTS[kind]`).
+   - **The upper bound is the kind's ID space, not an expected count.** Count ≥ ID count, as first planned, is not a documented fact: item IDs run 0–127, but nothing says all 128 have a name entry. The reported `<kind>_n` gives the real count, and a tighter range can follow from it.
+   - Format 2: `{ "kernelNames": { "kind", "min"?, "max"?, "report": { "built"?, "count"?, "empty"?, "failed"? } }, "metric" }` (schema entry added). The scenario must name `boot.disc`. The check reads INIT/KERNEL.BIN from the scenario's own disc, outside the emulated run, so its result doesn't depend on the input.
+   - Scenarios `kernel-names-1-item-weapon`, `-2-armor-accessory` and `-3-materia` run one frame from the title boot point, for the Tier 2 time budget (#269). Each kind reports `_ok`, `_n`, `_empty` and `_bad`.
+   - Tier 1: `runner/test/unit/kernel-names.test.js`, on a synthetic archive of author-made strings.
 3. `parseBinGzip` stays in `runner/savegen/baseline.js` for now. Part 2 needs it in the browser, so move its pure part into `semantic/` then (the issue's "move, don't copy").

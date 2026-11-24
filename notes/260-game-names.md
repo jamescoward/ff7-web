@@ -67,3 +67,21 @@ Part 1 (game-state lane): facts, a pure decoder in `semantic/game-text.js`, Tier
 `tier1` and `private-eval-tests` failed before Tier 2 ran. `runner/kernel-names.js` imported `../semantic/game-text.js`, but the Tier 2 sandbox ships only `runner/` and `harness/` (`harness/private-eval/eval/lib.js` `WORK_TOP_DIRS`). A copy holding only those two directories reproduces the failure: "Cannot find module …/semantic/game-text.js".
 
 **Fix (`runner/iso9660.js` has the same constraint, the other way round):** `semantic/sync-web.js` now also keeps a byte-identical copy of `semantic/game-text.js` at `runner/semantic/game-text.js`. `semantic/` stays the source. `--check` and the sync unit test fail when the copy drifts, and a test checks the copied modules have no imports. A new guard, `runner/test/unit/runner-imports.test.js`, fails on any runner module (tests excepted) that imports outside `runner/`. The protected `WORK_TOP_DIRS` is unchanged.
+
+### Tier 2 results, run 1 (`2df958a`, tier2 run 479: 118 pass, 0 fail, `touch-playthrough` included; eval step 11.7 min)
+| kind | section | built | entries | empty | failed |
+|---|---|---|---|---|---|
+| item | 19 | 1 | 128 | 23 | 0 |
+| weapon | 20 | 1 | 128 | 0 | 0 |
+| armor | 21 | 1 | 32 | 0 | 0 |
+| accessory | 22 | 1 | 32 | 0 | 0 |
+| materia | 23 | 1 | 96 | 13 | 0 |
+
+Reading:
+- **Every name section builds, and every entry decodes with 0 failures.** The decoder refuses unknown bytes, so the encoding table, the specials and the FE colour codes cover every byte these sections use. No F9 back-reference broke a name.
+- **The entry-count rule (first offset / 2) holds.** Every offset in the five tables lands past the table and inside its section.
+- Item, weapon, armor and accessory have exactly as many entries as the IDs of their kind (128, 128, 32, 32). The 23 empty item entries are IDs with no name; `nameFor` falls back to the ID label for them.
+- Materia has 96 entries for a byte-wide ID (0xFF empty), 13 of them empty. A materia ID ≥ 96 has no entry, and `nameFor` falls back for it too.
+- These counts say nothing about the names themselves; no string left the sandbox.
+
+**Run 2 (determinism):** the scenarios now require the counts above exactly (min = max). The second Tier 2 run on that commit must pass with the same metrics.

@@ -671,6 +671,36 @@
           }
         },
         {
+          "description": "The name table of one kind in the disc's INIT/KERNEL.BIN (#260), read inside the run from the scenario's own disc (so boot.disc is required) with runner/kernel-names.js: passes when the section unpacks, its offset table reads, no entry fails to decode (semantic/game-text.js nameTable) and the entry count lies in [min, max] (defaults 1 and the kind's ID count, NAME_KIND_COUNTS). Only numbers leave the run, as report metrics: built (1 if the table reads, else 0), count, empty and failed (entries). No name, string, length or byte leaves. metric: 1 if it passes, else 0.",
+          "type": "object",
+          "required": ["kernelNames", "metric"],
+          "additionalProperties": false,
+          "properties": {
+            "kernelNames": {
+              "type": "object",
+              "required": ["kind"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "enum": ["item", "weapon", "armor", "accessory", "materia"] },
+                "min": { "type": "integer", "minimum": 0, "maximum": 65535 },
+                "max": { "type": "integer", "minimum": 0, "maximum": 65535 },
+                "report": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "built": { "$ref": "#/$defs/metricName" },
+                    "count": { "$ref": "#/$defs/metricName" },
+                    "empty": { "$ref": "#/$defs/metricName" },
+                    "failed": { "$ref": "#/$defs/metricName" }
+                  }
+                }
+              }
+            },
+            "metric": { "$ref": "#/$defs/metricName" },
+            "note": { "type": "string" }
+          }
+        },
+        {
           "description": "The memory card in slot 1 at the end of the script against the card at its start (#226), read inside the run: passes when at least one save slot (1-15) changed and the first changed slot holds a save whose checksum is right (and, if module is given, whose savemap module equals it). Only numbers leave the run, as report metrics: changed (slots changed), slot (the first changed slot, 0 if none), checksum (1 right, else 0), module and location (that save's savemap 0x0B94 and 0x0B96, 0 if none). Needs a boot point with a memory card, so not a named snapshot. metric: 1 if it passes, else 0.",
           "type": "object",
           "required": ["card", "metric"],

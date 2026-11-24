@@ -5,6 +5,7 @@
 // is ITEM_SCREEN_ACTIONS in semantic/controls.js.
 // Original project code, GPL-2.0-or-later.
 
+import { nameFor } from './game-text.js';
 import { MENUS, menuPlanArgs } from './menus.js';
 import { planCursorMove } from './planner.js';
 
@@ -32,10 +33,14 @@ export function itemPageRows(listOffset, inventory) {
   return rows;
 }
 
-/** A row's text: the item's kind and number within it, and its count. IDs only. */
-export function itemRowLabel(item) {
+/**
+ * A row's text: the item's kind and number within it, and its count. IDs
+ * only, unless `names` holds tables built on the device (#260); without them
+ * the text is unchanged.
+ */
+export function itemRowLabel(item, names = null) {
   if (!item) return '—';
-  return `${item.kind} #${item.number} ×${item.quantity}`;
+  return `${nameFor(item.kind, item.number, names, `${item.kind} #${item.number}`)} ×${item.quantity}`;
 }
 
 /** The list-cursor plan for a tap on page row `to` with the cursor at `from` (never wraps or scrolls). */

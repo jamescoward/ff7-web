@@ -1,15 +1,20 @@
-// Tier 1 (Chromium + WebKit): the native Equip screen (#121, Labs flag
-// `native-equip`) with a fake semantic source that simulates the game's
-// Equip screen as Tier 2 saw it (save-boot-15c): it opens on the Weapon
-// slot; Circle opens the weapon list; Circle on the list equips its first
-// entry, the first spare weapon in slot order, which leaves the inventory.
-// Cross on the slot row closes the screen. The backend is stubbed, so this
-// runs without the Wasm core. Also checks the visible panel's layout (44 px
-// targets, inside the picture, no page scroll) in portrait and landscape,
-// with safe-layout on and off.
+// Tier 1 (Chromium + WebKit): the native Equip screen (#121 v1, #254 v2;
+// Labs flag `native-equip`) with a fake semantic source that simulates the
+// game's Equip screen as Tier 2 saw it: it opens on the slot page (#121);
+// Up and Down move the slot cursor 0-2 (#216 18a); Circle opens that slot's
+// list on row 0, offset 0; Down moves the list row, then scrolls past row 7
+// (#216 18b); Circle on the list equips its entry and returns to the slot
+// page. The simulated list holds the spares of that kind in inventory slot
+// order (a model, not a claim about the game). Cross on the slot page
+// closes the screen. The expected presses come from the semantic planners,
+// not hand-written sequences. The backend is stubbed, so this runs without
+// the Wasm core. Also checks the visible panel's layout (44 px targets,
+// inside the picture, no page scroll) in portrait and landscape, with
+// safe-layout on and off.
 // Original project code, GPL-2.0-or-later.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { equipListPlan, equipSlotPlan } from '../../semantic/equip-screen.js';
 import { BROWSERS, launch, loadPlaywright, serveWeb, until } from './helpers.js';
 
 const pw = loadPlaywright();
@@ -20,8 +25,9 @@ after(() => server?.close());
 const CROSS = 1 << 0;
 const CIRCLE = 1 << 8;
 const TRIANGLE = 1 << 9;
+const masks = (plan) => plan.steps.map((s) => s.mask);
 
-async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, party = [0, null, null] } = {}) {
+async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, party = [0, null, null], pick } = {}) {
   const context = await browser.newContext({ ...(pw.devices[device] ?? {}) });
   const page = await context.newPage();
   const errors = [];
@@ -32,15 +38,21 @@ async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, 
   }));
   await page.goto(server.url + query);
   await page.evaluate(() => window.ff7web.ready);
-  await page.evaluate(({ open0, party0 }) => {
-    // A simulated Equip screen at 60 frames a second. Spare weapons: slot 0
-    // weapon 1 x1, slot 3 weapon 2 x1; slot 1 holds an item.
+  await page.evaluate(({ open0, party0, pick0 }) => {
+    // A simulated Equip screen at 60 frames a second. Spares: slot 0 weapon
+    // 1, slot 3 weapon 2, slot 4 armor 5, slot 5 armor 6, slot 6 accessory 3;
+    // slot 1 holds an item.
+    const KINDS = ['weapon', 'armor', 'accessory'];
     const sim = {
       frame: 1000, prev: 0, open: open0, page: 'slot', failRead: false, circles: [],
-      party: party0, weapon: [0, 5, 7],
-      inv: new Map([[0, { kind: 'weapon', number: 1, quantity: 1 }], [1, { kind: 'item', number: 0, quantity: 3 }], [3, { kind: 'weapon', number: 2, quantity: 1 }]]),
+      party: party0, pick: pick0, slot: 0, row: 0, offset: 0, stuckList: false, alsoChange: false,
+      gear: [{ weapon: 0, armor: 0, accessory: null }, { weapon: 5, armor: 1, accessory: null }, { weapon: 7, armor: 2, accessory: null }],
+      inv: new Map([[0, { kind: 'weapon', number: 1, quantity: 1 }], [1, { kind: 'item', number: 0, quantity: 3 }], [3, { kind: 'weapon', number: 2, quantity: 1 }],
+        [4, { kind: 'armor', number: 5, quantity: 1 }], [5, { kind: 'armor', number: 6, quantity: 1 }], [6, { kind: 'accessory', number: 3, quantity: 1 }]]),
     };
     window.sim = sim;
+    const member = () => (Number.isInteger(sim.pick) ? sim.pick : sim.party.findIndex((r) => r !== null));
+    const list = () => [...sim.inv].sort((a, b) => a[0] - b[0]).filter(([, it]) => it.kind === KINDS[sim.slot]);
     setInterval(() => {
       const cur = window.pads.length ? window.pads[window.pads.length - 1] : 0;
       const rising = cur & ~sim.prev;
@@ -48,18 +60,24 @@ async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, 
       if (sim.open) {
         if (rising & (1 << 8)) sim.circles.push(sim.frame);
         if (sim.page === 'slot') {
-          if (rising & (1 << 8)) sim.page = 'list';
+          if (rising & (1 << 8)) { sim.page = 'list'; sim.row = 0; sim.offset = 0; }
           else if (rising & (1 << 0)) sim.open = false;
+          else if (rising & (1 << 5)) sim.slot = Math.min(2, sim.slot + 1);
+          else if (rising & (1 << 4)) sim.slot = Math.max(0, sim.slot - 1);
         } else if (sim.page === 'list') {
-          if (rising & (1 << 8)) {
-            const first = [...sim.inv].sort((a, b) => a[0] - b[0]).find(([, it]) => it.kind === 'weapon');
-            if (sim.listFirst !== undefined) sim.weapon[0] = sim.listFirst;
-            else if (first) {
-              const [slot, it] = first;
-              const old = sim.weapon[0];
-              sim.weapon[0] = it.number;
+          if (rising & (1 << 5) && !sim.stuckList) {
+            if (sim.row < 7) sim.row++; else sim.offset++;
+          } else if (rising & (1 << 8)) {
+            const e = list()[sim.row + sim.offset];
+            const m = member();
+            const kind = KINDS[sim.slot];
+            if (e) {
+              const [slot, it] = e;
+              const old = sim.gear[m][kind];
+              sim.gear[m][kind] = it.number;
               sim.inv.delete(slot);
-              sim.inv.set(9, { kind: 'weapon', number: old, quantity: 1 });
+              if (old !== null) sim.inv.set(20 + slot, { kind, number: old, quantity: 1 });
+              if (sim.alsoChange) sim.gear[(m + 1) % 3].weapon += 1;
             }
             sim.page = 'slot';
           } else if (rising & (1 << 0)) sim.page = 'slot';
@@ -68,25 +86,30 @@ async function openApp(browser, query, { device = 'iPhone 14 Pro', open = true, 
       sim.frame++;
     }, 1000 / 60);
     const screen = window.ff7web.equipScreen;
-    screen.setSource({
+    const source = {
       get frame() { return sim.frame; },
       equipScreen: async () => (sim.failRead ? { value: null, confirmed: false, reason: 'read failed' } : { value: { open: sim.open }, confirmed: true }),
+      equipCursors: async () => ({ value: sim.open ? { slot: sim.slot, listRow: sim.page === 'list' ? sim.row : 0, listOffset: sim.page === 'list' ? sim.offset : 0 } : { slot: null, listRow: null, listOffset: null }, confirmed: true }),
       equipment: async (s) => (sim.party[s] === null
         ? { value: null, confirmed: true, reason: 'empty slot' }
-        : { value: { record: sim.party[s], weapon: sim.weapon[s], armor: s, accessory: null, weaponMateria: [], armorMateria: [] }, confirmed: true }),
+        : { value: { record: sim.party[s], ...sim.gear[s], weaponMateria: [], armorMateria: [] }, confirmed: true }),
       inventory: async () => ({
         value: [...sim.inv].sort((a, b) => a[0] - b[0]).map(([slot, it]) => ({ slot, index: 128 + it.number, quantity: it.quantity, kind: it.kind, number: it.number })),
         confirmed: true,
       }),
-    });
+    };
+    if (pick0 !== undefined) source.partyPick = async () => ({ value: sim.pick, confirmed: true });
+    screen.setSource(source);
     screen.setGate({ active: true });
-  }, { open0: open, party0: party });
+  }, { open0: open, party0: party, pick0: pick });
   return { context, page, errors };
 }
 const pads = (page) => page.evaluate(() => window.pads.slice());
 const visible = (page) => page.locator('#native-equip').isVisible();
 const pressed = (list) => list.filter((m) => m !== 0);
-const enabled = async (page, row) => !(await page.locator(`.ne-weapon[data-row="${row}"]`).isDisabled());
+const row = (page, index) => page.locator(`.ne-row[data-index="${index}"]`);
+const enabled = async (page, index) => (await row(page, index).count()) > 0 && !(await row(page, index).isDisabled());
+const msgText = (page) => page.locator('#native-equip .ne-msg').textContent();
 
 for (const name of BROWSERS) {
   describe(`native Equip screen: ${name}`, () => {
@@ -99,7 +122,7 @@ for (const name of BROWSERS) {
     });
     after(() => browser?.close());
 
-    test('shown only while the Equip screen is open: member rows and the spare weapons', async (t) => {
+    test('shown only while the Equip screen is open: member rows, slots and list rows', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=native-equip', { open: false });
       try {
@@ -109,9 +132,11 @@ for (const name of BROWSERS) {
         await until(() => visible(page), { timeout: 3000, what: 'panel shown on the Equip screen' });
         assert.deepEqual(await page.locator('.ne-member').allTextContents(), ['Slot 1  Wpn #0  Arm #0  Acc none', 'Slot 2: —', 'Slot 3: —']);
         assert.equal(await page.locator('.ne-member[data-slot="0"]').getAttribute('data-chosen'), '');
-        const rows = await page.locator('.ne-weapon').allTextContents();
-        assert.deepEqual(rows.slice(0, 3), ['weapon #1 ×1', 'weapon #2 ×1', '—']);
-        assert.equal(await enabled(page, 1), false, 'only the first spare weapon is offered');
+        assert.deepEqual(await page.locator('.ne-slot').allTextContents(), ['Weapon: #0', 'Armor: #0', 'Accessory: none']);
+        assert.equal(await page.locator('.ne-slot[data-equip-slot="0"]').getAttribute('data-chosen'), '', 'the game\'s slot is chosen first');
+        assert.deepEqual(await page.locator('.ne-row').allTextContents(), ['List row 1', 'List row 2'], 'one row per spare weapon');
+        await page.locator('.ne-slot[data-equip-slot="2"]').tap();
+        assert.deepEqual(await page.locator('.ne-row').allTextContents(), ['List row 1'], 'one spare accessory');
         // A failed read changes nothing; leaving the Equip screen hides it.
         await page.evaluate(() => { window.sim.failRead = true; });
         await page.waitForTimeout(600);
@@ -135,60 +160,110 @@ for (const name of BROWSERS) {
       } finally { await context.close(); }
     });
 
-    test('tap the first spare weapon: Circle, 60 frames, Circle, and the change is confirmed; then taps stay off', async (t) => {
+    test('v1\'s tap: Weapon, list row 1 is Circle, 60 frames, Circle, and the change is confirmed', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=native-equip');
       try {
         await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
-        await until(() => enabled(page, 0), { timeout: 5000, what: 'first weapon enabled once settled' });
-        await page.locator('.ne-weapon[data-row="0"]').tap();
-        await until(() => page.evaluate(() => window.sim.weapon[0] === 1), { timeout: 5000, what: 'weapon equipped' });
-        await until(async () => (await page.locator('#native-equip .ne-msg').textContent()).startsWith('Equipped'), { timeout: 4000, what: 'change confirmed' });
-        assert.equal(await page.locator('#native-equip .ne-msg').textContent(), 'Equipped: weapon #0 → #1');
+        await until(() => enabled(page, 0), { timeout: 5000, what: 'list row 1 enabled once settled' });
+        await row(page, 0).tap();
+        await until(() => page.evaluate(() => window.sim.gear[0].weapon === 1), { timeout: 5000, what: 'weapon equipped' });
+        await until(async () => (await msgText(page)).startsWith('Equipped'), { timeout: 4000, what: 'change confirmed' });
+        assert.equal(await msgText(page), 'Equipped: weapon #0 → #1');
         assert.deepEqual(pressed(await pads(page)), [CIRCLE, CIRCLE]);
         const gap = await page.evaluate(() => window.sim.circles[1] - window.sim.circles[0]);
         assert.ok(gap >= 60 && gap <= 70, `Circles ${gap} frames apart`);
         const last = await page.evaluate(() => window.ff7web.equipScreen.last);
         assert.equal(last.outcome, 'equipped');
-        await page.waitForTimeout(600);
-        assert.equal(await enabled(page, 0), false, 'the opening state is gone');
-        // Close and reopen: offered again.
-        await page.evaluate(() => { window.sim.open = false; });
-        await until(async () => !(await visible(page)), { timeout: 3000, what: 'hidden' });
-        await page.evaluate(() => { window.sim.open = true; window.sim.page = 'slot'; });
-        await until(() => enabled(page, 0), { timeout: 5000, what: 'offered again after reopening' });
+        // Back on the slot page after the panel's own tap: offered again.
+        assert.equal(await page.evaluate(() => window.ff7web.equipScreen.slotPage), true);
+        await until(() => enabled(page, 0), { timeout: 3000, what: 'offered again' });
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
 
-    test('a different weapon equipped is reported as such', async (t) => {
+    test('Armor, list row 2: exactly the planners\' presses, then the savemap read', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=native-equip');
       try {
-        await until(() => enabled(page, 0), { timeout: 5000, what: 'first weapon enabled' });
-        // The game lists another weapon first (its list order is not read).
-        await page.evaluate(() => { window.sim.listFirst = 3; });
-        await page.locator('.ne-weapon[data-row="0"]').tap();
-        await until(async () => (await page.locator('#native-equip .ne-msg').textContent()).startsWith('Changed'), { timeout: 6000, what: 'other weapon reported' });
-        assert.equal(await page.locator('#native-equip .ne-msg').textContent(), 'Changed to weapon #3, not #1');
-        assert.equal((await page.evaluate(() => window.ff7web.equipScreen.last)).outcome, 'other');
+        await until(() => enabled(page, 0), { timeout: 5000, what: 'panel ready' });
+        await page.locator('.ne-slot[data-equip-slot="1"]').tap();
+        await until(() => enabled(page, 1), { timeout: 3000, what: 'armor row 2 enabled' });
+        await row(page, 1).tap();
+        await until(async () => (await msgText(page)).startsWith('Equipped'), { timeout: 8000, what: 'armor equipped' });
+        assert.equal(await msgText(page), 'Equipped: armor #0 → #6');
+        const expected = [...masks(equipSlotPlan(0, 1)), CIRCLE, ...masks(equipListPlan({ row: 0, offset: 0 }, 1)), CIRCLE];
+        assert.deepEqual(pressed(await pads(page)), expected);
+        assert.deepEqual(await page.evaluate(() => window.sim.gear[0]), { weapon: 0, armor: 6, accessory: null });
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
 
-    test('nothing offered with a larger party, or after other input', async (t) => {
+    test('a list past page 1: the plan scrolls (row 7, then the offset)', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, '?labs=native-equip');
+      try {
+        await page.evaluate(() => { for (let i = 0; i < 10; i++) window.sim.inv.set(30 + i, { kind: 'armor', number: 10 + i, quantity: 1 }); });
+        await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
+        await page.locator('.ne-slot[data-equip-slot="1"]').tap();
+        await until(() => enabled(page, 9), { timeout: 5000, what: 'armor row 10 enabled' });
+        await row(page, 9).tap();
+        await until(async () => (await msgText(page)).startsWith('Equipped'), { timeout: 10000, what: 'armor equipped' });
+        // Inventory order: armor 5, 6, then 10.. (slots 30+); index 9 is armor 17.
+        assert.equal(await msgText(page), 'Equipped: armor #0 → #17');
+        const expected = [...masks(equipSlotPlan(0, 1)), CIRCLE, ...masks(equipListPlan({ row: 0, offset: 0 }, 9)), CIRCLE];
+        assert.deepEqual(pressed(await pads(page)), expected);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('a cursor that does not move stops input: no Circle on the list', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, '?labs=native-equip');
+      try {
+        await until(() => enabled(page, 1), { timeout: 5000, what: 'weapon row 2 enabled' });
+        await page.evaluate(() => { window.sim.stuckList = true; });
+        await row(page, 1).tap();
+        await until(async () => (await msgText(page)).startsWith('Stopped'), { timeout: 6000, what: 'stopped' });
+        await page.waitForTimeout(500);
+        const down = masks(equipListPlan({ row: 0, offset: 0 }, 1))[0];
+        assert.deepEqual(pressed(await pads(page)), [CIRCLE, down], 'the list Circle is never sent');
+        assert.equal(await page.evaluate(() => window.sim.gear[0].weapon), 0);
+        const last = await page.evaluate(() => window.ff7web.equipScreen.last);
+        assert.equal(last.ok, false);
+        assert.equal(last.error.phase, 'list');
+        assert.equal(await enabled(page, 0), false, 'the page is not known after a stop');
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('another change seen is reported as such', async (t) => {
+      if (skip) return t.skip(skip);
+      const { context, page, errors } = await openApp(browser, '?labs=native-equip', { party: [0, 1, 2], pick: 0 });
+      try {
+        await until(() => enabled(page, 0), { timeout: 5000, what: 'row 1 enabled' });
+        await page.evaluate(() => { window.sim.alsoChange = true; });
+        await row(page, 0).tap();
+        await until(async () => (await msgText(page)).startsWith('Something else'), { timeout: 6000, what: 'other change reported' });
+        assert.equal((await page.evaluate(() => window.ff7web.equipScreen.last)).outcome, 'other');
+        assert.equal(await enabled(page, 0), false, 'the page is not known after an unexpected change');
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    test('nothing offered without a known member, or after other input', async (t) => {
       if (skip) return t.skip(skip);
       const { context, page, errors } = await openApp(browser, '?labs=native-equip', { party: [0, 1, null] });
       try {
         await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
         await page.waitForTimeout(2500);
         assert.equal(await enabled(page, 0), false, 'party pick not read');
-        assert.match(await page.locator('#native-equip .ne-msg').textContent(), /party pick/);
+        assert.match(await msgText(page), /not read/);
         // One-member party, but the player presses a classic-pad button on the
         // Equip screen. Triangle does nothing in the simulator, so the screen
-        // stays open and only the mixer listener can end the opening state.
+        // stays open and only the mixer listener can end the known page.
         await page.evaluate(() => { window.sim.party = [0, null, null]; });
-        await page.waitForTimeout(600);
+        await until(() => enabled(page, 0), { timeout: 3000, what: 'offered for a party of one' });
         assert.equal(await page.evaluate(() => window.ff7web.equipScreen.pristine), true, 'still the opening state before the press');
         await page.evaluate(() => { window.pads.length = 0; });
         const tri = await page.locator('[data-btn="triangle"]').boundingBox();

@@ -9,12 +9,14 @@
 //   { type: 'getCard', id } / { type: 'readMem', id, addr, len }
 //   { type: 'getState', id } / { type: 'setState', id, bytes }   suspend/resume (#119): the whole emulator state; a failed load leaves the game as it was; the memory card is kept as it was
 //   { type: 'discKey', id }                      on-device key of the loaded disc (state-file.js)
+//   { type: 'gameNames', id }                    name tables from the disc (#260, Labs flag game-names); null unless the hash gate passed
 //   { type: 'recycle', buffer }                  a frame buffer to reuse
 //   { type: 'speed', speed }                     1, 2 or 3 core frames per displayed frame (#118); audio is dropped above 1x
 //   { type: 'overlay', on }                      start/stop sampling game state for the debug overlay (#79)
 // Messages out:
 //   { type: 'ready', buildInfo } / { type: 'loaded', path, fps, sampleRate }
-//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred; targetFrames: frames the time base asked for (#173)
+//   { type: 'frame', frame, width, height, buffer }   RGBA, transferred; targetFrames: frames the time base asked for (#173);
+//                                                heapBytes: the Wasm heap's size (it only grows, so this is its high-water mark; #252)
 //   { type: 'audio', samples }                   Float32 stereo interleaved
 //   { type: 'card', bytes }                      the card changed
 //   { type: 'semantic', active, reason }         the semantic layer's hash gate (#75)
@@ -23,7 +25,8 @@
 //   { type: 'reply', id, value } / { type: 'error', message, id? }
 
 import init from '../core/core.mjs';
-import { gateForFiles, pickImage } from './disc-gate.js';
+import { blobReadAt, gateForFiles, pickImage } from './disc-gate.js';
+import { namesFromImage } from './game-names.js';
 import { pickBootFile } from './files.js';
 import { discKey } from './state-file.js';
 import { clampSpeed, createGovernor, stepDown } from './speed.js';
@@ -54,6 +57,9 @@ let poller = null; // the overlay's state sampler; exists only when the hash gat
 let overlayOn = false;
 let keyFile = null; // the file the disc key is taken from
 let keyPromise = null;
+let gateActive = false; // the hash gate passed for the loaded disc
+let imageFile = null; // the raw disc image among the loaded files (the gate's)
+let namesPromise = null; // #260: built once, in memory only
 const spare = [];
 
 const post = (msg, transfer) => self.postMessage(msg, transfer ?? []);
@@ -163,7 +169,7 @@ function runFrames(n) {
   }
   drainAudio();
   const f = grabFrame();
-  if (f) post({ type: 'frame', frame, targetFrames, ...f }, [f.buffer]);
+  if (f) post({ type: 'frame', frame, targetFrames, heapBytes: m.HEAPU8.buffer.byteLength, ...f }, [f.buffer]);
 }
 
 function tick() {
@@ -304,6 +310,7 @@ const handlers = {
     const boot = pickBootFile(files.map((f) => f.name));
     if (!boot) throw new Error('no disc image or PS-X EXE among the chosen files');
     keyFile = (/\.cue$/i.test(boot) ? pickImage(files) : null) ?? files.find((f) => f.name === boot);
+    imageFile = pickImage(files);
     m.FS.mkdir(MOUNT);
     m.FS.mount(m.WORKERFS, { files }, MOUNT);
     const path = `${MOUNT}/${boot}`;
@@ -322,6 +329,7 @@ const handlers = {
     gateForFiles(files)
       .catch((e) => ({ active: false, reason: e.message }))
       .then(({ active, reason }) => {
+        gateActive = active === true;
         if (active) {
           // Read-only: the layer gets a readMem over the core's RAM and the core
           // frame counter, nothing else. The frame lets mode()'s movie window
@@ -364,6 +372,17 @@ const handlers = {
     if (!keyFile) throw new Error('no program loaded');
     keyPromise ??= discKey(keyFile);
     post({ type: 'reply', id, value: await keyPromise });
+  },
+  // Names are read only for the disc the hash gate passed, and only the
+  // tables go back to the page (no counts, bytes or errors with byte values).
+  async gameNames({ id }) {
+    if (!gateActive || !imageFile) {
+      post({ type: 'reply', id, value: null });
+      return;
+    }
+    namesPromise ??= namesFromImage(blobReadAt(imageFile), imageFile.size).catch(() => null);
+    const v = await namesPromise;
+    post({ type: 'reply', id, value: v ? { tables: v.tables } : null });
   },
   speed({ speed: v }) {
     setSpeed(v);

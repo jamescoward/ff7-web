@@ -6,6 +6,7 @@ import { createAudio } from './audio.js';
 import { createBattleHud, HUD_FLAG } from './battle-hud.js';
 import { createBorderCrop, CROP_FLAG } from './border-crop.js';
 import { cropAspect } from './crop.js';
+import { createCrtFilter, CRT_DEFAULT, CRT_FLAG, CRT_LEVELS } from './crt-filter.js';
 import { BATTLE_PANEL_FLAG, createBattlePanel } from './battle-panel.js';
 import { BATTLE_CROP_FLAG, createBattleCrop } from './battle-crop.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
@@ -14,7 +15,9 @@ import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
 import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
+import { createGameNames } from './game-names.js';
 import { createWorkerBackend } from './backend.js';
+import { frameScale, hiResCoreOptions, HIRES_FLAG } from './hi-res.js';
 import { ACCEPT } from './files.js';
 import { createControls } from './controls.js';
 import { createKeyboard } from './keyboard.js';
@@ -213,6 +216,9 @@ labs.registerFlag(MATERIA_FLAG, {
     'The classic pad still works while the panel is up (portrait and landscape).',
   ],
 });
+// Game names (#260): registers its Labs flag; tables built on the device from the imported disc; the
+// panels show ID labels whenever names() is null (flag off or not read).
+const gameNames = createGameNames({ labs, onStatus: (msg) => setStatus(msg, '', { clearAfter: NOTICE_MS }) });
 labs.registerFlag(CROP_FLAG, {
   label: 'Crop black borders',
   description: 'In the field and in battle, the picture drops black borders around the scene, so it fills more of the screen. Movies, menus and every other mode show the full frame.',
@@ -236,6 +242,39 @@ labs.registerFlag(BATTLE_CROP_FLAG, {
     'Leave the battle (win or flee): is the full picture back at once?',
     'Landscape, in a battle: is the command row below the picture easy to reach, and clear of the pad and Start/Select?',
   ],
+});
+labs.registerFlag(CRT_FLAG, {
+  label: 'CRT filter',
+  description: 'A subtle scanline look on the picture: one dimmed line per game line, drawn after any crop. Only the shown picture changes; overlays and panels stay sharp. Choose the strength below.',
+  pr: 251,
+  setting: { label: 'Strength', choices: CRT_LEVELS.map(({ value, label }) => ({ value, label })), initial: CRT_DEFAULT },
+  checklist: [
+    'Field and battle, portrait and landscape: does the picture look subtle, not blurry or darker overall?',
+    'Do you see moiré or uneven lines (bands that come and go) anywhere?',
+    'At 1x and 2x speed (Speed flag): any stutter with the filter on that is not there with it off?',
+    'Debug overlay, panels and labels on top: are they sharp (not lined)?',
+    'Try each strength in the Labs panel: is Subtle the right default?',
+  ],
+});
+labs.registerFlag(HIRES_FLAG, {
+  label: '2x resolution',
+  description: 'The core draws 3D at twice the PS1 resolution (sharper models; 2D backgrounds stay as they are). It may run slower. Takes effect when the page is reloaded.',
+  pr: 252,
+  checklist: [
+    'Field and battle: are 3D models sharper, and do they still line up with the 2D backgrounds?',
+    'Does the game run at full speed at 1x (and 2x with the Speed flag), or does it stutter or step down?',
+    'Play for 10 minutes (field, battle, menu, a movie): no crash or freeze?',
+    'Suspend and resume (Suspend flag) with 2x on: does Resume land in the same place?',
+    'Turn it off and reload: is the picture as before?',
+  ],
+});
+// The core reads its options once, when it starts: freeze the flag for this load.
+const hiResActive = labs.isOn(HIRES_FLAG);
+if (hiResActive) document.documentElement.dataset.hiRes = '';
+labs.onChange((name) => {
+  if (name === HIRES_FLAG && labs.isOn(HIRES_FLAG) !== hiResActive) {
+    setStatus('2x resolution changes when the page is reloaded.', '', { clearAfter: NOTICE_MS });
+  }
 });
 labs.createLabsPanel({ button: $('labs-btn'), panel: $('labs-panel') });
 initSafeLayout();
@@ -304,18 +343,22 @@ const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const interactLabel = createInteractLabel({ fieldRoot: $('field'), labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
-const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs });
-const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs });
-const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs });
+const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs, names: gameNames.names });
+const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs, names: gameNames.names });
+const materiaScreen = createMateriaScreen({ root: $('native-materia'), mixer, labs, names: gameNames.names });
 const borderCrop = createBorderCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
+  scaleOf: (f) => frameScale(f, hiResActive),
 });
 const battleCrop = createBattleCrop({
   labs,
   onChange: () => { if (lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; },
 });
 const keyboard = createKeyboard({ onChange: (m) => mixer.set('keys', m) });
+// CRT filter (#251): redraw the last frame when it is switched or its strength changes.
+const crt = createCrtFilter({ canvas, ctx: ctx2d, labs });
+labs.onChange((name) => { if (name === CRT_FLAG && lastFrame?.buffer?.byteLength) pendingFrame = lastFrame; });
 
 function draw() {
   requestAnimationFrame(draw);
@@ -336,11 +379,15 @@ function draw() {
       stage.style.removeProperty('--screen-aspect');
       delete root.dataset.borderCropOn;
     }
-    if (canvas.width !== f.width || canvas.height !== f.height) {
-      canvas.width = f.width;
-      canvas.height = f.height;
+    if (crt.on) {
+      crt.draw(f, { x: 0, y: 0, w: f.width, h: f.height });
+    } else {
+      if (canvas.width !== f.width || canvas.height !== f.height) {
+        canvas.width = f.width;
+        canvas.height = f.height;
+      }
+      ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
     }
-    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), 0, 0);
   }
   shown = { x: c?.x ?? 0, y: c?.y ?? 0, w: c?.w ?? f.width, h: c?.h ?? f.height };
   drawn = f.frame;
@@ -348,11 +395,15 @@ function draw() {
 // Only the crop is drawn, moved to the canvas origin; the screen box takes the
 // crop's share of 4:3, so the pixel aspect ratio is kept.
 function drawCropped(f, c) {
-  if (canvas.width !== c.w || canvas.height !== c.h) {
-    canvas.width = c.w;
-    canvas.height = c.h;
+  if (crt.on) {
+    crt.draw(f, c);
+  } else {
+    if (canvas.width !== c.w || canvas.height !== c.h) {
+      canvas.width = c.w;
+      canvas.height = c.h;
+    }
+    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
   }
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(f.buffer), f.width, f.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
   const aspect = cropAspect(c, f.width, f.height);
   if (Math.abs(aspect - shownAspect) > 1e-3) {
     shownAspect = aspect;
@@ -372,6 +423,7 @@ async function persistCard(bytes) {
 }
 
 const backendReady = createWorkerBackend({
+  coreOptions: hiResCoreOptions(hiResActive),
   onAudio: (s) => audio.push(s),
   onCard: (bytes) => {
     if (!cardProblem(bytes)) persistCard(bytes);
@@ -390,6 +442,7 @@ const backendReady = createWorkerBackend({
     itemScreen.setGate(gate);
     equipScreen.setGate(gate);
     materiaScreen.setGate(gate);
+    gameNames.setGate(gate);
   },
   onState: (sample) => overlay.update(sample),
   onSpeed: (n, auto) => {
@@ -412,6 +465,7 @@ const backendReady = createWorkerBackend({
   itemScreen.setBackend(b);
   equipScreen.setBackend(b);
   materiaScreen.setBackend(b);
+  gameNames.setBackend(b);
   applySpeedFlag();
   backend.onFrameEnd((f) => {
     const c = borderCrop.frame(f);
@@ -547,7 +601,9 @@ window.ff7web = {
   itemScreen,
   equipScreen,
   materiaScreen,
+  gameNames,
   battlePanel,
+  crt,
   suspend,
   drawnFrame: () => drawn,
   /** The part of the frame on screen: { x, y, w, h }, or null before a frame (#24). */

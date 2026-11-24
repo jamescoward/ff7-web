@@ -29,9 +29,10 @@ import { BOOT_POINTS, POWER_ON, SAVE_BOOT_POINT, scriptFrames } from './bootpoin
 import { DiscError, openDisc } from './disc.js';
 import { RAM_SIZE, ramOffset } from './memmap.js';
 import { padMask } from './pad.js';
-import { BaselineError, baselineFromDisc } from './savegen/baseline.js';
+import { BaselineError, baselineFromDisc, kernelFromDisc } from './savegen/baseline.js';
 import { descriptionProblems, generateCard } from './savegen/index.js';
 import { cardOutcome } from './savegen/read.js';
+import { NAME_KINDS, NAME_REPORT, nameCounts, namesHold } from './kernel-names.js';
 import { PARTS, partDigests } from './stateparts.js';
 import { blankCard } from './synth/blank-card.js';
 // scenario.js imports this module too; these are used only at call time.
@@ -389,6 +390,17 @@ export function loadScenario2(doc, memory, { bootPoints, input, savesDir } = {})
       const found = t.found ?? [];
       found.forEach((k, j) => name(k, `${where}.track.found[${j}]`));
       return { kind: 'track', from, bytes: t.bytes, marks: [...t.marks], values: [...t.values], found, mayMiss: t.mayMiss === true, metric: a.metric };
+    }
+    if ('kernelNames' in a) {
+      // A kernelNames check (#260) reads INIT/KERNEL.BIN from the scenario's
+      // own disc, so the scenario must name one.
+      if (doc.boot?.disc === undefined) fail(`${where}.kernelNames: the scenario must boot a disc (boot.disc)`);
+      const c = a.kernelNames;
+      if (!NAME_KINDS.includes(c.kind)) fail(`${where}.kernelNames.kind: one of ${NAME_KINDS.join(', ')}`);
+      const report = c.report ?? {};
+      for (const k of NAME_REPORT) if (report[k] !== undefined) name(report[k], `${where}.kernelNames.report.${k}`);
+      const range = { ...(c.min !== undefined ? { min: c.min } : {}), ...(c.max !== undefined ? { max: c.max } : {}) };
+      return { kind: 'kernelNames', names: c.kind, range, report, metric: a.metric };
     }
     if ('card' in a) {
       // A card check (#226) reads the slot 1 card the scenario's own boot
@@ -811,6 +823,8 @@ export async function runScenario2(sc, opts = {}) {
   const needDigest = sc.asserts.some((a) => a.kind === 'sameState');
   const hasRestart = sc.steps.some((s) => s.kind === 'restart'); // #228: only from a boot point with a card (loadScenario2)
   const cardChecks = sc.asserts.filter((a) => a.kind === 'card');
+  const nameChecks = sc.asserts.filter((a) => a.kind === 'kernelNames');
+  let kernel = null; // INIT/KERNEL.BIN's bytes for kernelNames checks (#260), in memory only
   let cardBefore = null; // the slot 1 card at the start and end of the main run (#226), in memory only
   let cardAfter = null;
   const wantParts = (sc.parts ?? []).length > 0;
@@ -877,6 +891,7 @@ export async function runScenario2(sc, opts = {}) {
         stage = n;
       });
       if (root.save) card = saveBootCard(root.save, src.discFile);
+      if (nameChecks.length && src.discFile) kernel = kernelFromDisc(src.discFile);
       stage = BOOT_STAGES.checks;
     } catch (e) {
       // A disc that can't be read, or (save boot) a kernel archive that is
@@ -1063,6 +1078,11 @@ export async function runScenario2(sc, opts = {}) {
         found: a.found.map((_, j) => (j < m.first.length ? a.from + m.first[j] : 0)),
       };
     }
+    if (a.kind === 'kernelNames') {
+      // Read from the disc, not from the run: only these numbers leave.
+      const counts = nameCounts(kernel, a.names);
+      return { kernelNames: { kind: a.names, ...a.range }, pass: ok(namesHold(counts, a.names, a.range)), ...counts };
+    }
     if (a.kind === 'card') {
       const have = cardBefore !== null && cardAfter !== null;
       const out = have ? cardOutcome(cardBefore, cardAfter, { module: a.module }) : null;
@@ -1091,6 +1111,9 @@ export async function runScenario2(sc, opts = {}) {
       a.found.forEach((k, j) => namedMetrics.set(k, assertions[i].found[j]));
       namedMetrics.set(a.metric, assertions[i].count);
       return;
+    }
+    if (a.kind === 'kernelNames') {
+      for (const k of NAME_REPORT) if (a.report[k] !== undefined) namedMetrics.set(a.report[k], assertions[i][k]);
     }
     if (a.kind === 'card') {
       for (const k of CARD_REPORT) if (a.report[k] !== undefined) namedMetrics.set(a.report[k], assertions[i][k]);

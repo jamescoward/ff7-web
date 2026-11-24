@@ -2,10 +2,12 @@
 // `native-equip`) with a three-member party (#215). A fake semantic source
 // simulates the game's Equip screen opened for one member, with the
 // main-menu party pick (partyPick) naming that slot, as Tier 2 saw it
-// (save-boot-16a to 16d). The panel marks the picked member's row; the
-// weapon tap stays off, because the game's list holds only that member's
-// weapons, which is not read. Without partyPick in the source, no row is
-// marked. The backend is stubbed, so this runs without the Wasm core.
+// (save-boot-16a to 16d). The panel marks the picked member's row, and v2
+// (#254) offers list rows for that member: the game's list holds only that
+// member's weapons, which is not read, so rows are offered by index and the
+// savemap read says what was equipped. Without partyPick in the source, no
+// row is marked and nothing is offered. The backend is stubbed, so this
+// runs without the Wasm core.
 // Original project code, GPL-2.0-or-later.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
@@ -34,6 +36,7 @@ async function openApp(browser, { pick, withPick = true }) {
     const source = {
       get frame() { return sim.frame; },
       equipScreen: async () => ({ value: { open: true }, confirmed: true }),
+      equipCursors: async () => ({ value: { slot: 0, listRow: 0, listOffset: 0 }, confirmed: true }),
       equipment: async (s) => ({ value: { record: s, weapon: sim.weapon[s], armor: 0, accessory: null, weaponMateria: [], armorMateria: [] }, confirmed: true }),
       inventory: async () => ({ value: [{ slot: 0, index: 129, quantity: 1, kind: 'weapon', number: 1 }], confirmed: true }),
     };
@@ -57,7 +60,7 @@ for (const name of BROWSERS) {
     });
     after(() => browser?.close());
 
-    test('the party pick marks the chosen member; the tap stays off', async (t) => {
+    test('the party pick marks the chosen member, whose rows are offered; nothing is pressed until a tap', async (t) => {
       if (skip) return t.skip(skip);
       for (const pick of [0, 1, 2]) {
         const { context, page, errors } = await openApp(browser, { pick });
@@ -65,9 +68,8 @@ for (const name of BROWSERS) {
           await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
           await until(async () => (await chosen(page)).length === 1, { timeout: 3000, what: 'a member marked' });
           assert.deepEqual(await chosen(page), [pick]);
-          await page.waitForTimeout(2500);
-          assert.equal(await page.locator('.ne-weapon[data-row="0"]').isDisabled(), true, 'no tap for a larger party');
-          assert.match(await page.locator('#native-equip .ne-msg').textContent(), /party pick/);
+          await until(async () => !(await page.locator('.ne-row[data-index="0"]').isDisabled()), { timeout: 5000, what: 'list row 1 offered for the picked member' });
+          assert.equal(await page.locator('.ne-slot[data-equip-slot="0"]').textContent(), `Weapon: #${[0, 32, 16][pick]}`, 'the picked member\'s slots');
           assert.deepEqual(await page.evaluate(() => window.pads.filter((m) => m !== 0)), []);
           assert.deepEqual(errors, []);
         } finally { await context.close(); }
@@ -79,8 +81,10 @@ for (const name of BROWSERS) {
       const { context, page, errors } = await openApp(browser, { pick: 1, withPick: false });
       try {
         await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(2500);
         assert.deepEqual(await chosen(page), []);
+        assert.equal(await page.locator('.ne-row[data-index="0"]').isDisabled(), true, 'no member known: nothing offered');
+        assert.match(await page.locator('#native-equip .ne-msg').textContent(), /not read/);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

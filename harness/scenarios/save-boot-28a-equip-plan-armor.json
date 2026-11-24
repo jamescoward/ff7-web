@@ -1,0 +1,479 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-party3-gear",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it)."
+    },
+    "row0": {
+      "addr": "0x8009a0d3",
+      "type": "u8",
+      "description": "menuCursor (confirmed #78): the main-menu cursor, row 0 = Item."
+    },
+    "pick": {
+      "addr": "0x8009a0e5",
+      "type": "u8",
+      "description": "partyPick (confirmed #215): the party slot picked for Equip."
+    },
+    "menu_ovl": {
+      "addr": "0x80062dd4",
+      "type": "u32",
+      "description": "menuOverlay (confirmed; 4 = the Equip screen, #121)."
+    },
+    "slot": {
+      "addr": "0x801d8aab",
+      "type": "u8",
+      "description": "equipSlotCursor (confirmed #216; s8 as u8): 0 Weapon, 1 and 2 the other rows."
+    },
+    "l_row": {
+      "addr": "0x801d8abd",
+      "type": "u8",
+      "description": "equipListRow (confirmed #216; s8 as u8): the highlighted row on the page, 0-7."
+    },
+    "l_off": {
+      "addr": "0x801d8ab4",
+      "type": "u8",
+      "description": "equipListOffset (confirmed #216; low byte of an s16): the list index on the top row."
+    },
+    "weapon0": {
+      "addr": "0x8009c754",
+      "type": "u8",
+      "description": "characterWeapon[record 0] (confirmed #117)."
+    },
+    "armor0": {
+      "addr": "0x8009c755",
+      "type": "u8",
+      "description": "characterArmor[record 0] (confirmed #117)."
+    },
+    "acc0": {
+      "addr": "0x8009c756",
+      "type": "u8",
+      "description": "characterAccessory[record 0] (confirmed #117; 0xFF none)."
+    },
+    "weapon1": {
+      "addr": "0x8009c7d8",
+      "type": "u8",
+      "description": "characterWeapon[record 1] (confirmed #117)."
+    },
+    "armor1": {
+      "addr": "0x8009c7d9",
+      "type": "u8",
+      "description": "characterArmor[record 1] (confirmed #117)."
+    },
+    "acc1": {
+      "addr": "0x8009c7da",
+      "type": "u8",
+      "description": "characterAccessory[record 1] (confirmed #117; 0xFF none)."
+    },
+    "weapon2": {
+      "addr": "0x8009c85c",
+      "type": "u8",
+      "description": "characterWeapon[record 2] (confirmed #117)."
+    },
+    "armor2": {
+      "addr": "0x8009c85d",
+      "type": "u8",
+      "description": "characterArmor[record 2] (confirmed #117)."
+    },
+    "acc2": {
+      "addr": "0x8009c85e",
+      "type": "u8",
+      "description": "characterAccessory[record 2] (confirmed #117; 0xFF none)."
+    }
+  },
+  "name": "save-boot-28a-equip-plan-armor",
+  "description": "#254 (acceptance, H1 and H2; H3 reported): the Equip armor slot and list plans for party slot 1. Load harness/saves/disc1-md1stin-party3-gear.json (party Cloud, Barret, Tifa; spare weapons 1, 17, 33, armor 1, 2, 3, accessories 0, 1, 2, one each, author-chosen), open the field menu, plan the main-menu cursor 0 to 3 (semantic/menu-panel.js), 60 frames, Circle (the party pick opens), 60 frames, the party-pick plan 0 to 1 (1 Down, wait for pick), then Circle every 60 frames until menu_ovl reads 4 (ovl_wait), 120 frames; the slot cursor reads 0. equipSlotPlan(0, 1) from semantic/equip-screen.js: 1 Down, each waiting for the slot cursor (w_slot). Circle (H1: opens the armor list) and 60 frames; the list row and offset read 0 (H2). equipListPlan({\"row\":0,\"offset\":0}, 2): 2 Downs, each waiting for the row and checking the offset (w_list). Then mark, Circle, and 60 frames (as #215 16b; the baseline value is not known, so no wait on a value). Checks: armor1 changed since the mark; the member's other equipment and the other members' armor unchanged; still the Equip overlay in the menu; a rerun matches. Reports e_idx: 1 if armor1 reads 3, the index-2 armor in inventory order (H3). Only frame counts and 1/0 leave.",
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 3
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "pick",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "menu_ovl",
+          "equals": 4
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      },
+      "metric": "ovl_wait"
+    },
+    {
+      "wait": {
+        "frames": 120
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "slot",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "slot",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "w_slot"
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 2
+        },
+        "timeout": 30
+      },
+      "metric": "w_list"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 10
+      }
+    },
+    {
+      "mark": "before-equip"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    }
+  ],
+  "assert": [
+    {
+      "change": {
+        "mem": "armor1",
+        "is": "changed",
+        "since": "before-equip"
+      },
+      "metric": "e_chg"
+    },
+    {
+      "change": {
+        "mem": "weapon1",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "change": {
+        "mem": "acc1",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "change": {
+        "mem": "armor0",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "change": {
+        "mem": "armor2",
+        "is": "unchanged",
+        "since": "before-equip"
+      }
+    },
+    {
+      "expect": {
+        "mem": "menu_ovl",
+        "equals": 4
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "expect": {
+        "mem": "armor1",
+        "equals": 3
+      },
+      "metric": "e_idx"
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "ovl_wait",
+    "w_slot",
+    "w_list",
+    "e_chg",
+    "e_idx",
+    "match"
+  ]
+}

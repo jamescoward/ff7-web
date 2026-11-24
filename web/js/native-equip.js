@@ -42,6 +42,7 @@ import {
   equipListRowLabel, equipListRows, equipMemberLabel, equipSlotKind, equipSlotLabel, equipSlotPlan, equipV2Outcome,
   equipV2TapAllowed,
 } from './semantic/equip-screen.js';
+import { nameFor } from './semantic/game-text.js';
 import { createSemantic } from './semantic/layer.js';
 import { createPlanExecutor } from './semantic/planner.js';
 import { PAD } from './pad.js';
@@ -101,7 +102,9 @@ export function buildEquipScreen(root) {
   root.append(head, members, slots, rows, nav);
 }
 
-export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz = EQUIP_HZ, semanticFor = createSemantic }) {
+// `names` (#260, Labs flag `game-names`): a getter for the name tables built on
+// the device (game-names.js), or null; with null every label is the ID label.
+export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz = EQUIP_HZ, semanticFor = createSemantic, names = () => null }) {
   // Without a way to see other input, the page can't be known: taps stay off.
   const canWatch = typeof mixer.onChange === 'function';
   let gateActive = false;
@@ -205,12 +208,12 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     const ms = st.memberSlot;
     for (const d of root.querySelectorAll('.ne-member')) {
       const slot = Number(d.dataset.slot);
-      d.textContent = equipMemberLabel(slot, members[slot]);
+      d.textContent = equipMemberLabel(slot, members[slot], names());
       d.toggleAttribute('data-chosen', ms === slot);
     }
     for (const b of root.querySelectorAll('.ne-slot')) {
       const s = Number(b.dataset.equipSlot);
-      b.textContent = equipSlotLabel(s, st.member);
+      b.textContent = equipSlotLabel(s, st.member, names());
       b.disabled = !(idle() && st.member);
       b.toggleAttribute('data-chosen', chosen === s);
       b.toggleAttribute('data-cursor', cursors?.slot === s);
@@ -276,7 +279,7 @@ export function createEquipScreen({ root, mixer, labs, timers = globalThis, hz =
     const was = c.before[c.memberSlot]?.[c.kind];
     const now = members[c.memberSlot]?.[c.kind];
     last = { ok: out === 'equipped', outcome: out, memberSlot: c.memberSlot, kind: c.kind, before: was, after: now };
-    const n = (v) => (Number.isInteger(v) ? `#${v}` : 'none');
+    const n = (v) => (Number.isInteger(v) ? nameFor(c.kind, v, names(), `#${v}`) : 'none');
     // Circle on a list entry returns to the slot page (#216 18b: the slot
     // cursor reads afterwards); after anything else the page is not known.
     slotPage = out === 'equipped';

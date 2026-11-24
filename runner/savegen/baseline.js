@@ -28,45 +28,32 @@ import { constants as zlibConstants, gunzipSync, inflateRawSync } from 'node:zli
 
 import { openDisc } from '../disc.js';
 import { SAVEMAP_SIZE } from './layout.js';
+import {
+  BinGzipError, KERNEL_PATH, MAX_ARCHIVE_BYTES, SECTION_HEADER, parseBinGzip as splitBinGzip,
+} from '../semantic/bin-gzip.js';
 
-/** Disc path of the kernel archive on the PSX disc (wiki). */
-export const KERNEL_PATH = 'INIT/KERNEL.BIN';
-/** BIN-GZIP section header: u16 packed length, u16 unpacked length, u16 file type (wiki). */
-export const SECTION_HEADER = 6;
 /** File type of the initialization data section (decomp KERNEL_INIT; the wiki's section 4). */
 export const KERNEL_INIT_TYPE = 3;
 /** Where the initialization data goes in the savemap: &Savemap.party (decomp). */
 export const INIT_OFFSET = 0x0054;
-/** Largest archive read; KERNEL.BIN is far smaller. */
-const MAX_ARCHIVE_BYTES = 1024 * 1024;
+export { KERNEL_PATH, SECTION_HEADER };
 
 export class BaselineError extends Error {}
 
 /**
  * Split a BIN-GZIP archive into its sections: [{ type, packed, unpacked,
  * offset }], where offset is the start of the section's gzip data. Throws
- * BaselineError on a truncated or malformed archive.
+ * BaselineError on a truncated or malformed archive. The split itself is
+ * semantic/bin-gzip.js (synced to runner/semantic/; #260 part 2 moved it
+ * there so the browser can use it too).
  */
 export function parseBinGzip(bytes) {
-  if (!(bytes instanceof Uint8Array)) throw new BaselineError('the archive must be a Uint8Array');
-  if (bytes.length > MAX_ARCHIVE_BYTES) throw new BaselineError('the archive is too large');
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const sections = [];
-  let o = 0;
-  while (o < bytes.length) {
-    // Zero bytes after the last section (padding to a sector) end the list.
-    if (bytes.subarray(o).every((b) => b === 0)) break;
-    if (o + SECTION_HEADER > bytes.length) throw new BaselineError(`truncated section header at 0x${o.toString(16)}`);
-    const packed = view.getUint16(o, true);
-    const unpacked = view.getUint16(o + 2, true);
-    const type = view.getUint16(o + 4, true);
-    const offset = o + SECTION_HEADER;
-    if (packed === 0) throw new BaselineError(`empty section at 0x${o.toString(16)}`);
-    if (offset + packed > bytes.length) throw new BaselineError(`section at 0x${o.toString(16)} runs past the end`);
-    sections.push({ type, packed, unpacked, offset });
-    o = offset + packed;
+  try {
+    return splitBinGzip(bytes);
+  } catch (e) {
+    if (e instanceof BinGzipError) throw new BaselineError(e.message);
+    throw e;
   }
-  return sections;
 }
 
 /** The first section of a type, read up to it only (parseBinGzip's rules); null if none. */

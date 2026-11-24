@@ -85,3 +85,16 @@ Reading:
 - These counts say nothing about the names themselves; no string left the sandbox.
 
 **Run 2 (determinism):** the scenarios now require the counts above exactly (min = max). The second Tier 2 run on that commit must pass with the same metrics.
+
+## Part 2 (UI lane, Labs flag `game-names`; PR #271)
+**Moved, not copied:** the BIN-GZIP split is now `semantic/bin-gzip.js` (`parseBinGzip`, `sectionGzip`, `KERNEL_PATH`, `SECTION_HEADER`), synced to `web/js/semantic/` and `runner/semantic/`. `runner/savegen/baseline.js` keeps `parseBinGzip` as a thin wrapper that turns `BinGzipError` into `BaselineError`, so its callers and tests are unchanged. Decompression stays the caller's: `node:zlib` in the runner, `DecompressionStream` in the browser. `semantic/` keeps no Node or DOM dependency.
+
+**Building the tables:** `semantic/game-names.js` `kernelNameTables(kernel, unpack)` returns `{ tables, counts }`. A kind whose section does not decompress to its header's length, or has no readable table, is left out of `tables`, so `nameFor` falls back to the ID label for it.
+
+**On the device:**
+- `web/js/game-names.js` `gunzipSection` uses `DecompressionStream('gzip')`. If a member's trailer does not check out, it inflates the deflate stream after the 10-byte header (`deflate-raw`) and lets the length decide, as `unpackSection` does in the runner. Errors are fixed messages, with no byte values.
+- The worker answers `gameNames` only after the hash gate passed for the loaded disc. It reads INIT/KERNEL.BIN from the raw image the gate read, builds the tables once, and posts only the tables back. Nothing is logged, stored or sent.
+- `createGameNames` (page side) asks once, when the flag is on and the gate is active. `names()` returns the tables only while the flag is on. Turning the flag off brings the ID labels back at the next poll; the tables stay in memory for this page load only.
+- Panels: the label helpers in `semantic/equip-screen.js`, `item-screen.js` and `materia-screen.js` take optional `names`. Without them, the output is byte-for-byte what it was (Tier 1 asserts the old strings).
+
+**Not covered:** the battle panel and HUD show no item IDs today, so nothing changes there. The `native-equip` list rows say "List row N" (equip masks are not read, #254), so they get no names.

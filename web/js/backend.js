@@ -200,6 +200,8 @@ export async function createWorkerBackend(opts = {}) {
       await request({ type: 'setState', bytes: new Uint8Array(copy) });
     },
     discKey: () => request({ type: 'discKey' }),
+    /** #260: { tables } built from the disc in the worker, or null (gate not passed, or reading failed). Memory only. */
+    gameNames: () => request({ type: 'gameNames' }),
 
     /** The slot 1 card as the core holds it now, or null before a load. */
     getCard: () => request({ type: 'getCard' }),

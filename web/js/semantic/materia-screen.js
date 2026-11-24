@@ -5,6 +5,7 @@
 // materia names are game data.
 // Original project code, GPL-2.0-or-later.
 
+import { nameFor } from './game-text.js';
 import { planCursorMove } from './planner.js';
 
 /** Rows on one page of the materia list (#244 save-boot-24c: only the 10-row offset hypothesis matched). */
@@ -151,13 +152,13 @@ export function materiaEquipOutcome(before, after) {
   return 'other';
 }
 
-/** A materia's text: ID and AP only (names are game data). */
-export function materiaLabel(m) {
+/** A materia's text: ID and AP only (names are game data), unless `names` holds tables built on the device (#260). */
+export function materiaLabel(m, names = null) {
   if (!m) return '—';
-  return `materia #${m.id}  AP ${m.ap}`;
+  return `${nameFor('materia', m.id, names, `materia #${m.id}`)}  AP ${m.ap}`;
 }
 
-/** A weapon materia column's text. */
-export function materiaColumnLabel(column, m) {
-  return `Wpn ${column + 1}: ${m ? `#${m.id}` : 'empty'}`;
+/** A weapon materia column's text. IDs only, unless `names` is given (#260). */
+export function materiaColumnLabel(column, m, names = null) {
+  return `Wpn ${column + 1}: ${m ? nameFor('materia', m.id, names, `#${m.id}`) : 'empty'}`;
 }

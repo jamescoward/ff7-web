@@ -7,7 +7,7 @@
 // (docs/SECURITY.md; issue #260 "Security rules"). Tier 1 tests use a
 // synthetic archive of author-made strings.
 
-import { KERNEL_NAME_SECTIONS, NAME_KIND_COUNTS, Ff7TextError, nameTable } from '../semantic/game-text.js';
+import { KERNEL_NAME_SECTIONS, NAME_KIND_COUNTS, Ff7TextError, nameTable } from './semantic/game-text.js'; // the synced copy of semantic/game-text.js (semantic/sync-web.js)
 import { BaselineError, kernelSection } from './savegen/baseline.js';
 
 /** Name kinds a kernelNames check may name. */

@@ -62,3 +62,8 @@ Part 1 (game-state lane): facts, a pure decoder in `semantic/game-text.js`, Tier
    - Scenarios `kernel-names-1-item-weapon`, `-2-armor-accessory` and `-3-materia` run one frame from the title boot point, for the Tier 2 time budget (#269). Each kind reports `_ok`, `_n`, `_empty` and `_bad`.
    - Tier 1: `runner/test/unit/kernel-names.test.js`, on a synthetic archive of author-made strings.
 3. `parseBinGzip` stays in `runner/savegen/baseline.js` for now. Part 2 needs it in the browser, so move its pure part into `semantic/` then (the issue's "move, don't copy").
+
+### Attempt 1 at the Tier 2 check (`17cf7d1`): failed CI, not a finding about the disc
+`tier1` and `private-eval-tests` failed before Tier 2 ran. `runner/kernel-names.js` imported `../semantic/game-text.js`, but the Tier 2 sandbox ships only `runner/` and `harness/` (`harness/private-eval/eval/lib.js` `WORK_TOP_DIRS`). A copy holding only those two directories reproduces the failure: "Cannot find module …/semantic/game-text.js".
+
+**Fix (`runner/iso9660.js` has the same constraint, the other way round):** `semantic/sync-web.js` now also keeps a byte-identical copy of `semantic/game-text.js` at `runner/semantic/game-text.js`. `semantic/` stays the source. `--check` and the sync unit test fail when the copy drifts, and a test checks the copied modules have no imports. A new guard, `runner/test/unit/runner-imports.test.js`, fails on any runner module (tests excepted) that imports outside `runner/`. The protected `WORK_TOP_DIRS` is unchanged.

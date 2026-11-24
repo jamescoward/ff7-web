@@ -3,11 +3,17 @@
 // data), as the worker would after the hash gate passed. The native Equip
 // and Materia panels show those names with the flag on; with it off, or
 // before the gate passes, the labels are the ID labels exactly as before.
-// The names never reach localStorage or sessionStorage.
+// The names never reach localStorage or sessionStorage. With the core built,
+// the real worker answers gameNames with null for a disc the hash gate did
+// not pass, even though that disc holds a readable INIT/KERNEL.BIN.
 // Original project code, GPL-2.0-or-later.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { BROWSERS, launch, loadPlaywright, serveWeb, until } from './helpers.js';
+import { gzipSync } from 'node:zlib';
+
+import { build as buildPadEcho } from '../../harness/fixtures/pad-echo.js';
+import { buildIso } from '../../runner/synth/iso9660.js';
+import { BROWSERS, CORE_BUILT, launch, loadPlaywright, serveWeb, until } from './helpers.js';
 
 const pw = loadPlaywright();
 let server;
@@ -62,6 +68,19 @@ async function openApp(browser, query) {
   });
   return { context, page, errors };
 }
+/** A synthetic BIN-GZIP KERNEL.BIN: 27 sections, author-made names in sections 19-23. */
+function syntheticKernel() {
+  const enc = (str) => [...str].map((c) => c.charCodeAt(0) - 0x20).concat([0xff]);
+  const section = (str) => Uint8Array.from([2, 0, ...enc(str)]);
+  const parts = [];
+  for (let i = 0; i < 27; i++) {
+    const data = i >= 19 && i <= 23 ? section(`Test ${i}`) : Uint8Array.of(0);
+    const gz = gzipSync(data);
+    parts.push(gz.length & 0xff, gz.length >> 8, data.length & 0xff, data.length >> 8, 0, 0, ...gz);
+  }
+  return Buffer.from(parts);
+}
+
 const texts = (page, sel) => page.locator(sel).allTextContents();
 const ID_EQUIP = ['Weapon: #0', 'Armor: #0', 'Accessory: none'];
 const ID_MATERIA_SLOTS = ['Wpn 1: #49', 'Wpn 2: empty'];
@@ -117,6 +136,27 @@ for (const name of BROWSERS) {
         await until(async () => (await texts(page, '.nm-materia'))[0] === ID_MATERIA[0], { timeout: 3000, what: 'ID labels back' });
         assert.deepEqual(await texts(page, '.ne-slot'), ID_EQUIP);
         assert.deepEqual(errors, []);
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('the real worker gives no names for a disc the hash gate did not pass', { skip: !CORE_BUILT && 'core is not built' }, async (t) => {
+      if (skip) return t.skip(skip);
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      try {
+        await page.goto(`${server.url}?labs=game-names`);
+        await page.evaluate(() => window.ff7web.ready);
+        const disc = buildIso({
+          files: { 'SYSTEM.CNF': 'BOOT = cdrom:\\PADECHO.EXE;1\r\n', 'PADECHO.EXE': buildPadEcho(), 'INIT/KERNEL.BIN': syntheticKernel() },
+        });
+        await page.setInputFiles('#file-input', { name: 'synth.bin', mimeType: 'application/octet-stream', buffer: disc });
+        const g = await until(() => page.evaluate(() => window.ff7web.backend?.semanticGate), { what: 'the gate verdict' });
+        assert.equal(g.active, false, 'the synthetic boot executable is not the table\'s');
+        assert.equal(await page.evaluate(() => window.ff7web.backend.gameNames()), null);
+        assert.equal(await page.evaluate(() => window.ff7web.gameNames.names()), null);
+        assert.equal(await page.evaluate(() => window.ff7web.gameNames.state), 'idle', 'the page never asked');
       } finally {
         await context.close();
       }

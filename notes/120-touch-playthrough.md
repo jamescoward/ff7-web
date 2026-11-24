@@ -328,3 +328,35 @@ What it decides:
 - A walk whose n3 bracket falls below the stall's (for example n3p256 −1) is heading into range. The next run lengthens that walk and taps until window 1 opens.
 - If neither walk moves Cloud closer (cx or cy 0, or the brackets unchanged), the way to model 3 is walled. Use the axis brackets to try a route round.
 - If nothing works, the hint attempt ends and the owner's third budget (line triggers and walkmesh) starts.
+
+### Owner-hint attempt, run 3 results (`520b9ab`, tier2: 110 pass, 4 fail; the fails are probes)
+`touch-playthrough` (stretch 1) passed unchanged. `touch-s2i-a-stall` passed (map_cur 117).
+
+Axis brackets at the stall (sign of |model k − Cloud| along one axis minus n field units):
+
+| model | ax | ay | \|Δx\| | \|Δy\| |
+|---|---|---|---|---|
+| 3 | 256 −, 512 −, 1024 −, 2048 − | 256 +, 512 +, 1024 +, 2048 − | < 256 | 1024–2048 |
+| 2 | 512 −, 2048 − | 512 +, 2048 − | < 512 | 512–2048 |
+| 4 | 512 −, 2048 − | 512 +, 2048 − | < 512 | 512–2048 |
+
+Fixed walks from the stall (Interact taps, 300 frames, then 30 still; no wait):
+
+| walk | cx | cy | n3 | n3p256 | n3p1024 | w0 | w1 | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| right 300 | +1 | −1 | 1 | 1 | 1 | 0 | 0 | 117 |
+| up-right 300 | +1 | +1 | 1 | 1 | **−1** | 0 | 0 | 117 |
+
+Reading:
+- **Model 3 is almost straight along PosY from the stall** (x within 256, y 1024–2048). Models 2 and 4 are in the same band.
+- **Up-right closes in on model 3**: after 300 frames it is within TalkRange + SolidRange + 1024, but not + 256. Right moves Cloud −y and away. So model 3 lies on Cloud's +y side.
+- Up-right also moves Cloud +x, so a longer up-right walk may drift past model 3 in x. Up or up-left may hold x better (md1_1's pad-to-axis mapping is not measured for those).
+- No window was open at the end of either walk.
+
+### Owner-hint attempt, run 4 plan (`touch-s2i-go-*`)
+The axis probes and run 3's walks are removed (definitions in `520b9ab`); `touch-s2i-a-stall` stays. Five fixed walks from the stall: up-right 450 and 600, up 300 and 450, up-left 300. Each drags with **no Interact** for that time, then 10 still frames, Interact for 4 frames, and 40 still frames. Nothing waits on a condition. Metrics: n3, n3p256, ax3_256, ay3_256, raw w0 and w1, cx, cy.
+
+What it decides:
+- **A walk ends in range (n3 −1) and a window reads 6:** model 3's talk opens. Next, press through it and drag up to the exit, as the owner's hint expects.
+- **In range but no window:** the hint fails for model 3. Try models 2 and 4 the same way, or start the third budget (line triggers and walkmesh).
+- **Not in range:** the per-axis signs show which leg to add (x within 256 and y within 256 means close).

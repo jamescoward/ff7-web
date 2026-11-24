@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { AXIS_BRACKETS, HINT_MODELS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -135,6 +135,15 @@ describe('#120 touch playthrough', () => {
       assert.ok(keeper.name < p.name, p.name);
     }
     for (const [, groups] of AXIS_BRACKETS) assert.ok(groups.reduce((n, [, ps]) => n + 2 * ps.length, 0) <= 8);
+    // Run 4 walks: fixed steps only (no wait can time out), no Interact while dragging, one Interact press after.
+    for (const p of fromStall.filter((x) => x.name.includes('-go-'))) {
+      assert.ok(p.input.every((st) => st.mark || st.buttons || 'frames' in (st.wait ?? {})), p.name);
+      const presses = p.input.filter((st) => st.buttons);
+      assert.equal(presses.length, 2, p.name);
+      const interact = FIELD_ACTIONS.find((a) => a.id === 'interact').button;
+      assert.ok(!presses[0].buttons.includes(interact), p.name);
+      assert.deepEqual(presses[1], { buttons: [interact], frames: WALK_PRESS }, p.name);
+    }
     assert.deepEqual(runButtons('up').sort(), ['cross', 'up']);
     assert.ok(runLeg('up', 40).every((s) => s.buttons.includes('cross')));
     for (const b of runButtons('up-left')) offered.add(b);

@@ -393,3 +393,22 @@ What it decides:
 - **n3 −1 and a window at 6:** model 3's talk opened. Next, press through it and drag up to the exit.
 - **n3 −1 and no window:** in range but no talk (facing, or no talk at this progress value). Try models 2 and 4, or start the third budget (line triggers and walkmesh).
 - **n3 +1:** the sides show which way the gap is. One more corrective run at most; if model 3 still can't be reached, the hint attempt ends and the third budget (walkmesh-aware routing, which #168 also needs) starts.
+
+### Owner-hint attempt, run 5 results (`3df6efc`, tier2 run 475: 116 pass, 5 fail; the fails are the routes)
+Recorded 2026-11-24 from the `eval` job log. `touch-playthrough` (stretch 1) and `touch-s2i-a-stall` passed unchanged. Eval step 12.1 min, with main's scenarios included.
+
+All five routes (up-right 450 then left 60, 120 or 200; up-right 600 then left 120; up-right 450 then up-left 100) gave **identical** values: n3 +1, n3p256 +1, ax3_256 +1, ay3_256 −1, **sx3 −1, sy3 +1**, w0 0, w1 0.
+
+Reading:
+- After up-right, model 3 lies on Cloud's −x side, more than 256 away along PosX and within 256 along PosY. That matches run 4.
+- The correcting leg changes nothing, at any length or direction. Left 60 and left 200 end with the same signs, and so does up-left 100. Up-right 450 and 600 already agreed in run 4. So **Cloud is pinned after up-right**, most likely against walkmesh edges, and no pad leg from there closes the x gap. This is a hypothesis: no position was reported.
+- No window opened.
+
+### Conclusion of the owner-hint attempt (2026-11-24)
+Model 3 (and models 2 and 4, in the same band, run 3) can't be brought into talk range with straight or two-leg pad walks from the stall. Up is walled, up-left and right move away, and up-right pins Cloud more than 256 short along x. So the hint (talk to a party member) is **not tested**: the talk can't be reached by these walks. It is not refuted either.
+
+**Next: the owner's third budget** (owner, 2026-11-23: "a third budget reads md1_1's line triggers and walkmesh"). Plan for its attempt 1:
+- Inside the sandbox, read md1_1's walkmesh triangles and gateway/line triggers from field memory (addresses from the decomp, reference only). Search a path on the mesh from Cloud's position to (a) the md1_2 gateway line and (b) a point within model 3's talk range.
+- Report **only** the pad legs (direction and frames), the path's triangle count and pass/fail. No mesh coordinates leave.
+- If an off-device search is too much for one attempt, start smaller: report which neighbour triangle each of the stall triangle's three edges leads to (−1 for a wall). That is enough to choose legs by hand.
+- #168 (blocked) needs the same routing for mds7st1, so build it once in a reusable runner module.

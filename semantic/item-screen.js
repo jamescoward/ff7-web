@@ -67,10 +67,13 @@ export function itemListSlot(listRow, listOffset) {
 }
 
 /**
- * Where one press leaves the list cursors { row, offset } (#256 hypothesis
- * H1, as Tier 2 showed for the Materia list in #244/#248): Down moves the
+ * Where one press leaves the list cursors { row, offset }: Down moves the
  * row until row 9, then scrolls one entry (offset + 1); Up moves the row
- * until row 0, then scrolls back. Callers never step past the list ends.
+ * until row 0, then scrolls back. Tier 2 (#256, save-boot-31a/31b): 13
+ * Downs from the top read row 9 offset 4, and the plan's 13 steps reach
+ * inventory slot 13 across empty slots, so index = offset + row holds.
+ * Up at row 0 (scroll back) is not run on this list. Callers never step
+ * past the list ends.
  */
 export function itemListStep({ row, offset }, button) {
   if (button === 'down') return row < ITEM_PAGE_ROWS - 1 ? { row: row + 1, offset } : { row, offset: offset + 1 };

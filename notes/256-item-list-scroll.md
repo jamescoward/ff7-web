@@ -20,3 +20,17 @@ Part 1 (game-state lane): Tier 2. Part 2 (UI lane, Labs flag `native-item`) uses
 
 ## Risk
 - Tier 2 is near its time limit (#269). These are two short scenarios; if a run is cut by the deadline, the cut scenarios are reported as errors, not failures.
+
+## Tier 2 run 1 (`0f5e258`; tier2-eval 45702445755, check 139516126034): H1 holds
+124 pass, 0 fail, 0 error.
+| scenario | metrics |
+|---|---|
+| 31a measure | list_row 9, list_off 4, item_screen 1, ovl_wait 1, frames 1258 |
+| 31b acceptance | scr1_wait 13, w_far 1, w_target 1, use_wait 1, count_ok 1, hp_ok 1, match 1 |
+
+What this shows:
+- Down at row 9 scrolls one entry: 13 Downs from the top end on row 9, offset 4.
+- The plan's 13 steps (9 row moves, 4 scrolls) land on the expected row and offset after every press.
+- Circle there chose inventory slot 13: its count fell 5 → 4, and party slot 1's HP rose to 333. So list index = offset + row = inventory slot across empty slots (1-4, 6-12).
+- 14a-14f (#135) stay green.
+- The next push (comments and notes only) is the determinism run.

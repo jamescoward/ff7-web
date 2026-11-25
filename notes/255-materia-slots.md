@@ -49,3 +49,9 @@ Recorded 2026-11-25 from the `eval` job log. 110 pass, 0 fail, 12 error.
 
 ## Tier 2 run 3 (`dd4a9ca`; tier2-eval 45622232120): green, deterministic
 122 pass, 0 fail, 0 error. 30a-30d gave the same metrics as run 2: 30a col 7, srow 0; 30b wm7 1841; 30c w_row, w_far, w_back and took_ok all 1; 30d l_row 9, l_off 190, w_last 2380. So the results repeat across two runs.
+
+## Reviewer FAIL on `8774d97`, and the fix
+The reviewer found that 30d checked no savemap result. #255 asks each scenario to run the plan's steps, check the cursors at each step, and confirm the moved materia in the savemap. The PR had claimed the whole contract was proved.
+- Fix: after the measured Down, 30d now checks that the cursor stopped (row 9, offset 190; `w_stop`). Runs 2 and 3 measured that stop, so it is now an acceptance check. Then it takes slot 199's materia with Circle. Checks: slot 199 empty and changed since the mark, weapon slot 0 holds 0xc731, and slots 2, 7 and 13 unchanged. 30d is 9.3 KB.
+- Gap that remains (agent default, recorded on #255): 30d reaches slot 199 by held Downs, not by the plan's 199 checked steps, because that file would pass the sandbox's 64 KiB limit. The plan is proved step by step over 7 steps (30b), and over 13 steps out and 11 back with scrolling both ways (30c). Every step of `materiaListPlan` uses the same `materiaListStep` rule, so the long plan adds no new case.
+- Needs a new Tier 2 run for 30d: this is a change to its input.

@@ -60,7 +60,7 @@ describe('#255 materia slot scenarios', () => {
     for (const sc of materiaSlotsScenarios()) assert.ok(Buffer.byteLength(serialise(sc)) <= 64 * 1024, sc.name);
   });
 
-  test('list presses follow the plans in order (30d: held Downs to the last page, then one Down)', () => {
+  test('list presses follow the plans in order (30d: held Downs to the last page, one Down, the stop checked, Circle)', () => {
     const [, column, armor, end] = materiaSlotsScenarios();
     const listPresses = (s) => {
       const start = s.input.findIndex((x) => x.wait?.until?.mem === 'l_off');
@@ -74,7 +74,13 @@ describe('#255 materia slot scenarios', () => {
     assert.deepEqual(held.wait.press.buttons, ['down']);
     const after = end.input.slice(end.input.indexOf(held) + 1);
     assert.deepEqual(after[0].wait.until, { mem: 'l_row', equals: toLast.steps.at(-1).row });
-    assert.deepEqual(after.filter((x) => x.buttons).map((x) => x.buttons), [['down']], 'then exactly one measured Down');
+    assert.deepEqual(after.filter((x) => x.buttons).map((x) => x.buttons), [['down'], ['circle']], 'then exactly one measured Down, then the Circle that takes slot 199');
+    // The stop is checked after that Down, before the take.
+    const down = after.findIndex((x) => x.buttons?.[0] === 'down');
+    const circle = after.findIndex((x) => x.buttons?.[0] === 'circle');
+    const stop = after.findIndex((x, i) => i > down && x.wait?.until?.mem === 'l_row');
+    assert.ok(stop > down && stop < circle, 'row checked between the measured Down and the Circle');
+    assert.deepEqual(after[stop].wait.until, { mem: 'l_row', equals: toLast.steps.at(-1).row });
   });
 
   test('the cursors and slots read are confirmed entries', () => {

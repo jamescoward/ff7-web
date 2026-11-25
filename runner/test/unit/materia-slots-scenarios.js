@@ -218,7 +218,7 @@ export function materiaSlotsScenarios() {
   const end = {
     ...base,
     name: 'save-boot-30d-materia-list-end',
-    description: `#255 (measurement): what Down does at the list's last slot. ${opening} ${listOpen} Then Down (${toLast.timing.hold} frames) every ${LAST_EVERY} frames until the list offset is ${lastEnd.offset} (w_last: frames; at most ${LAST_TIMEOUT}), which only the press onto slot ${LAST_SLOT} reaches, then the row must be ${lastEnd.row}, and still the offset after ${SETTLE} frames (materiaListPlan's ${toLast.steps.length} steps are proved stepwise by 30b and 30c; written out here they pass the 64 KiB scenario file limit). Then one more Down (4 frames) and ${SETTLE} frames, nothing checked. Reports the list row and offset at the end: row ${lastEnd.row}, offset ${lastEnd.offset} if Down stops at slot ${LAST_SLOT}; row 0, offset 0 if it wraps to slot 0. Checks: still on overlay ${MENU_OVERLAY_MATERIA} in the menu, materia untouched, a rerun matches. ${tail}`,
+    description: `#255 (acceptance, list end): Down at the list's last slot stops there, and the materia it shows can be taken. ${opening} ${listOpen} Then Down (${toLast.timing.hold} frames) every ${LAST_EVERY} frames until the list offset is ${lastEnd.offset} (w_last: frames; at most ${LAST_TIMEOUT}), which only the press onto slot ${LAST_SLOT} reaches, then the row must be ${lastEnd.row}, and still the offset after ${SETTLE} frames (materiaListPlan's ${toLast.steps.length} steps are proved stepwise by 30b and 30c; written out here they pass the 64 KiB scenario file limit). Then one more Down (4 frames) and ${SETTLE} frames, and the cursor must still be on row ${lastEnd.row}, offset ${lastEnd.offset} (w_stop): Down stops at slot ${LAST_SLOT} and doesn't wrap, as Tier 2 runs 2 and 3 measured. Then mark, Circle, and wait until inventory slot ${LAST_SLOT} reads empty (eq_wait). Checks: slot ${LAST_SLOT} empty and changed since the mark (took_ok), slots 2, 7 and 13 unchanged, Cloud's weapon slot 0 holds ${hex(wordOf(LAST_SLOT))}, still on overlay ${MENU_OVERLAY_MATERIA} in the menu, a rerun matches. ${tail}`,
     input: [
       ...OPEN_SCREEN,
       ...OPEN_LIST,
@@ -233,14 +233,21 @@ export function materiaSlotsScenarios() {
       until('l_off', lastEnd.offset, undefined, 1),
       PRESS('down'),
       { wait: { frames: SETTLE } },
+      // Runs 2 and 3 measured the stop (row 9, offset 190, no wrap); it is now checked.
+      until('l_row', lastEnd.row, 'w_stop', 1),
+      until('l_off', lastEnd.offset, undefined, 1),
+      ...take(LAST_SLOT, 'before-take'),
     ],
     assert: [
+      { expect: { mem: `mat${LAST_SLOT}`, equals: MATERIA_EMPTY }, metric: 'took_ok' },
+      { change: { mem: `mat${LAST_SLOT}`, is: 'changed', since: 'before-take' } },
+      ...unchanged([2, 7, 13]),
+      { expect: { mem: 'wm0', equals: wordOf(LAST_SLOT) } },
       { expect: { mem: 'menu_ovl', equals: MENU_OVERLAY_MATERIA } },
       { expect: { mem: 'game_state', equals: 5 } },
-      ...unchanged([2, 7, 13, LAST_SLOT]),
       { sameState: 'rerun', metric: 'match' },
     ],
-    metrics: ['load_done', 'ovl_wait', 'w_last', 'l_row', 'l_off', 'match'],
+    metrics: ['load_done', 'ovl_wait', 'w_last', 'w_stop', 'eq_wait', 'took_ok', 'wm0', 'match'],
   };
   return [measure, column, armor, end];
 }

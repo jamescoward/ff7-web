@@ -90,7 +90,7 @@
     }
   },
   "name": "save-boot-30d-materia-list-end",
-  "description": "#255 (measurement): what Down does at the list's last slot. Load harness/saves/disc1-md1stin-materia-slots.json (Cloud alone with weapon 4 and armor 8, author-chosen numbers whose slot counts, 8 and at least 1, are a source claim; materia slots empty; materia 49 in inventory slots 2, 7, 13 and 199 only, AP = slot), open the field menu, plan the main-menu cursor 0 to 2 (semantic/menu-panel.js), Circle every 60 frames until menu_ovl reads 3 (ovl_wait), 120 frames; the slot cursor reads row 0, column 0. Circle (opens the list for the slot under the cursor, #241) and 60 frames; the list row and offset read 0 (#244). Then Down (4 frames) every 12 frames until the list offset is 190 (w_last: frames; at most 6000), which only the press onto slot 199 reaches, then the row must be 9, and still the offset after 30 frames (materiaListPlan's 199 steps are proved stepwise by 30b and 30c; written out here they pass the 64 KiB scenario file limit). Then one more Down (4 frames) and 30 frames, nothing checked. Reports the list row and offset at the end: row 9, offset 190 if Down stops at slot 199; row 0, offset 0 if it wraps to slot 0. Checks: still on overlay 3 in the menu, materia untouched, a rerun matches. Only frame counts, 1/0, cursor indices and author-chosen words leave.",
+  "description": "#255 (acceptance, list end): Down at the list's last slot stops there, and the materia it shows can be taken. Load harness/saves/disc1-md1stin-materia-slots.json (Cloud alone with weapon 4 and armor 8, author-chosen numbers whose slot counts, 8 and at least 1, are a source claim; materia slots empty; materia 49 in inventory slots 2, 7, 13 and 199 only, AP = slot), open the field menu, plan the main-menu cursor 0 to 2 (semantic/menu-panel.js), Circle every 60 frames until menu_ovl reads 3 (ovl_wait), 120 frames; the slot cursor reads row 0, column 0. Circle (opens the list for the slot under the cursor, #241) and 60 frames; the list row and offset read 0 (#244). Then Down (4 frames) every 12 frames until the list offset is 190 (w_last: frames; at most 6000), which only the press onto slot 199 reaches, then the row must be 9, and still the offset after 30 frames (materiaListPlan's 199 steps are proved stepwise by 30b and 30c; written out here they pass the 64 KiB scenario file limit). Then one more Down (4 frames) and 30 frames, and the cursor must still be on row 9, offset 190 (w_stop): Down stops at slot 199 and doesn't wrap, as Tier 2 runs 2 and 3 measured. Then mark, Circle, and wait until inventory slot 199 reads empty (eq_wait). Checks: slot 199 empty and changed since the mark (took_ok), slots 2, 7 and 13 unchanged, Cloud's weapon slot 0 holds 0xc731, still on overlay 3 in the menu, a rerun matches. Only frame counts, 1/0, cursor indices and author-chosen words leave.",
   "input": [
     {
       "wait": {
@@ -314,19 +314,64 @@
       "wait": {
         "frames": 30
       }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_row",
+          "equals": 9
+        },
+        "timeout": 1
+      },
+      "metric": "w_stop"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "l_off",
+          "equals": 190
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "mark": "before-take"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "mat199",
+          "equals": 4294967295
+        },
+        "timeout": 120
+      },
+      "metric": "eq_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
     }
   ],
   "assert": [
     {
       "expect": {
-        "mem": "menu_ovl",
-        "equals": 3
-      }
+        "mem": "mat199",
+        "equals": 4294967295
+      },
+      "metric": "took_ok"
     },
     {
-      "expect": {
-        "mem": "game_state",
-        "equals": 5
+      "change": {
+        "mem": "mat199",
+        "is": "changed",
+        "since": "before-take"
       }
     },
     {
@@ -349,8 +394,20 @@
     },
     {
       "expect": {
-        "mem": "mat199",
+        "mem": "wm0",
         "equals": 50993
+      }
+    },
+    {
+      "expect": {
+        "mem": "menu_ovl",
+        "equals": 3
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
       }
     },
     {
@@ -362,8 +419,10 @@
     "load_done",
     "ovl_wait",
     "w_last",
-    "l_row",
-    "l_off",
+    "w_stop",
+    "eq_wait",
+    "took_ok",
+    "wm0",
     "match"
   ]
 }

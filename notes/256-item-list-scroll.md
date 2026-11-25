@@ -39,3 +39,10 @@ What this shows:
 112 pass, 0 fail, 12 error.
 - 31a and 31b report **identical metrics** to run 1, field for field (31a: list_row 9, list_off 4, frames 1258; 31b: scr1_wait 13, w_far, w_target, use_wait, count_ok, hp_ok and match all 1). So the planned use past page 1 is deterministic over two runs.
 - **The 12 errors are the deadline, not these scenarios.** This runner was slow: new-game-to-reactor-entrance took 48.2 s, against 28.7 s in run 1. The sandbox stopped starting scenarios after `save-boot-5`. The cut set (`save-boot-6` onwards, `title-*`, `touch-playthrough`) is unchanged by this PR; #269 tracks the deadline, and #275 run 2 hit the same cut. The tier2 check must be green before merging, so this push's run is needed.
+
+## Tier 2 run 3 (`cd54574`; check 139536473320): green
+124 pass, 0 fail, 0 error. 31a and 31b are identical to runs 1 and 2. Run 1's check id was 139516126034. Reviewer PASS on `cd54574`; merged as PR #279.
+
+## Part 2 notes
+- Call `itemSlotPlan` with the read `{ row: itemListRow, offset: itemListOffset }`. `itemListStep` alone doesn't stop at the list ends.
+- Not run: Up at row 0 (scroll back) and the list end.

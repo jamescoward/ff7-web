@@ -74,6 +74,9 @@ export const BACK_SLOT = 2;
 export const toBackSlot = materiaListPlan(toThirteen.steps.at(-1), BACK_SLOT);
 /** 30d: the plan to the last slot, then one more Down. */
 export const toLast = materiaListPlan(LIST_START, LAST_SLOT);
+/** 30d: frames between Down presses on the way to slot 199 (the plan's hold + gap), and the wait's limit. */
+export const LAST_EVERY = 12;
+export const LAST_TIMEOUT = 6000;
 const SETTLE = 30;
 
 const matSlot = (i) => ({ addr: hex(entry('materiaSlot').address + 4 * i), type: 'u32', description: `materiaSlot[${i}] (confirmed #117).` });
@@ -215,11 +218,19 @@ export function materiaSlotsScenarios() {
   const end = {
     ...base,
     name: 'save-boot-30d-materia-list-end',
-    description: `#255 (measurement): what Down does at the list's last slot. ${opening} ${listOpen} Then ${planText(toLast, LIST_START, 'w_last')}. Then one more Down (4 frames) and ${SETTLE} frames, nothing checked. Reports the list row and offset at the end: row ${lastEnd.row}, offset ${lastEnd.offset} if Down stops at slot ${LAST_SLOT}; row 0, offset 0 if it wraps to slot 0. Checks: still on overlay ${MENU_OVERLAY_MATERIA} in the menu, materia untouched, a rerun matches. ${tail}`,
+    description: `#255 (measurement): what Down does at the list's last slot. ${opening} ${listOpen} Then Down (${toLast.timing.hold} frames) every ${LAST_EVERY} frames until the list offset is ${lastEnd.offset} (w_last: frames; at most ${LAST_TIMEOUT}), which only the press onto slot ${LAST_SLOT} reaches, then the row must be ${lastEnd.row}, and still the offset after ${SETTLE} frames (materiaListPlan's ${toLast.steps.length} steps are proved stepwise by 30b and 30c; written out here they pass the 64 KiB scenario file limit). Then one more Down (4 frames) and ${SETTLE} frames, nothing checked. Reports the list row and offset at the end: row ${lastEnd.row}, offset ${lastEnd.offset} if Down stops at slot ${LAST_SLOT}; row 0, offset 0 if it wraps to slot 0. Checks: still on overlay ${MENU_OVERLAY_MATERIA} in the menu, materia untouched, a rerun matches. ${tail}`,
     input: [
       ...OPEN_SCREEN,
       ...OPEN_LIST,
-      ...scriptFromListPlan(toLast, LIST_START, 'w_last'),
+      // The plan's own steps are proved by 30b and 30c; written out for 199
+      // slots they make the file larger than the sandbox's 64 KiB scenario
+      // limit. So Down is pressed every LAST_EVERY frames until the offset
+      // reaches the last page (only the press onto slot 199 gets there),
+      // and the row is checked.
+      { wait: { until: { mem: 'l_off', equals: lastEnd.offset }, timeout: LAST_TIMEOUT, press: { buttons: ['down'], every: LAST_EVERY, hold: toLast.timing.hold } }, metric: 'w_last' },
+      until('l_row', lastEnd.row, undefined, 1),
+      { wait: { frames: SETTLE } },
+      until('l_off', lastEnd.offset, undefined, 1),
       PRESS('down'),
       { wait: { frames: SETTLE } },
     ],

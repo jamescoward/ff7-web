@@ -56,7 +56,11 @@ describe('#255 materia slot scenarios', () => {
     assert.equal(toLast.steps.length, LAST_SLOT);
   });
 
-  test('every list press is a plan step, in order', () => {
+  test('every scenario file fits the sandbox 64 KiB scenario limit', () => {
+    for (const sc of materiaSlotsScenarios()) assert.ok(Buffer.byteLength(serialise(sc)) <= 64 * 1024, sc.name);
+  });
+
+  test('list presses follow the plans in order (30d: held Downs to the last page, then one Down)', () => {
     const [, column, armor, end] = materiaSlotsScenarios();
     const listPresses = (s) => {
       const start = s.input.findIndex((x) => x.wait?.until?.mem === 'l_off');
@@ -64,7 +68,13 @@ describe('#255 materia slot scenarios', () => {
     };
     assert.deepEqual(listPresses(column), toColumnSlot.steps.map((s) => s.button));
     assert.deepEqual(listPresses(armor), [...toThirteen.steps, ...toBackSlot.steps].map((s) => s.button));
-    assert.deepEqual(listPresses(end), [...toLast.steps.map((s) => s.button), 'down'], 'the plan, then the one measured Down');
+    // 30d: held Downs until the last page's offset, its row checked, then the one measured Down.
+    const held = end.input.find((x) => x.wait?.press && x.wait.until?.mem === 'l_off');
+    assert.deepEqual(held.wait.until, { mem: 'l_off', equals: toLast.steps.at(-1).offset });
+    assert.deepEqual(held.wait.press.buttons, ['down']);
+    const after = end.input.slice(end.input.indexOf(held) + 1);
+    assert.deepEqual(after[0].wait.until, { mem: 'l_row', equals: toLast.steps.at(-1).row });
+    assert.deepEqual(after.filter((x) => x.buttons).map((x) => x.buttons), [['down']], 'then exactly one measured Down');
   });
 
   test('the cursors and slots read are confirmed entries', () => {

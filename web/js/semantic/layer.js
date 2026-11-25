@@ -19,7 +19,7 @@
 
 import { decodeItem, decodeMateria, ACCESSORY_NONE } from './inventory.js';
 import { fieldUnits, nearbyFrom } from './nearby.js';
-import { battleListIndex } from './battle-lists.js';
+import { BATTLE_LISTS, battleListEntries as battleListEntriesOf, battleListIndex } from './battle-lists.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, TYPES, RECORD_WEAPON_MATERIA_SLOTS, RECORD_ARMOR_MATERIA_SLOTS, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET, BATTLE_WIDGET_ITEM, BATTLE_WIDGET_MAGIC, MENU_OVERLAY_ITEM, MENU_OVERLAY_EQUIP, MENU_OVERLAY_MATERIA, WINDOW_WAITING_STATES, DIALOG_STATE_ENTRIES, WINDOW_TXT_DONE, WINDOW_POINTER_Y0, WINDOW_LINE_HEIGHT } from './addresses.js';
 
 /** #253: which battle sub-list a battleMenuWidget value shows. */
@@ -186,6 +186,30 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       confirmed &&= valueConfirmed(e, values[name]);
     }
     return { values, confirmed };
+  }
+
+  /**
+   * Read every element of a strided array entry (count elements, stride
+   * bytes apart) in one readMem: { values: [..], confirmed } or { reason }.
+   */
+  async function readStrided(name) {
+    if (!gate.active) return { reason: 'inactive' };
+    const e = entries.get(name);
+    if (!e || e.address === null) return { reason: 'no address' };
+    const size = TYPES[e.type];
+    const n = e.count ?? 1;
+    const stride = e.stride ?? size;
+    const len = (n - 1) * stride + size;
+    let bytes;
+    try {
+      bytes = await backend.readMem(e.address, len);
+    } catch {
+      return { reason: 'read failed' };
+    }
+    if (!bytes || bytes.length !== len) return { reason: 'read failed' };
+    const values = [];
+    for (let i = 0; i < n; i++) values.push(DECODERS[e.type](new DataView(bytes.buffer, bytes.byteOffset + i * stride, size)));
+    return { values, confirmed: e.status === 'confirmed' };
   }
 
   /**
@@ -464,6 +488,29 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
       const column = columnName ? await one(columnName) : null;
       const index = battleListIndex(list, { row, offset, column: columnName ? column : 0 });
       return { value: { actor, list, index, row, offset, column }, confirmed: true };
+    },
+
+    /**
+     * #253 part 2: the entries the open list offers. list 'magic' or 'item',
+     * actor the party slot (0-2). { value: [entries] } as
+     * semantic/battle-lists.js battleListEntries: [{ index, id }] for Magic
+     * (party slot `actor`'s battleMagicId), [{ index, count, item }] for Item
+     * (battleItemCount; item = that inventory slot's id from inventory(), or
+     * null). Only confirmed entries are read; otherwise value is [] and
+     * confirmed false.
+     */
+    async battleListEntries(list, actor) {
+      if (!BATTLE_LISTS[list]) return { reason: 'unknown list' };
+      if (!(Number.isInteger(actor) && actor >= 0 && actor <= 2)) return { reason: 'out of range' };
+      const name = list === 'magic' ? `battleMagicId${actor}` : 'battleItemCount';
+      const e = entries.get(name);
+      if (!e || e.status !== 'confirmed') return { value: [], confirmed: false };
+      const r = await readStrided(name);
+      if (!r.values) return fail(r);
+      if (list === 'magic') return { value: battleListEntriesOf('magic', { ids: r.values }), confirmed: true };
+      const inv = await api.inventory();
+      const inventory = inv.value && inv.confirmed ? inv.value : null;
+      return { value: battleListEntriesOf('item', { counts: r.values, inventory }), confirmed: true };
     },
 
     /**

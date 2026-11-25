@@ -491,6 +491,16 @@ body {
 .bp-btn:disabled { opacity: 0.4; }
 .battle-panel[data-view="command"] .bp-targets,
 .battle-panel[data-view="targeting"] .bp-commands { display: none; }
+/* List view (#253 part 2): a confirmed Magic or Item list's entries, in the
+   same two columns. At most two rows of buttons show (the height of the other
+   views, so the pad does not move); more entries scroll inside the panel. */
+.bp-list-wrap { display: none; }
+.battle-panel[data-view="list"] .bp-commands,
+.battle-panel[data-view="list"] .bp-targets { display: none; }
+.battle-panel[data-view="list"] .bp-list-wrap { display: block; }
+.bp-list { max-height: calc(2 * 44px + 6px); overflow-y: auto; overscroll-behavior: contain; }
+.bp-note { margin: 0 0 4px; font-size: 13px; }
+.bp-note[hidden] { display: none; }
 @media (orientation: landscape) and (max-height: 600px) {
   .battle-panel { display: none !important; }
 }
@@ -526,6 +536,7 @@ body {
   }
   :root[data-battle-crop-on] .bp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   :root[data-battle-crop-on] .bp-btn { padding: 0 4px; font-size: 13px; white-space: nowrap; }
+  :root[data-battle-crop-on] .bp-list { max-height: 44px; }
 }
 @media not all and (orientation: landscape) and (max-height: 600px) {
   :root[data-safe-layout][data-battle-panel-on] body { height: auto; min-height: 100dvh; overflow: visible; }

@@ -46,3 +46,6 @@ Recorded 2026-11-25 from the `eval` job log. 110 pass, 0 fail, 12 error.
 - **H4 and H2b hold:** the armor row is reached with one Down. The armor list fills armor materia slot 0, and Up at row 0 with offset > 0 scrolls back.
 - **List end:** Down at slot 199 leaves the cursor at row 9, offset 190. It stops and doesn't wrap. `materiaListStep`'s comment records this, and the plans already never go past 199.
 - **The 12 errors are the deadline, not these scenarios.** This runner ran at about half the usual speed (new-game-to-reactor-entrance took 47.9 s against 27-28 s), and the sandbox stopped starting scenarios after `save-boot-5`. The cut set (`save-boot-6` onwards, `title-*`, `touch-playthrough`) is unchanged by this PR. #269 tracks the deadline. Tier 2 is not green yet: the next push's run must have no errors, and it also serves as the determinism run for 30a-30d.
+
+## Tier 2 run 3 (`dd4a9ca`; tier2-eval 45622232120): green, deterministic
+122 pass, 0 fail, 0 error. 30a-30d gave the same metrics as run 2: 30a col 7, srow 0; 30b wm7 1841; 30c w_row, w_far, w_back and took_ok all 1; 30d l_row 9, l_off 190, w_last 2380. So the results repeat across two runs.

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { ROUTE_MODELS, ROUTE_TIMEOUT, routeScenarios, AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { ROUTE_GW_TIMEOUT, ROUTE_NUDGE, ROUTE_TIMEOUT, routeScenarios, AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -195,13 +195,18 @@ describe('#120 touch playthrough', () => {
   test('stretch 2 route probes (third budget): route steps and touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const probes = routeScenarios();
-    assert.deepEqual(probes.map((p) => p.name), ROUTE_MODELS.map((k) => `touch-s2r-talk-m${k}`));
-    // Each talks to its model through the route step, then routes to gateway 1 (md1_2).
+    assert.deepEqual(probes.map((p) => p.name), ['touch-s2r3-gw', 'touch-s2r3-m3-gw']);
+    // Attempt 3: each ends on a nudging gateway route to gateway 1 (md1_2); the second talks to model 3 first.
     for (const p of probes) {
       const routes = p.input.filter((s) => s.route).map((s) => s.route);
-      assert.equal(routes.length, 2, p.name);
-      assert.ok(routes[0].to.model !== undefined && routes[0].talk > 0, p.name);
-      assert.deepEqual(routes[1].to, { gateway: 1 }, p.name);
+      const gw = routes.at(-1);
+      assert.deepEqual(gw.to, { gateway: 1 }, p.name);
+      assert.equal(gw.nudge, ROUTE_NUDGE, p.name);
+      assert.equal(gw.timeout, ROUTE_GW_TIMEOUT, p.name);
+      if (p.name.includes('-m3-')) {
+        assert.equal(routes.length, 2, p.name);
+        assert.ok(routes[0].to.model === 3 && routes[0].talk > 0 && routes[0].timeout === ROUTE_TIMEOUT, p.name);
+      } else assert.equal(routes.length, 1, p.name);
     }
     const files = new Set(playthroughFiles().map((f) => f.data.name));
     for (const p of probes) {
@@ -214,7 +219,6 @@ describe('#120 touch playthrough', () => {
       for (const s of p.input) {
         for (const b of s.buttons ?? []) assert.ok(offered.has(b), `${p.name}: ${b}`);
         if (s.route) {
-          assert.equal(s.route.timeout, ROUTE_TIMEOUT, p.name);
           for (const m of [...Object.values(s.route.report), ...(s.route.leg ?? [])]) named.add(m);
         }
       }
@@ -224,6 +228,6 @@ describe('#120 touch playthrough', () => {
     }
     // The hint probes and attempt 1's route probes they replace are no longer generated.
     for (const n of files) assert.ok(!n.startsWith('touch-s2i-'), n);
-    for (const n of ['touch-s2r-gw1', 'touch-s2r-m2', 'touch-s2r-m3', 'touch-s2r-m4', 'touch-s2r-m3-gw1']) assert.ok(!files.has(n), n);
+    for (const n of ['touch-s2r-gw1', 'touch-s2r-m2', 'touch-s2r-m3', 'touch-s2r-m4', 'touch-s2r-m3-gw1', 'touch-s2r-talk-m2', 'touch-s2r-talk-m3', 'touch-s2r-talk-m4']) assert.ok(!files.has(n), n);
   });
 });

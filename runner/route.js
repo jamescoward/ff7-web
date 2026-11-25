@@ -44,8 +44,14 @@ export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, l
  * talked: frames until every window was closed again (0: not closed);
  * window: which window opened first (index + 1); detours: sidesteps used;
  * block: the model in solid contact at the last stall (index + 1, 0 none).
+ * Attempt 3 (stall diagnostics): opened: windows that nudges opened and
+ * pressed through; wstall: the window open at the last stall (index + 1,
+ * 0 none); remain: triangles on the path from where the route ended to the
+ * goal (1 = in a goal triangle, 0 = no path); near: the nearest other model
+ * within NEAR_RANGE of the player at the last stall, ignoring height and
+ * solidity (index + 1, 0 none).
  */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block']);
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near']);
 /** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
@@ -59,8 +65,13 @@ export const ROUTE_TALK_EVERY = 20;
 /** Talk phase: every window closed this long after one opened ends the talk. */
 export const ROUTE_TALK_CLOSED = 30;
 
+/** The leg code of frames pressed with no direction held. */
+export const NO_DIRECTION = 8;
+/** Ground distance (field units) within which `near` names a model. */
+export const NEAR_RANGE = 256;
+
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0 });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
@@ -72,6 +83,11 @@ export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, fram
  * - talk (model goals only): after the route ends reached or stuck, up to
  *   this many frames of facing the model and pressing Interact, then
  *   pressing it through every message until all windows are closed.
+ * - nudge (attempt 3): on a stall, before any detour, press through a
+ *   window that is already open; otherwise hold the last direction and tap
+ *   Interact for up to this many frames, and press through a window that
+ *   opens. Once per stall point: a further stall without moving goes on to
+ *   the detours.
  * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
@@ -102,9 +118,15 @@ export function runRoute(backend, step, frame) {
   }
   const patience = step.patience ?? ROUTE_STUCK_FRAMES;
   const detours = step.detour ?? 0;
+  const nudge = step.nudge ?? 0;
+  let nudged = false;
   const codes = [];
-  const press = (c) => {
-    frame(padMask([...ROUTE_BUTTONS[c]]));
+  // c: a direction code, or -1 for none; circle: Interact held too. Legs
+  // record the direction only (the leg packing has no button field), so a
+  // replay of the legs alone omits the nudges' Interact taps.
+  const press = (c, circle = false) => {
+    const dir = c < 0 ? [] : [...ROUTE_BUTTONS[c]];
+    frame(padMask(circle ? [...dir, ROUTE_TALK_BUTTON] : dir));
     codes.push(c);
   };
   let code = -1;
@@ -129,10 +151,26 @@ export function runRoute(backend, step, frame) {
       break;
     }
     if (last && last.x === me.x && last.y === me.y) still += 1;
-    else still = 0;
+    else {
+      if (last) nudged = false;
+      still = 0;
+    }
     last = me;
     if (still >= patience) {
       res.block = blockingModel(readMem, me);
+      res.wstall = openWindow(readMem);
+      res.near = nearestModel(readMem, me);
+      if (nudge > 0 && !nudged && code >= 0) {
+        nudged = true;
+        const before = codes.length;
+        if (res.wstall || nudgeTap(readMem, code, nudge, press, () => codes.length < step.timeout)) {
+          res.opened += 1;
+          pressThrough(readMem, step.timeout - codes.length, press);
+        }
+        still = 0;
+        last = null;
+        if (codes.length > before) continue;
+      }
       if (res.detours >= detours || code < 0) {
         res.outcome = ROUTE_OUTCOME.stuck;
         break;
@@ -170,10 +208,70 @@ export function runRoute(backend, step, frame) {
     press(code);
   }
   res.frames = codes.length;
-  res.legs = legsOf(codes);
+  // A frame with no direction held (a nudge's press-through) packs as code 8.
+  res.legs = legsOf(codes.map((c) => (c < 0 ? NO_DIRECTION : c)));
+  const end = readPlayer(readMem);
+  if (end && end.posI < mesh.count) {
+    const rest = findPath(mesh, end.posI, goal.tris, false);
+    res.remain = rest ? rest.length : 0;
+  }
   const talkable = res.outcome === ROUTE_OUTCOME.reached || res.outcome === ROUTE_OUTCOME.stuck;
   if (step.talk && goal.kind === 'model' && talkable) talkPhase(readMem, goal, cd, step.talk, frame, res);
   return res;
+}
+
+/** The nearest other model within NEAR_RANGE of `me` on the ground, ignoring height and solidity (index + 1, 0 none). */
+function nearestModel(readMem, me) {
+  const n = readS16(readMem, ROUTE_WATCH.modelCount);
+  if (n === null || !me) return 0;
+  let best = 0;
+  let bestD = NEAR_RANGE;
+  for (let k = 0; k < Math.min(n, 16); k++) {
+    if (k === me.model) continue;
+    const m = readModel(readMem, k);
+    if (!m) continue;
+    const d = Math.hypot(m.x - me.x, m.y - me.y);
+    if (d < bestD) {
+      best = k + 1;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** A nudge: hold direction `code` and tap Interact for up to `limit` frames; true when a window opens. */
+function nudgeTap(readMem, code, limit, press, more) {
+  for (let n = 0; n < limit && more(); n++) {
+    if (openWindow(readMem)) return true;
+    press(code, n % ROUTE_TALK_EVERY < ROUTE_TALK_HOLD);
+  }
+  return openWindow(readMem) !== 0;
+}
+
+/**
+ * Press Interact whenever a window waits for Circle, with no direction
+ * held, until every window has been closed for ROUTE_TALK_CLOSED frames or
+ * `limit` frames pass. Returns the frames used.
+ */
+function pressThrough(readMem, limit, press) {
+  let closed = 0;
+  let hold = 0;
+  let rest = 0;
+  for (let m = 0; m < limit; m++) {
+    if (openWindow(readMem)) closed = 0;
+    else closed += 1;
+    if (closed >= ROUTE_TALK_CLOSED) return m;
+    if (hold === 0 && rest === 0 && windowWaiting(readMem)) hold = ROUTE_TALK_HOLD;
+    if (hold > 0) {
+      press(-1, true);
+      hold -= 1;
+      if (hold === 0) rest = ROUTE_TALK_EVERY - ROUTE_TALK_HOLD;
+    } else {
+      press(-1);
+      if (rest > 0) rest -= 1;
+    }
+  }
+  return limit;
 }
 
 /**

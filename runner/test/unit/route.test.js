@@ -35,7 +35,7 @@ import {
   unpackLeg,
 } from '../../../semantic/walkmesh.js';
 import { padMask } from '../../pad.js';
-import { ROUTE_OUTCOME, emptyRoute, routeMetrics, runRoute } from '../../route.js';
+import { NO_DIRECTION, ROUTE_OUTCOME, emptyRoute, routeMetrics, runRoute } from '../../route.js';
 import { loadScenario2, playScript } from '../../format2.js';
 
 const BASE = 0x80000000;
@@ -165,6 +165,7 @@ function toyBackend(tris, opts = {}) {
   return {
     frames: 0,
     readMem: (a, l) => f.ram.slice(a - BASE, a - BASE + l),
+    poke16: (a, v) => f.dv.setInt16(f.at(a), v, true),
     setPad(mask, port) {
       if (port === 0) pad = mask;
     },
@@ -365,6 +366,57 @@ describe('runner/route.js', () => {
     assert.equal(r.outcome, ROUTE_OUTCOME.reached);
     assert.deepEqual([r.talk, r.talked, r.window], [0, 0, 0]);
     assert.throws(() => loadScenario2({ format: 2, name: 'route-load', boot: { fixture: 'pad-echo', from: 'pad-echo-ready' }, input: [{ route: { to: { gateway: 0 }, timeout: 10, talk: 5 } }], assert: [], metrics: [] }, {}), /talk needs a model goal/);
+  });
+
+  it('nudges a stall: Interact facing a blocker that talks opens the way (attempt 3)', () => {
+    // Model 1 stands in the corridor, solid, and talks; its message's last page moves it away.
+    const opts = {
+      control: 128,
+      models: [{ x: 110, y: 16, talk: 16, solid: 8, block: true }],
+      talker: { model: 1, window: 1, pages: 2, clears: 1 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b0 = toyBackend(corridor(5), opts);
+    const r0 = runRoute(b0, { to: { gateway: 0 }, timeout: 1000 }, frameOn(b0));
+    assert.equal(r0.outcome, ROUTE_OUTCOME.stuck);
+    assert.equal(r0.near, 2);
+    assert.equal(r0.wstall, 0);
+    assert.equal(r0.opened, 0);
+    assert.ok(r0.remain > 1, `remain ${r0.remain}`);
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 1000, nudge: 120 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r.opened, 1);
+    assert.equal(r.near, 2);
+    assert.equal(r.remain, 1);
+    assert.equal(openWindow(b.readMem), 0);
+    // Press-through frames hold no direction and pack as code NO_DIRECTION.
+    assert.ok(r.legs.some((l) => Math.floor(l / 10000) === NO_DIRECTION));
+    assert.equal(r.legs.reduce((n, l) => n + (l % 10000), 0), r.frames);
+  });
+
+  it('presses through a window already open at a stall, and nudges once per stall point', () => {
+    const opts = {
+      control: 128,
+      models: [{ x: 300, y: 16, talk: 16, solid: 4 }],
+      talker: { model: 1, window: 0, pages: 1 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b = toyBackend(corridor(5), opts);
+    b.poke16(ROUTE_WATCH.windows[0], 6); // a message holds the player from the start
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 1000, nudge: 60 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r.wstall, 1);
+    assert.equal(r.opened, 1);
+    // A solid blocker that doesn't talk: one nudge of 60 frames, then stuck (no detours), long before the timeout.
+    const quiet = { control: 128, models: [{ x: 110, y: 16, solid: 8, block: true }], gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 } };
+    const w0 = toyBackend(corridor(5), quiet);
+    const plain = runRoute(w0, { to: { gateway: 0 }, timeout: 5000 }, frameOn(w0));
+    const w = toyBackend(corridor(5), quiet);
+    const rw = runRoute(w, { to: { gateway: 0 }, timeout: 5000, nudge: 60 }, frameOn(w));
+    assert.equal(rw.outcome, ROUTE_OUTCOME.stuck);
+    assert.equal(rw.opened, 0);
+    assert.equal(rw.frames, plain.frames + 60 + 60);
   });
 
   it('names metrics for the reports and the legs from legFrom', () => {

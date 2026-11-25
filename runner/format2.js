@@ -198,6 +198,7 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
         ...(r.patience !== undefined ? { patience: r.patience } : {}),
         ...(r.detour !== undefined ? { detour: r.detour } : {}),
         ...(r.talk !== undefined ? { talk: r.talk } : {}),
+        ...(r.nudge !== undefined ? { nudge: r.nudge } : {}),
         report: { ...(r.report ?? {}) },
         leg: [...(r.leg ?? [])],
         legFrom: r.legFrom ?? 0,

@@ -540,6 +540,7 @@
                 "patience": { "type": "integer", "minimum": 1, "maximum": 3600 },
                 "detour": { "type": "integer", "minimum": 0, "maximum": 16 },
                 "talk": { "type": "integer", "minimum": 1, "maximum": 3600 },
+                "nudge": { "type": "integer", "minimum": 1, "maximum": 3600 },
                 "report": {
                   "type": "object",
                   "additionalProperties": false,
@@ -554,7 +555,11 @@
                     "talked": { "$ref": "#/$defs/metricName" },
                     "window": { "$ref": "#/$defs/metricName" },
                     "detours": { "$ref": "#/$defs/metricName" },
-                    "block": { "$ref": "#/$defs/metricName" }
+                    "block": { "$ref": "#/$defs/metricName" },
+                    "opened": { "$ref": "#/$defs/metricName" },
+                    "wstall": { "$ref": "#/$defs/metricName" },
+                    "remain": { "$ref": "#/$defs/metricName" },
+                    "near": { "$ref": "#/$defs/metricName" }
                   }
                 },
                 "leg": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/metricName" } },

@@ -479,3 +479,40 @@ How to read the result:
 - **talk > 0, talked > 0, out_g 2 with block_g = k:** the talk ran but model k still blocks. Try a talk to k, or more detours.
 - **talk 0:** no window opened. Facing or reach is the problem.
 - **talked 0:** the message didn't close: a choice window or a long scene. Look at `win`.
+
+### Attempt 2 results (`f9c0ff5`; tier2-eval 45549628796, eval 12.1 min): 118 pass, 3 fail (the probes), 0 error
+Recorded 2026-11-25 from the `eval` job log. `touch-playthrough` (stretch 1) passes unchanged.
+
+| probe | out_m | talk | talked | win | out_g | det_g | block_g | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| touch-s2r-talk-m2 | 2 stuck | 1 | 37 | 2 | **3 timeout** | 4 | 0 | 117 |
+| touch-s2r-talk-m3 | 2 stuck | 1 | 37 | 2 | **3 timeout** | 4 | 0 | 117 |
+| touch-s2r-talk-m4 | 1 reached | 0 | 0 | 0 | **3 timeout** | 4 | 0 | 117 |
+
+Reading:
+- **m2 and m3 are the same run in effect:** the route stalls at the same point, and window 1 is already open when the talk phase starts (`talk` 1 means the first frame). So the window was opened by reaching that point (or by the stall), not by a facing press. It closed within about 7 frames of pressing (talked 37 = 30 closed frames + ~7). Hypothesis: a touch or line trigger there runs a short message.
+- **m4's talk range is reached, but 1200 frames of facing and tapping open nothing.** Model 4 has no talk at this point of the story, or facing is wrong.
+- **Every gateway route times out**, whatever came before, after only 4 sidesteps: 4 stalls of 600 still frames plus sidesteps and walking fill the 3000 frames. At the last stall **no model is in solid contact** (block_g 0). So what holds Cloud short of md1_2 is not a solid model as far as `blockingModel` sees (it skips models more than the talk height apart), and not a lock (attempt 1: locked 0).
+- Remaining hypotheses: (a) a window or scene holds Cloud during the gateway route, and nothing presses through it (the route step pressed no buttons); (b) a model at another height (the gate, say) blocks him and `blockingModel` skips it; (c) a walkmesh edge the steering slides along without passing.
+- Counted as attempt 2 of the third budget.
+
+### Attempt 3 (last of the third budget): nudge each stall, and say why it stalled
+The route step gains `nudge: n`. On each new stall point, before any sidestep: if a window is open, press Interact through it; otherwise hold the last direction and tap Interact for up to n frames, and press through any window that opens. Once per stall point; the next stall there goes on to the sidesteps. New reports, numbers only:
+- `opened`: windows the nudges pressed through;
+- `wstall`: the window open at the last stall (index + 1), which tests (a);
+- `near`: the nearest other model within 256 at the last stall, at any height and solid or not (index + 1), which tests (b) against `block`;
+- `remain`: triangles from the end position to the gateway (1 = in a gateway triangle), which shows how far short Cloud ends.
+
+Probes (they replace attempt 2's three; m2 and m3 were the same run, and m4 adds nothing to the gateway leg):
+- `touch-s2r3-gw`: route straight to gateway 1 with nudges (6000 frames, patience 120, nudge 300, 6 sidesteps).
+- `touch-s2r3-m3-gw`: attempt 2's model 3 route and talk, then the same gateway route.
+
+Tier 1: `runner/test/unit/route.test.js` gains a toy blocker that talks (a nudge opens its message and it steps away), a window already open at a stall, and a quiet blocker (one 60-frame nudge, then stuck).
+
+How to read the result:
+- **md1_2 reached:** the nudge opens the way. Next: replay the legs as drags plus Interact taps in `touch-playthrough` (the legs carry no button field, so the Interact taps of a nudge need their own leg probe or a fixed tap pattern).
+- **opened > 0, still timeout:** a message held Cloud and pressing through it was not enough; `remain` and `near` say where he ends.
+- **wstall 0, near k, block_g 0:** model k is near at a different height: hypothesis (b).
+- **wstall 0, near 0:** nothing near: hypothesis (c), a walkmesh edge. `remain` says how many triangles short.
+
+If md1_2 isn't reached, the third budget is spent: report on #120 with these readings and stop.

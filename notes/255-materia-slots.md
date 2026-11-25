@@ -55,3 +55,6 @@ The reviewer found that 30d checked no savemap result. #255 asks each scenario t
 - Fix: after the measured Down, 30d now checks that the cursor stopped (row 9, offset 190; `w_stop`). Runs 2 and 3 measured that stop, so it is now an acceptance check. Then it takes slot 199's materia with Circle. Checks: slot 199 empty and changed since the mark, weapon slot 0 holds 0xc731, and slots 2, 7 and 13 unchanged. 30d is 9.3 KB.
 - Gap that remains (agent default, recorded on #255): 30d reaches slot 199 by held Downs, not by the plan's 199 checked steps, because that file would pass the sandbox's 64 KiB limit. The plan is proved step by step over 7 steps (30b), and over 13 steps out and 11 back with scrolling both ways (30c). Every step of `materiaListPlan` uses the same `materiaListStep` rule, so the long plan adds no new case.
 - Needs a new Tier 2 run for 30d: this is a change to its input.
+
+## Tier 2 run 4 (`d938f4a`; tier2-eval 45627460198): green
+122 pass, 0 fail, 0 error. 30a-30c repeat runs 2 and 3 exactly (30a col 7, srow 0; 30b wm7 1841; 30c all 1). 30d: w_stop 1, eq_wait 1, took_ok 1, wm0 50993 (0xc731, materia 49's word from slot 199), w_last 2380 (as in runs 2 and 3). So Circle at the stopped cursor took slot 199's materia, confirmed in the savemap. The next push's run (notes only) is the repeat for 30d's new checks.

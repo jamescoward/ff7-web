@@ -516,3 +516,25 @@ How to read the result:
 - **wstall 0, near 0:** nothing near: hypothesis (c), a walkmesh edge. `remain` says how many triangles short.
 
 If md1_2 isn't reached, the third budget is spent: report on #120 with these readings and stop.
+
+### Attempt 3 results (`039db47`; tier2-eval 45617447865, eval 11.8 min): 118 pass, 2 fail (the probes), 0 error
+Recorded 2026-11-25. `touch-playthrough` (stretch 1) passes unchanged.
+
+| probe | out_g | det_g | opened | wstall | remain | near | block_g | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| touch-s2r3-gw | 2 stuck | 6 | 1 | **3** (window 2) | 2 | 3 (model 2) | 0 | 117 |
+| touch-s2r3-m3-gw | 2 stuck | 6 | 1 | **2** (window 1) | 2 | 3 (model 2) | 0 | 117 |
+
+Reading:
+- With patience 120, the routes now end **stuck** after all 6 sidesteps rather than timing out. Cloud ends **2 triangles from gateway 1**, as in attempt 1.
+- **A message window is open at the last stall in both probes**: window 2 on the direct route, and window 1 after the talk to model 3. The nudge at one stall point opened and pressed through one window (`opened` 1). The window open at the last stall was not pressed through, because the nudge runs once per point and that point had already been nudged. Its state is not reported. If it had waited for Circle (state 6), the earlier press-through logic would have closed it, so it is probably in another state, such as typing (2), which attempt 1 also saw.
+- **Model 2 is the nearest model** (within 256 at any height) and is not in solid contact (block 0). So Cloud is held by a message and not by a solid model. Model 2 (a party member, by #237's reading) talks when Cloud comes near it, with no button press.
+- Hypothesis (a) is **supported**: a window or scene holds Cloud. Hypothesis (b), a model at another height, is not supported (block 0, and near is model 2, which talks). Hypothesis (c), a walkmesh edge, isn't needed to explain the stall.
+
+### Third budget: spent (3 of 3)
+md1_2 was not reached. What the three attempts established, with no coordinates leaving:
+- md1_1's walkmesh reads correctly. The path to gateway 1 has 7 triangles and none is locked.
+- Every route stalls 2 triangles short of gateway 1, beside model 2, while a message window is open. Pressing Circle at "waiting" closes one window, but another window is open again at the next stall.
+- Talks to models 2 and 3 open window 1 at once and it closes after pressing through, but the way to the gateway stays shut. Model 4 doesn't talk.
+
+Suggested next step (needs a fresh budget, so an owner decision): a scene-driving route. On every stall, poll all four windows every frame for up to ~2000 frames, pressing Circle whenever any is at state 6, and report each window's state and how long each stays open. Then re-route. If the scene is a sequence of messages with pauses (party members talking at the gate), the route must ride it out rather than nudge once. Also report the field script's "player can move" flag, if one can be found in the decomp, to tell a scene lock from a message.

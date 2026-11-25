@@ -100,3 +100,39 @@ The whole Tier 2 suite now runs close to the deadline: PR #266's tier2 took 18 m
 20 s (runner speed varies). Attempt 1 added five scenarios, one of them a 5236-frame walk run twice, and the run
 stopped starting scenarios after `save-boot-5`. The limit lives in protected paths (`harness/private-eval/`,
 `.github/`), so it is filed for the owner as its own issue.
+
+## Part 2: the `battle-panel` list view (UI lane)
+Behind the existing Labs flag `battle-panel` (off by default). Tier 3 deferred (#123).
+
+- **What it shows.** While `battleInput()` reports nothing and `battleList()` reports a confirmed Magic or Item
+  list, the panel switches to a list view: one button per entry, in list order. Magic entries are the
+  `battleMagicId<slot>` ids that are not 0xFF ("Spell #id"). Item entries are the `battleItemCount` entries above 0,
+  with the item id of that inventory slot from `inventory()` ("item #n ×count", or "Slot n ×count" without an id).
+  IDs and counts only, never names or game text. Two rows of buttons show, the height of the command and targeting
+  views, so the pad does not move. More entries scroll inside the panel.
+- **A tap.** The panel reads `battleList()` again. With a confirmed cursor it plans with `battleListPlan` (rows
+  first, then columns, never wraps) from that cursor to the entry. It steps the plan executor one game frame at a
+  time, reading the list index after every press, then presses Circle. The game's target selection then follows,
+  and the existing targeting view (Prev, Next, Confirm, Back) covers it.
+- **Stops.** Any executor stop (`moved`, `stuck`, `unread`, ...) or a confirmed read showing that list gone for that
+  slot (`left`) releases the pad and sends nothing more, not even Circle. A cursor that is not a confirmed read
+  (party slots 1 and 2: hypotheses) greys the entries out, with a note, and a tap sends nothing.
+- **Code.** Pure facts in `semantic/`: `battleListEntries`, `battleListLabel` (battle-lists.js), `battleListView`,
+  `battleListTapPlan`, `battleListPlanCursor` (battle-panel.js). The layer reader is `battleListEntries(list, actor)`,
+  one strided `readMem` per array. Drawing and pressing are in `web/js/battle-panel.js`.
+
+Agent defaults (Trip mode rule 11, recorded on #253):
+- Only Tier 2's confirmed lists are offered: party slot 0's Magic and Item lists. The Summon list (widget 7) is not
+  mapped by `battleList()`, so the panel shows nothing new for it.
+- There is no Back button in the list view. Which button closes a list is not checked in Tier 2. The classic pad
+  stays available.
+- The reviewer's non-blocking notes on PR #268 (the `battleItemCount` source text, the `battleMenuWidget` meaning,
+  `battleList()` with an unconfirmed column) touch address-table text and the reader, not the UI. They are left
+  for a game-state follow-up, so this PR changes no Tier 2 claim.
+
+Tier 3 checklist (for #123):
+1. With `battle-panel` on, in a battle with Restore materia, pick Magic: the panel lists spell ids.
+2. Tap the first spell: the cursor moves there and the target cursor appears; Confirm casts it.
+3. Pick Item: the panel lists items with counts; tap one and Confirm uses it (its count drops).
+4. A long list scrolls inside the panel, and the pad does not move.
+5. With the flag off, the battle looks and plays as before.

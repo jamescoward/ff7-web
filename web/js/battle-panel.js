@@ -17,10 +17,21 @@
 // The game skips rows with no command (#171); the plan counts a press that
 // lands on a later planned row as progress (#189, semantic/menus.js `skips`),
 // and a tap on a skipped row stops with 'moved' once the cursor lands past it.
+//
+// List view (#253 part 2): while a confirmed Magic or Item list is open
+// (battleList()), the panel shows the list's entries as buttons (spell ids;
+// item ids and counts; no names). A tap plans the list cursor from its
+// confirmed read to that entry (semantic/battle-lists.js battleListPlan),
+// checks the read list index after every press, then presses Circle; the
+// game's target selection follows, which the targeting view covers. The same
+// stop rules apply: a read showing the list gone ('left') or any executor
+// stop sends nothing more. Entries are disabled while the list cursor is not
+// a confirmed read (Tier 2 confirmed party slot 0 only).
 // Original project code, GPL-2.0-or-later.
 
 import { ADDRESS_TABLE } from './semantic/addresses.js';
-import { battlePanelPlan, battlePanelRows, battlePanelView, battlePlanCursor } from './semantic/battle-panel.js';
+import { battleListLabel } from './semantic/battle-lists.js';
+import { battleListPlanCursor, battleListTapPlan, battleListView, battlePanelPlan, battlePanelRows, battlePanelView, battlePlanCursor } from './semantic/battle-panel.js';
 import { BATTLE_PANEL_ACTIONS, BATTLE_TARGET_ACTIONS } from './semantic/controls.js';
 import { createSemantic } from './semantic/layer.js';
 import { createPlanExecutor } from './semantic/planner.js';
@@ -57,7 +68,39 @@ export function buildPanel(root) {
     b.textContent = BATTLE_PANEL_ACTIONS[id].label;
     targets.append(b);
   }
-  root.append(rows, targets);
+  const list = doc.createElement('div');
+  list.className = 'bp-list-wrap';
+  const note = doc.createElement('p');
+  note.className = 'bp-note';
+  const grid = doc.createElement('div');
+  grid.className = 'bp-grid bp-list';
+  list.append(note, grid);
+  root.append(rows, targets, list);
+}
+
+/** Draw a list view's entries (only when they changed, so a tap target never moves under a finger). */
+export function renderList(root, v, entries) {
+  const grid = root.querySelector?.('.bp-list');
+  const note = root.querySelector?.('.bp-note');
+  if (!grid?.replaceChildren || !note) return;
+  const key = JSON.stringify([v.list, v.actor, entries]);
+  if (grid.dataset.key !== key) {
+    grid.dataset.key = key;
+    grid.dataset.list = v.list;
+    const doc = root.ownerDocument;
+    grid.replaceChildren(...entries.map((e) => {
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'btn bp-btn';
+      b.dataset.index = String(e.index);
+      b.textContent = battleListLabel(v.list, e);
+      return b;
+    }));
+  }
+  const ok = v.index !== null;
+  for (const b of grid.querySelectorAll('button[data-index]')) b.disabled = !ok;
+  note.textContent = !ok ? 'List cursor not confirmed for this party member' : entries.length === 0 ? 'No entries' : '';
+  note.hidden = note.textContent === '';
 }
 
 export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz = PANEL_HZ, semanticFor = createSemantic }) {
@@ -88,6 +131,18 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
   const read = async () => {
     try { return await reader()?.battleInput(); } catch { return null; }
   };
+  const readList = async () => {
+    try { const r = reader(); return r?.battleList ? await r.battleList() : null; } catch { return null; }
+  };
+  const readEntries = async (v) => {
+    try {
+      const r = reader();
+      if (!r?.battleListEntries || v.actor === null) return null;
+      const out = await r.battleListEntries(v.list, v.actor);
+      return out?.value && out.confirmed === true ? out.value : null;
+    } catch { return null; }
+  };
+  let entries = []; // the list view's last confirmed entries
   const show = (v) => {
     view = v;
     const on = v.view !== 'hidden';
@@ -117,12 +172,12 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
     const frame = frameNow();
     if (frame === r.lastFrame) return; // the same game frame: nothing new to step
     r.busy = true;
-    const cursor = battlePlanCursor(await read(), r.actor);
+    const cursor = r.list ? battleListPlanCursor(await readList(), r.actor, r.list) : battlePlanCursor(await read(), r.actor);
     r.busy = false;
     if (run !== r) return; // cancelled while reading
     if (cursor === 'left') {
       release();
-      last = { ok: false, row: r.row, error: { reason: 'left' } };
+      last = { ok: false, ...r.target, error: { reason: 'left' } };
       return;
     }
     r.lastFrame = frame;
@@ -131,18 +186,18 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
     if (out.state === 'running') return;
     release();
     if (out.state === 'done') {
-      last = { ok: true, row: r.row };
+      last = { ok: true, ...r.target };
       pressFor(BATTLE_PANEL_ACTIONS.select.button);
     } else {
-      last = { ok: false, row: r.row, error: out.error };
+      last = { ok: false, ...r.target, error: out.error };
     }
   }
 
   /** A fresh read at tap time; the action goes ahead only if `want` accepts the view. */
-  async function fresh(want) {
+  async function fresh(want, list = false) {
     if (!shouldRun() || view.view === 'hidden' || !idle() || !reader()) return null;
     starting = true;
-    const v = battlePanelView(await read());
+    const v = list ? battleListView(await readList()) : battlePanelView(await read());
     starting = false;
     if (!shouldRun() || !idle() || !v || !want(v)) return null;
     return v;
@@ -156,7 +211,21 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
     let plan;
     try { plan = battlePanelPlan(v.row, row); } catch { last = { ok: false, row, error: { reason: 'range' } }; return; }
     last = null;
-    run = { exec: createPlanExecutor(plan), actor: v.actor, row, busy: false, lastFrame: null, loop: null };
+    run = { exec: createPlanExecutor(plan), actor: v.actor, row, target: { row }, list: null, busy: false, lastFrame: null, loop: null };
+    run.loop = timers.setInterval(turn, LOOP_MS);
+    turn();
+  }
+
+  /** A tap on list entry `index` (#253). Resolves once the plan has started (or been refused). */
+  async function tapEntry(index) {
+    const v = await fresh((x) => x.view === 'list', true);
+    if (!v) return;
+    const target = { list: v.list, index };
+    if (v.index === null || v.actor === null) { last = { ok: false, ...target, error: { reason: 'unread' } }; return; }
+    let plan;
+    try { plan = battleListTapPlan(v, index); } catch { last = { ok: false, ...target, error: { reason: 'range' } }; return; }
+    last = null;
+    run = { exec: createPlanExecutor(plan), actor: v.actor, row: null, target, list: v.list, busy: false, lastFrame: null, loop: null };
     run.loop = timers.setInterval(turn, LOOP_MS);
     turn();
   }
@@ -177,9 +246,21 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
       if (!reader()) return;
       const sample = await read();
       if (handle === null || !shouldRun()) return;
-      const v = battlePanelView(sample);
+      let v = battlePanelView(sample);
       if (!v) return; // a failed read says nothing
-      if (v.view === 'hidden') release();
+      if (v.view === 'hidden') {
+        const lv = battleListView(await readList());
+        if (handle === null || !shouldRun()) return;
+        if (lv?.view === 'list') {
+          const got = await readEntries(lv);
+          if (handle === null || !shouldRun()) return;
+          if (got) entries = got;
+          else if (view.view !== 'list' || view.list !== lv.list || view.actor !== lv.actor) entries = [];
+          v = lv;
+          if (!starting) renderList(root, v, entries);
+        }
+      }
+      if (v.view === 'hidden' || (run && run.list === null && v.view === 'list')) release();
       if (!starting) show(v);
     } finally {
       busy = false;
@@ -204,6 +285,7 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
     const b = e.target?.closest?.('button');
     if (!b || !root.contains(b) || b.disabled) return;
     if (b.dataset.row !== undefined) tapRow(Number(b.dataset.row));
+    else if (b.dataset.index !== undefined) tapEntry(Number(b.dataset.index));
     else if (b.dataset.action) tapAction(b.dataset.action);
   });
   labs.onChange((name) => { if (name === BATTLE_PANEL_FLAG) sync(); });
@@ -212,6 +294,7 @@ export function createBattlePanel({ root, mixer, labs, timers = globalThis, hz =
     tick,
     turn,
     tapRow,
+    tapEntry,
     tapAction,
     setGate(gate) {
       gateActive = Boolean(gate?.active);

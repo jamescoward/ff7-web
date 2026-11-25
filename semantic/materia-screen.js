@@ -56,7 +56,10 @@ export const MATERIA_CONFIRMED_COLUMNS = 2;
  * The slot-cursor plan along a row, column `from` to column `to` (Left and
  * Right; never wraps). Columns beyond `columns` (default
  * MATERIA_CONFIRMED_COLUMNS: what is known for any item) throw RangeError,
- * as planCursorMove does for any row out of range.
+ * as planCursorMove does for any row out of range. With a known slot count
+ * it is confirmed up to 8 (#255): on an 8-slot weapon, 8 Rights from column
+ * 0 end on column 7 with no wrap (save-boot-30a), and the 7-Right plan fills
+ * weapon slot 7 (30b).
  */
 export function materiaColumnPlan(from, to, timing, columns = MATERIA_CONFIRMED_COLUMNS) {
   if (!(Number.isInteger(columns) && columns >= 1 && columns <= MATERIA_MAX_COLUMNS)) throw new RangeError(`columns must be 1..${MATERIA_MAX_COLUMNS}, got ${columns}`);
@@ -89,7 +92,9 @@ export function materiaRowPlan(from, to, timing) {
  * save-boot-25b; past empty slots, #248 save-boot-27a). Up moves the row
  * until row 0 with the offset unchanged (#248 save-boot-27b: six Ups from
  * row 9, offset 4 read rows 8-3, offset 4), then scrolls back (offset - 1;
- * Up at row 0 with offset > 0 is not yet run in Tier 2).
+ * Up at row 0 with offset > 0 scrolls back, #255 save-boot-30c). At the
+ * list's last slot (199: row 9, offset 190) Down does nothing: the cursor
+ * stays there and doesn't wrap to slot 0 (#255 save-boot-30d).
  */
 export function materiaListStep({ row, offset }, button) {
   if (button === 'down') return row < MATERIA_PAGE_ROWS - 1 ? { row: row + 1, offset } : { row, offset: offset + 1 };

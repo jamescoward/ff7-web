@@ -31,3 +31,18 @@ How to read the results:
 The inspect job rejected the build with `bad-scenario`: 30d was 88 KB, over the sandbox's 64 KiB scenario file limit (`MAX_SCENARIO_BYTES` in `harness/private-eval/eval/lib.js`, a protected path; not changed). No scenario ran, so this is not an attempt.
 
 Fix (`30d` only): the 199 plan steps, each with its own waits, are replaced by one wait that presses Down every 12 frames (4 held) until `l_off` is 190, then checks `l_row` 9. Only the press onto slot 199 reaches offset 190, so the wait stops there and can't overshoot into a wrap. The plan itself is still proved step by step by 30b (slot 7) and 30c (slot 13 and back). The file is now 8 KB, and a Tier 1 test keeps every 30x file under 64 KiB.
+
+## Tier 2 run 2 (`f5909f2`; tier2-eval 45617725022): 30a-30d pass
+Recorded 2026-11-25 from the `eval` job log. 110 pass, 0 fail, 12 error.
+
+| scenario | metrics |
+|---|---|
+| 30a columns-measure | col 7, srow 0 |
+| 30b column-far | pass: w_col 1, w_list 1, took_ok 1, wm7 1841 (0x731) |
+| 30c armor-scroll-back | pass: w_row 1, w_far 1, w_back 1, took_ok 1 |
+| 30d list-end | l_row 9, l_off 190, w_last 2380 |
+
+- **H3 holds:** 8 Rights on weapon 4 end on column 7, which is a stop at the last of 8 columns and not a wrap. The 7-Right plan fills weapon slot 7. So `materiaColumnPlan` with a known slot count is confirmed up to 8 (comment updated).
+- **H4 and H2b hold:** the armor row is reached with one Down. The armor list fills armor materia slot 0, and Up at row 0 with offset > 0 scrolls back.
+- **List end:** Down at slot 199 leaves the cursor at row 9, offset 190. It stops and doesn't wrap. `materiaListStep`'s comment records this, and the plans already never go past 199.
+- **The 12 errors are the deadline, not these scenarios.** This runner ran at about half the usual speed (new-game-to-reactor-entrance took 47.9 s against 27-28 s), and the sandbox stopped starting scenarios after `save-boot-5`. The cut set (`save-boot-6` onwards, `title-*`, `touch-playthrough`) is unchanged by this PR. #269 tracks the deadline. Tier 2 is not green yet: the next push's run must have no errors, and it also serves as the determinism run for 30a-30d.

@@ -34,3 +34,8 @@ What this shows:
 - Circle there chose inventory slot 13: its count fell 5 → 4, and party slot 1's HP rose to 333. So list index = offset + row = inventory slot across empty slots (1-4, 6-12).
 - 14a-14f (#135) stay green.
 - The next push (comments and notes only) is the determinism run.
+
+## Tier 2 run 2 (`a0ac6d0`; check 139524709904): 31a and 31b deterministic; 12 deadline errors
+112 pass, 0 fail, 12 error.
+- 31a and 31b report **identical metrics** to run 1, field for field (31a: list_row 9, list_off 4, frames 1258; 31b: scr1_wait 13, w_far, w_target, use_wait, count_ok, hp_ok and match all 1). So the planned use past page 1 is deterministic over two runs.
+- **The 12 errors are the deadline, not these scenarios.** This runner was slow: new-game-to-reactor-entrance took 48.2 s, against 28.7 s in run 1. The sandbox stopped starting scenarios after `save-boot-5`. The cut set (`save-boot-6` onwards, `title-*`, `touch-playthrough`) is unchanged by this PR; #269 tracks the deadline, and #275 run 2 hit the same cut. The tier2 check must be green before merging, so this push's run is needed.

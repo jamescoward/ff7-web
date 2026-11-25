@@ -1,0 +1,699 @@
+{
+  "$schema": "../schema/scenario.schema.json",
+  "format": 2,
+  "tier": 2,
+  "boot": {
+    "disc": 1,
+    "save": "disc1-md1stin-item-scroll",
+    "slot": 1
+  },
+  "memory": {
+    "game_state": {
+      "addr": "0x8009c560",
+      "type": "u16",
+      "description": "g_GameState (s16 as u16; confirmed #76): field 1, menu 5."
+    },
+    "map_cur": {
+      "addr": "0x8009a05c",
+      "type": "u16",
+      "description": "g_FieldCurrentMap (s16 as u16; confirmed #77): the field ID."
+    },
+    "loading": {
+      "addr": "0x800965e8",
+      "type": "u16",
+      "description": "g_IsFieldLoading (s16 as u16; confirmed #77): 2 in a settled field (the field-loaded segment waits on it)."
+    },
+    "row0": {
+      "addr": "0x8009a0d3",
+      "type": "u8",
+      "description": "menuCursor (confirmed #78): the main-menu cursor, row 0 = Item."
+    },
+    "menu_ovl": {
+      "addr": "0x80062dd4",
+      "type": "u32",
+      "description": "menuOverlay (confirmed #135): 1 = the Item screen."
+    },
+    "item_screen": {
+      "addr": "0x801d3e48",
+      "type": "u32",
+      "description": "itemMenuScreen (confirmed #135): 1 the item list, 2 picking a party member."
+    },
+    "list_row": {
+      "addr": "0x801d3df9",
+      "type": "u8",
+      "description": "itemListRow (confirmed #135): the item list cursor on the page, 0-9."
+    },
+    "list_off": {
+      "addr": "0x801d3df0",
+      "type": "u16",
+      "description": "itemListOffset (confirmed #135 at 0 only): the inventory slot on the top row. Scrolling is hypothesis H1 here."
+    },
+    "party_row": {
+      "addr": "0x801d3e0b",
+      "type": "u8",
+      "description": "itemTargetSlot (confirmed #135): the party cursor."
+    },
+    "inv0": {
+      "addr": "0x8009cbe0",
+      "type": "u16",
+      "description": "inventorySlot[0] (confirmed #117)."
+    },
+    "inv5": {
+      "addr": "0x8009cbea",
+      "type": "u16",
+      "description": "inventorySlot[5] (confirmed #117)."
+    },
+    "inv13": {
+      "addr": "0x8009cbfa",
+      "type": "u16",
+      "description": "inventorySlot[13] (confirmed #117): the item used, past page 1."
+    },
+    "hp0": {
+      "addr": "0x8009d85c",
+      "type": "u16",
+      "description": "partyHp0 (confirmed #78)."
+    },
+    "hp1": {
+      "addr": "0x8009dc9c",
+      "type": "u16",
+      "description": "partyHp1 (confirmed #101): the slot the item is used on."
+    }
+  },
+  "name": "save-boot-31b-item-use-past-page1",
+  "description": "#256 part 1 (acceptance): the planned pad sequence uses an item past page 1, across empty slots. From harness/saves/disc1-md1stin-item-scroll.json (party slot 1 at HP 300/333; inventory slot 13 = item index 0, quantity 5; slots 0 and 5 hold other items; every other slot empty), open the field menu, Circle on row 0 (Item), wait until item_screen reads 1 (scr1_wait), 30 frames, check row 0 offset 0. Then itemSlotPlan from row 0 offset 0 to inventory slot 13: 13 down presses (9 row moves, 4 scrolls), each followed by a wait of at most 30 frames for the moving cursor and a one-frame check of the other (w_far is the last). Then Circle, wait until item_screen reads 2, itemTargetPlan 0 to 1 (w_target), mark, Circle, and wait until inventory slot 13 reads quantity 4 (use_wait). Checks: slot 13 count one lower (count_ok); party slot 1 HP rose to 333 (hp_ok, and increased since the mark); party slot 0 HP and inventory slots 0 and 5 unchanged; still on the target page in the menu; a rerun matches. Only frame counts and 1/0 leave.",
+  "input": [
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 1
+        },
+        "timeout": 3600,
+        "press": {
+          "buttons": [
+            "circle"
+          ],
+          "every": 30,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "segment": "field-loaded"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "map_cur",
+          "equals": 116
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "game_state",
+          "equals": 5
+        },
+        "timeout": 600,
+        "press": {
+          "buttons": [
+            "triangle"
+          ],
+          "every": 60,
+          "hold": 4
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 60
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "row0",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "item_screen",
+          "equals": 1
+        },
+        "timeout": 120
+      },
+      "metric": "scr1_wait"
+    },
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 3
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 4
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 5
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 6
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 7
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 8
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 9
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 0
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 1
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 9
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 2
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 9
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 3
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 9
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_off",
+          "equals": 4
+        },
+        "timeout": 30
+      },
+      "metric": "w_far"
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "list_row",
+          "equals": 9
+        },
+        "timeout": 1
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "item_screen",
+          "equals": 2
+        },
+        "timeout": 60
+      }
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "buttons": [
+        "down"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "party_row",
+          "equals": 1
+        },
+        "timeout": 30
+      },
+      "metric": "w_target"
+    },
+    {
+      "wait": {
+        "frames": 8
+      }
+    },
+    {
+      "mark": "before-use"
+    },
+    {
+      "buttons": [
+        "circle"
+      ],
+      "frames": 4
+    },
+    {
+      "wait": {
+        "until": {
+          "mem": "inv13",
+          "equals": 2048
+        },
+        "timeout": 60
+      },
+      "metric": "use_wait"
+    },
+    {
+      "wait": {
+        "frames": 20
+      }
+    }
+  ],
+  "assert": [
+    {
+      "expect": {
+        "mem": "inv13",
+        "equals": 2048
+      },
+      "metric": "count_ok"
+    },
+    {
+      "expect": {
+        "mem": "hp1",
+        "equals": 333
+      },
+      "metric": "hp_ok"
+    },
+    {
+      "change": {
+        "mem": "hp1",
+        "is": "increased",
+        "since": "before-use"
+      }
+    },
+    {
+      "change": {
+        "mem": "hp0",
+        "is": "unchanged",
+        "since": "before-use"
+      }
+    },
+    {
+      "expect": {
+        "mem": "inv0",
+        "equals": 1025
+      }
+    },
+    {
+      "expect": {
+        "mem": "inv5",
+        "equals": 1027
+      }
+    },
+    {
+      "expect": {
+        "mem": "item_screen",
+        "equals": 2
+      }
+    },
+    {
+      "expect": {
+        "mem": "game_state",
+        "equals": 5
+      }
+    },
+    {
+      "sameState": "rerun",
+      "metric": "match"
+    }
+  ],
+  "metrics": [
+    "load_done",
+    "scr1_wait",
+    "w_far",
+    "w_target",
+    "use_wait",
+    "count_ok",
+    "hp_ok",
+    "match"
+  ]
+}

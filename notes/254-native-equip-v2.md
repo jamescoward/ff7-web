@@ -44,3 +44,8 @@ What this shows:
 - List rows are an upper bound. A row past the member's real list makes the plan stop at the first press that doesn't move the cursor.
 - Up in the Equip list (the scroll-back rule) is planned but not run. Plans from the opening state press only Down.
 - That Circle on a list entry returns to the slot page is still a hypothesis. It only decides whether the next tap is offered without reopening Equip.
+
+## Test tightening (#267)
+- `disabledRow(page, index)` in `web/test/native-equip-browser.test.js` asserts that the row is drawn (count 1) before it checks that it is disabled. The four "not offered" checks use it; before, `enabled() === false` also passed with no rows at all.
+- Mutation check (Chromium, local): with `render()` changed to draw no rows, "nothing offered…" fails at `list row 1 is drawn` (expected 1, actual 0); reverted.
+- New tests: after a stop (weapon row 2, stuck list cursor) and after an unexpected change (row 1, another member's weapon changes), closing Equip and opening it again clears `last`, sets `slotPage` and offers the row again, and the offered tap equips.

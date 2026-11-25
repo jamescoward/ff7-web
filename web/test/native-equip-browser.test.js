@@ -110,6 +110,12 @@ const pressed = (list) => list.filter((m) => m !== 0);
 const row = (page, index) => page.locator(`.ne-row[data-index="${index}"]`);
 const enabled = async (page, index) => (await row(page, index).count()) > 0 && !(await row(page, index).isDisabled());
 const msgText = (page) => page.locator('#native-equip .ne-msg').textContent();
+// A "not offered" check: the row must be drawn (exactly one), and disabled.
+// `enabled() === false` alone would also pass if the panel drew no rows (#267).
+async function disabledRow(page, index) {
+  assert.equal(await row(page, index).count(), 1, `list row ${index + 1} is drawn`);
+  return row(page, index).isDisabled();
+}
 
 for (const name of BROWSERS) {
   describe(`native Equip screen: ${name}`, () => {
@@ -232,7 +238,7 @@ for (const name of BROWSERS) {
         const last = await page.evaluate(() => window.ff7web.equipScreen.last);
         assert.equal(last.ok, false);
         assert.equal(last.error.phase, 'list');
-        assert.equal(await enabled(page, 0), false, 'the page is not known after a stop');
+        assert.equal(await disabledRow(page, 0), true, 'the page is not known after a stop');
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
@@ -246,10 +252,45 @@ for (const name of BROWSERS) {
         await row(page, 0).tap();
         await until(async () => (await msgText(page)).startsWith('Something else'), { timeout: 6000, what: 'other change reported' });
         assert.equal((await page.evaluate(() => window.ff7web.equipScreen.last)).outcome, 'other');
-        assert.equal(await enabled(page, 0), false, 'the page is not known after an unexpected change');
+        assert.equal(await disabledRow(page, 0), true, 'the page is not known after an unexpected change');
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
+
+    // v1's reopen path (#267): after a stop or an unexpected change the page
+    // is not known; closing Equip resets the panel, and reopening it is the
+    // opening state again (slotPage = canWatch), so the rows are offered.
+    // A stop needs a Down on the list, so it taps weapon row 2.
+    for (const [what, setup, outcome, index] of [
+      ['a stop', () => { window.sim.stuckList = true; }, 'Stopped', 1],
+      ['an unexpected change', () => { window.sim.alsoChange = true; }, 'Something else', 0],
+    ]) {
+      test(`after ${what}, closing and reopening Equip offers the rows again`, async (t) => {
+        if (skip) return t.skip(skip);
+        const { context, page, errors } = await openApp(browser, '?labs=native-equip', { party: [0, 1, 2], pick: 0 });
+        try {
+          await until(() => enabled(page, index), { timeout: 5000, what: 'row enabled' });
+          await page.evaluate(setup);
+          await row(page, index).tap();
+          await until(async () => (await msgText(page)).startsWith(outcome), { timeout: 6000, what: outcome });
+          assert.equal(await disabledRow(page, index), true, `not offered after ${what}`);
+          // The player leaves the Equip screen and opens it again.
+          await page.evaluate(() => { Object.assign(window.sim, { open: false, stuckList: false, alsoChange: false }); });
+          await until(async () => !(await visible(page)), { timeout: 3000, what: 'panel hidden when Equip closes' });
+          assert.equal(await page.evaluate(() => window.ff7web.equipScreen.last), null, 'the stop is cleared on close');
+          await page.evaluate(() => { Object.assign(window.sim, { open: true, page: 'slot', slot: 0, row: 0, offset: 0 }); });
+          await until(() => visible(page), { timeout: 3000, what: 'panel shown when Equip reopens' });
+          await until(() => enabled(page, index), { timeout: 5000, what: 'row offered again on reopen' });
+          assert.equal(await page.evaluate(() => window.ff7web.equipScreen.slotPage), true);
+          // And the offered tap works: weapon row 1 is equipped.
+          const before = await page.evaluate(() => window.sim.gear[0].weapon);
+          await row(page, index).tap();
+          await until(async () => (await msgText(page)).startsWith('Equipped'), { timeout: 6000, what: 'equipped after reopen' });
+          assert.notEqual(await page.evaluate(() => window.sim.gear[0].weapon), before);
+          assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+      });
+    }
 
     test('nothing offered without a known member, or after other input', async (t) => {
       if (skip) return t.skip(skip);
@@ -257,7 +298,7 @@ for (const name of BROWSERS) {
       try {
         await until(() => visible(page), { timeout: 3000, what: 'panel shown' });
         await page.waitForTimeout(2500);
-        assert.equal(await enabled(page, 0), false, 'party pick not read');
+        assert.equal(await disabledRow(page, 0), true, 'party pick not read');
         assert.match(await msgText(page), /not read/);
         // One-member party, but the player presses a classic-pad button on the
         // Equip screen. Triangle does nothing in the simulator, so the screen
@@ -273,7 +314,7 @@ for (const name of BROWSERS) {
         assert.equal(await page.evaluate(() => window.sim.open), true, 'the Equip screen is still open');
         assert.equal(await visible(page), true);
         assert.equal(await page.evaluate(() => window.ff7web.equipScreen.pristine), false);
-        assert.equal(await enabled(page, 0), false, 'not the opening state');
+        assert.equal(await disabledRow(page, 0), true, 'not the opening state');
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

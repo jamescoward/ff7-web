@@ -1,0 +1,59 @@
+{
+  "$schema": "../schema/save.schema.json",
+  "format": 1,
+  "label": "ff7-web md1stin matslots",
+  "slot": 1,
+  "field": {
+    "id": 116,
+    "x": 32767,
+    "y": 0,
+    "triangle": 12,
+    "direction": 0
+  },
+  "party": [
+    0,
+    255,
+    255
+  ],
+  "progress": 6,
+  "characters": [
+    {
+      "record": 0,
+      "hp": 314,
+      "maxHp": 314,
+      "mp": 54,
+      "maxMp": 54,
+      "limit": 0
+    }
+  ],
+  "equipment": [
+    {
+      "record": 0,
+      "weapon": 4,
+      "armor": 8,
+      "accessory": 255
+    }
+  ],
+  "materia": [
+    {
+      "slot": 2,
+      "id": 49,
+      "ap": 2
+    },
+    {
+      "slot": 7,
+      "id": 49,
+      "ap": 7
+    },
+    {
+      "slot": 13,
+      "id": 49,
+      "ap": 13
+    },
+    {
+      "slot": 199,
+      "id": 49,
+      "ap": 199
+    }
+  ]
+}

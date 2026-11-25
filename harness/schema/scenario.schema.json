@@ -520,7 +520,7 @@
           }
         },
         {
-          "description": "Walk the player along the current field's walkmesh to a goal (#120, runner/route.js): a gateway line (`to.gateway`, its index) or talk range of a field model (`to.model`). Inside the run it reads the walkmesh, searches a triangle path and presses one pad direction a frame, for at most `timeout` frames, then the script goes on whatever the outcome. Only numbers leave: report names metrics for outcome (1 reached, 2 stuck, 3 timeout, 4 left field mode, 5 no walkmesh, 6 no goal, 7 no path; 0 not run), path and free (path length in triangles with and without blocked accesses, 0 for none), locked (triangles blocked), frames and legs (count); leg names metrics for the pressed legs legFrom, legFrom + 1, ..., each direction code (0 up, clockwise to 7 up-left) * 10000 + frames, 0 past the last.",
+          "description": "Walk the player along the current field's walkmesh to a goal (#120, runner/route.js): a gateway line (`to.gateway`, its index) or talk range of a field model (`to.model`). Inside the run it reads the walkmesh, searches a triangle path and presses one pad direction a frame, for at most `timeout` frames, then the script goes on whatever the outcome. Only numbers leave: report names metrics for outcome (1 reached, 2 stuck, 3 timeout, 4 left field mode, 5 no walkmesh, 6 no goal, 7 no path; 0 not run), path and free (path length in triangles with and without blocked accesses, 0 for none), locked (triangles blocked), frames and legs (count); leg names metrics for the pressed legs legFrom, legFrom + 1, ..., each direction code (0 up, clockwise to 7 up-left) * 10000 + frames, 0 past the last. patience: still frames before a stall (default 60); detour: up to that many sidesteps on a stall, then a re-plan; talk (model goals only): after the route ends reached or stuck, up to that many frames facing the model with Interact taps, then Interact through every message until all windows are closed. Their reports: talk (frames until a window opened, 0 none), talked (frames until all closed again, 0 not), window (first window opened, index + 1), detours (sidesteps used), block (model in solid contact at the last stall, index + 1, 0 none). The talk phase is not in the legs.",
           "type": "object",
           "required": ["route"],
           "additionalProperties": false,
@@ -537,6 +537,9 @@
                   ]
                 },
                 "timeout": { "type": "integer", "minimum": 1, "maximum": 36000 },
+                "patience": { "type": "integer", "minimum": 1, "maximum": 3600 },
+                "detour": { "type": "integer", "minimum": 0, "maximum": 16 },
+                "talk": { "type": "integer", "minimum": 1, "maximum": 3600 },
                 "report": {
                   "type": "object",
                   "additionalProperties": false,
@@ -546,7 +549,12 @@
                     "free": { "$ref": "#/$defs/metricName" },
                     "locked": { "$ref": "#/$defs/metricName" },
                     "frames": { "$ref": "#/$defs/metricName" },
-                    "legs": { "$ref": "#/$defs/metricName" }
+                    "legs": { "$ref": "#/$defs/metricName" },
+                    "talk": { "$ref": "#/$defs/metricName" },
+                    "talked": { "$ref": "#/$defs/metricName" },
+                    "window": { "$ref": "#/$defs/metricName" },
+                    "detours": { "$ref": "#/$defs/metricName" },
+                    "block": { "$ref": "#/$defs/metricName" }
                   }
                 },
                 "leg": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/metricName" } },

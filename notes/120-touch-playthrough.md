@@ -447,3 +447,35 @@ The emulator is deterministic, so a reported leg list replays exactly as ordinar
 Untested hypotheses: the field updates the player every frame (closed-loop steering doesn't depend on it), and the md1_1 snapshot is settled with the walkmesh loaded.
 
 **Run 1 of attempt 1 (`832691f`; tier2-eval 45485806546, eval took 19 min): no route data.** 110 pass, 0 fail, 13 error. The sandbox stopped starting scenarios at its deadline, after `save-boot-7h`. The 13 cut were everything from `save-boot-8-world-midgar` on, including `touch-playthrough` and all five `touch-s2r-*` probes, so none of them ran. Recent tier2-eval runs on main took 13 to 20 minutes for the same set, so runner speed varies a lot. This run was on the slow side; whether the new step costs anything before the touch scenarios is unknown. It isn't counted as an attempt: there is no result. Next: let the next push's run report them. If the deadline cuts them again, trim probes (s2r-m2 and s2r-m4 first), because the sandbox time limit is a protected path.
+
+**Run 2 of attempt 1 (`483bc41`; tier2-eval 45492271606, eval took 12 min): route data.** 121 pass, 2 fail (`touch-s2r-gw1` and `touch-s2r-m3-gw1`, whose md1_2 end check fails while the way is shut), 0 error. `touch-playthrough` passes.
+
+| probe | outcome | other metrics |
+|---|---|---|
+| touch-s2r-gw1 | 2 stuck | path 7, free 7, locked 0, 406 frames, 12 legs (first: right 14, down-right 8) |
+| touch-s2r-m2 | 2 stuck | 400 frames, 11 legs; after one Interact press, w0 0, **w1 2** |
+| touch-s2r-m3 | 2 stuck | 400 frames, 12 legs; after one Interact press, w0 0, **w1 2** |
+| touch-s2r-m4 | **1 reached** | 302 frames, 11 legs; after one Interact press, w0 0, w1 0 |
+| touch-s2r-m3-gw1 | out_m 2 stuck, out_g 2 stuck | to gateway 1: path 2, free 2, locked 0, 60 frames (stuck at once); still md1_1 |
+
+What this says (measurements, then hypotheses):
+- **The walkmesh reader works on the real disc** (no outcome 5), and **nothing is locked** (`locked` 0, `path` = `free`). So IDLCK doesn't close the exit.
+- All routes share their first legs and stall after 340 to 400 frames. After the model 3 attempt, Cloud stands **2 triangles from gateway 1**. Hypothesis: a solid model stops him. FieldEntityMove stops the player dead on solid contact, and the stall is in the band where earlier probes found models 1-4.
+- Model 4's talk range **is reachable** (first time any talkable model was reached). One Interact press there, at the route's last heading, opened no window.
+- After the stalls near models 2 and 3, one press left **window 1 in state 2 (text typing)**: a talk started. Which model answered isn't known.
+- The route to the gateway after model 3 stalled at once (60 frames). The 400 frames of fixed taps probably didn't finish the message (Cloud can't move while it is open), or a scene held him.
+- Counted as attempt 1 of the third budget.
+
+### Attempt 2 (2026-11-25): talk through the message, then exit with detours
+The route step gains three options (Tier 1: `runner/test/unit/route.test.js`, with a toy blocker and a toy talker whose message clears it):
+- `talk: n` (model goals): after the route ends reached or stuck, face the model (hold the pad towards it) with Interact taps until a window 0-3 opens. Then press Interact whenever a window waits (state 6) until all are closed for 30 frames. It reports `talk`, `talked` and `window`.
+- `detour: n`: on a stall, sidestep 24 frames at 90° (right first, then alternating), go 16 frames on, and re-plan. It reports `detours`, plus `block`, the model in solid contact at the last stall (index + 1).
+- `patience: n`: still frames before a stall (default 60), so a scene after a talk can play out.
+
+Probes `touch-s2r-talk-m2`, `-m3`, `-m4` replace attempt 1's five, which keeps the Tier 2 time down. Each routes to model k with up to 6 detours, then talks (up to 1200 frames), then routes to gateway 1 with patience 600 and 6 detours. The end check is md1_2. Metrics: `out_m`, `talk`, `talked`, `win`, `out_g`, `det_g`, `block_g`, `map_cur`.
+
+How to read the result:
+- **md1_2 reached:** that talk opens the way. Next: report the legs (a `legFrom` probe) and write stretch 2 into `touch-playthrough`. A talk is a tap on Interact facing the model, so it is a touch-layer action.
+- **talk > 0, talked > 0, out_g 2 with block_g = k:** the talk ran but model k still blocks. Try a talk to k, or more detours.
+- **talk 0:** no window opened. Facing or reach is the problem.
+- **talked 0:** the message didn't close: a choice window or a long scene. Look at `win`.

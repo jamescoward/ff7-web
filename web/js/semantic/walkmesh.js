@@ -60,6 +60,8 @@ export const ENTITY = Object.freeze({ base: 0x80074ea4, size: 0x84, posX: 0x0c, 
  */
 export const ROUTE_DIRS = Object.freeze(['up', 'up-right', 'right', 'down-right', 'down', 'down-left', 'left', 'up-left']);
 export const ROUTE_MOVE_DIR = Object.freeze([0, 224, 192, 160, 128, 96, 64, 32]);
+/** The button that talks and moves a message on (restates semantic/controls.js FIELD_ACTIONS interact; a Tier 1 test keeps them equal). */
+export const ROUTE_TALK_BUTTON = 'circle';
 /** The pad buttons each code holds. */
 export const ROUTE_BUTTONS = Object.freeze(ROUTE_DIRS.map((d) => Object.freeze(d.split('-'))));
 
@@ -311,7 +313,17 @@ export function legsOf(codes) {
  * module copied to runner/semantic/ has no imports; a Tier 1 test keeps
  * them equal.
  */
-export const ROUTE_WATCH = Object.freeze({ playerModel: 0x800965e0, fieldId: 0x8009a05c, gameState: 0x8009c560, fieldMode: 1 });
+export const ROUTE_WATCH = Object.freeze({
+  playerModel: 0x800965e0,
+  fieldId: 0x8009a05c,
+  gameState: 0x8009c560,
+  fieldMode: 1,
+  /** fieldModelCount (s16): models 0 .. this - 1 are in use. */
+  modelCount: 0x8009ac1c,
+  /** dialogState, dialogState1-3 (s16): message windows 0-3; 0 closed, 6 text done and waiting for Circle. */
+  windows: Object.freeze([0x800832a0, 0x800832d0, 0x80083300, 0x80083330]),
+  windowWaiting: 6,
+});
 /** FieldTriggers.gateways: 12 records of 0x18 bytes at +0x38; the line's x1, y1, x2, y2 at +0, +2, +6, +8; the field it leads to at +0x12 (0x7FFF unused). */
 export const GATEWAYS = Object.freeze({ offset: 0x38, size: 0x18, count: 12, x1: 0x0, y1: 0x2, x2: 0x6, y2: 0x8, to: 0x12, unused: 0x7fff });
 /** The game ignores a talk to a model whose height differs from the player's by this much (field units). */
@@ -422,4 +434,42 @@ export function steerPoint(mesh, path, i, here, readMem, goal, near = 6) {
     if (p) return p;
   }
   return goalPoint(readMem, goal, here);
+}
+
+/** The first message window (0-3) that is open, as index + 1, or 0 when all are closed (or unreadable). */
+export function openWindow(readMem) {
+  for (let i = 0; i < ROUTE_WATCH.windows.length; i++) {
+    const v = readS16(readMem, ROUTE_WATCH.windows[i]);
+    if (v !== null && v !== 0) return i + 1;
+  }
+  return 0;
+}
+
+/** Whether any message window waits for Circle (state 6). */
+export function windowWaiting(readMem) {
+  return ROUTE_WATCH.windows.some((a) => readS16(readMem, a) === ROUTE_WATCH.windowWaiting);
+}
+
+/**
+ * The model that blocks the player: the nearest other model in use whose
+ * ground distance is below its SolidRange plus the player's plus `slack`
+ * (FieldEntityMove stops the player dead on such contact), as index + 1,
+ * or 0 for none.
+ */
+export function blockingModel(readMem, me, slack = 8) {
+  const n = readS16(readMem, ROUTE_WATCH.modelCount);
+  if (n === null || !me) return 0;
+  let best = 0;
+  let bestD = Infinity;
+  for (let k = 0; k < Math.min(n, 16); k++) {
+    if (k === me.model) continue;
+    const m = readModel(readMem, k);
+    if (!m || Math.abs(m.z - me.z) >= TALK_Z) continue;
+    const d = Math.hypot(m.x - me.x, m.y - me.y);
+    if (d < m.solidRange + me.solidRange + slack && d < bestD) {
+      best = k + 1;
+      bestD = d;
+    }
+  }
+  return best;
 }

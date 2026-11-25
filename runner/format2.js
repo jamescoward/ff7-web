@@ -190,7 +190,19 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
       // A route step (#120, runner/route.js): walks the walkmesh to a goal.
       if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no route`);
       const r = s.route;
-      return { kind: 'route', to: { ...r.to }, timeout: r.timeout, report: { ...(r.report ?? {}) }, leg: [...(r.leg ?? [])], legFrom: r.legFrom ?? 0, index: i };
+      if (r.talk !== undefined && r.to.model === undefined) throw new ScenarioError(`${w}.route: talk needs a model goal`);
+      return {
+        kind: 'route',
+        to: { ...r.to },
+        timeout: r.timeout,
+        ...(r.patience !== undefined ? { patience: r.patience } : {}),
+        ...(r.detour !== undefined ? { detour: r.detour } : {}),
+        ...(r.talk !== undefined ? { talk: r.talk } : {}),
+        report: { ...(r.report ?? {}) },
+        leg: [...(r.leg ?? [])],
+        legFrom: r.legFrom ?? 0,
+        index: i,
+      };
     }
     if ('frames' in s.wait) return { kind: 'wait', frames: s.wait.frames };
     if (!allowUntil) throw new ScenarioError(`${w}: a boot point waits a fixed number of frames only`);

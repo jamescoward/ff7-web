@@ -17,36 +17,62 @@
 import { padMask } from './pad.js';
 import {
   ROUTE_BUTTONS,
+  ROUTE_TALK_BUTTON,
   ROUTE_WATCH,
+  blockingModel,
   findPath,
   goalReached,
   legsOf,
   lockedCount,
+  openWindow,
   padFor,
   readControlDirection,
+  readModel,
   readPlayer,
   readS16,
   readWalkmesh,
   routeGoal,
   steerPoint,
+  windowWaiting,
 } from './semantic/walkmesh.js';
 
 /** How a route ended (the `outcome` report). 0 is "not run" (the script stopped before the step). */
 export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, left: 4, noMesh: 5, noGoal: 6, noPath: 7 });
-/** What a route step may report as metrics, besides its legs. */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs']);
-/** Frames without moving before a route counts as stuck. */
+/**
+ * What a route step may report as metrics, besides its legs. talk: frames
+ * of the talk phase until a message window opened (0: none opened);
+ * talked: frames until every window was closed again (0: not closed);
+ * window: which window opened first (index + 1); detours: sidesteps used;
+ * block: the model in solid contact at the last stall (index + 1, 0 none).
+ */
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block']);
+/** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
 export const ROUTE_MAX_LEG_METRICS = 8;
+/** A detour: this many frames sideways (90 degrees off the last direction), then this many along it. */
+export const DETOUR_SIDE = 24;
+export const DETOUR_ON = 16;
+/** Talk phase: Interact is held this many frames, at most every ROUTE_TALK_EVERY frames. */
+export const ROUTE_TALK_HOLD = 4;
+export const ROUTE_TALK_EVERY = 20;
+/** Talk phase: every window closed this long after one opened ends the talk. */
+export const ROUTE_TALK_CLOSED = 30;
 
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [] });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
- * timeout }. frame(mask): plays one frame holding `mask` on port 0.
- * Returns { outcome, path, free, locked, frames, legs: [packed] }.
+ * timeout, patience?, detour?, talk? }. frame(mask): plays one frame
+ * holding `mask` on port 0.
+ * - patience: still frames before the route counts as stuck (default 60);
+ * - detour: on a stall, up to this many sidesteps (alternating sides), each
+ *   followed by a re-plan;
+ * - talk (model goals only): after the route ends reached or stuck, up to
+ *   this many frames of facing the model and pressing Interact, then
+ *   pressing it through every message until all windows are closed.
+ * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
   const readMem = (a, l) => backend.readMem(a, l);
@@ -74,7 +100,13 @@ export function runRoute(backend, step, frame) {
     res.outcome = ROUTE_OUTCOME.noPath;
     return res;
   }
+  const patience = step.patience ?? ROUTE_STUCK_FRAMES;
+  const detours = step.detour ?? 0;
   const codes = [];
+  const press = (c) => {
+    frame(padMask([...ROUTE_BUTTONS[c]]));
+    codes.push(c);
+  };
   let code = -1;
   let last = null;
   let still = 0;
@@ -99,9 +131,22 @@ export function runRoute(backend, step, frame) {
     if (last && last.x === me.x && last.y === me.y) still += 1;
     else still = 0;
     last = me;
-    if (still >= ROUTE_STUCK_FRAMES) {
-      res.outcome = ROUTE_OUTCOME.stuck;
-      break;
+    if (still >= patience) {
+      res.block = blockingModel(readMem, me);
+      if (res.detours >= detours || code < 0) {
+        res.outcome = ROUTE_OUTCOME.stuck;
+        break;
+      }
+      // Sidestep 90 degrees off the last direction (right first, then left, ...), then on along it.
+      const side = (code + (res.detours % 2 === 0 ? 2 : 6)) % 8;
+      res.detours += 1;
+      for (let f = 0; f < DETOUR_SIDE && codes.length < step.timeout; f++) press(side);
+      for (let f = 0; f < DETOUR_ON && codes.length < step.timeout; f++) press(code);
+      still = 0;
+      last = null;
+      const here = readPlayer(readMem);
+      if (here && here.posI < mesh.count) path = findPath(mesh, here.posI, goal.tris, true) ?? findPath(mesh, here.posI, goal.tris, false) ?? path;
+      continue;
     }
     let i = path.indexOf(me.posI);
     if (i < 0) {
@@ -122,12 +167,62 @@ export function runRoute(backend, step, frame) {
     // On the target point already: keep the last direction (or none yet).
     if (dx !== 0 || dy !== 0) code = padFor(dx, dy, cd, code);
     else if (code < 0) code = 0;
-    frame(padMask([...ROUTE_BUTTONS[code]]));
-    codes.push(code);
+    press(code);
   }
   res.frames = codes.length;
   res.legs = legsOf(codes);
+  const talkable = res.outcome === ROUTE_OUTCOME.reached || res.outcome === ROUTE_OUTCOME.stuck;
+  if (step.talk && goal.kind === 'model' && talkable) talkPhase(readMem, goal, cd, step.talk, frame, res);
   return res;
+}
+
+/**
+ * The talk phase: face the model (hold the pad towards it) and press
+ * Interact every ROUTE_TALK_EVERY frames until a window opens, for at most
+ * `limit` frames; then, with no direction held, press Interact whenever a
+ * window waits for Circle, until every window has been closed for
+ * ROUTE_TALK_CLOSED frames (or `limit` more frames pass). Fills res.talk,
+ * res.talked and res.window.
+ */
+function talkPhase(readMem, goal, cd, limit, frame, res) {
+  let n = 0;
+  let code = -1;
+  while (n < limit) {
+    const w = openWindow(readMem);
+    if (w) {
+      res.window = w;
+      res.talk = Math.max(n, 1);
+      break;
+    }
+    const me = readPlayer(readMem);
+    const m = readModel(readMem, goal.k);
+    if (me && m && (m.x !== me.x || m.y !== me.y)) code = padFor(m.x - me.x, m.y - me.y, cd, code);
+    const dir = code < 0 ? [] : [...ROUTE_BUTTONS[code]];
+    const tap = n % ROUTE_TALK_EVERY < ROUTE_TALK_HOLD;
+    frame(padMask(tap ? [...dir, ROUTE_TALK_BUTTON] : dir));
+    n += 1;
+  }
+  if (!res.window) return;
+  let closed = 0;
+  let hold = 0;
+  let rest = 0;
+  for (let m = 0; m < limit; m++) {
+    if (openWindow(readMem)) closed = 0;
+    else closed += 1;
+    if (closed >= ROUTE_TALK_CLOSED) {
+      res.talked = Math.max(m, 1);
+      return;
+    }
+    if (hold === 0 && rest === 0 && windowWaiting(readMem)) hold = ROUTE_TALK_HOLD;
+    if (hold > 0) {
+      frame(padMask([ROUTE_TALK_BUTTON]));
+      hold -= 1;
+      if (hold === 0) rest = ROUTE_TALK_EVERY - ROUTE_TALK_HOLD;
+    } else {
+      frame(padMask([]));
+      if (rest > 0) rest -= 1;
+    }
+  }
 }
 
 /**

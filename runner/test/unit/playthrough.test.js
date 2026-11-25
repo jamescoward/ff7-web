@@ -195,7 +195,14 @@ describe('#120 touch playthrough', () => {
   test('stretch 2 route probes (third budget): route steps and touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const probes = routeScenarios();
-    assert.deepEqual(probes.map((p) => p.name), ['touch-s2r-gw1', ...ROUTE_MODELS.map((k) => `touch-s2r-m${k}`), 'touch-s2r-m3-gw1']);
+    assert.deepEqual(probes.map((p) => p.name), ROUTE_MODELS.map((k) => `touch-s2r-talk-m${k}`));
+    // Each talks to its model through the route step, then routes to gateway 1 (md1_2).
+    for (const p of probes) {
+      const routes = p.input.filter((s) => s.route).map((s) => s.route);
+      assert.equal(routes.length, 2, p.name);
+      assert.ok(routes[0].to.model !== undefined && routes[0].talk > 0, p.name);
+      assert.deepEqual(routes[1].to, { gateway: 1 }, p.name);
+    }
     const files = new Set(playthroughFiles().map((f) => f.data.name));
     for (const p of probes) {
       assert.ok(files.has(p.name), p.name);
@@ -215,7 +222,8 @@ describe('#120 touch playthrough', () => {
       // Route metrics only: no position or coordinate memory is reported.
       for (const m of p.metrics) assert.ok(!/^[xy]\d/.test(m), `${p.name}: ${m}`);
     }
-    // The hint probes they replace are no longer generated.
+    // The hint probes and attempt 1's route probes they replace are no longer generated.
     for (const n of files) assert.ok(!n.startsWith('touch-s2i-'), n);
+    for (const n of ['touch-s2r-gw1', 'touch-s2r-m2', 'touch-s2r-m3', 'touch-s2r-m4', 'touch-s2r-m3-gw1']) assert.ok(!files.has(n), n);
   });
 });

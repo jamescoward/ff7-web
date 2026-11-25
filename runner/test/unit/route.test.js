@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
+import { FIELD_ACTIONS } from '../../../semantic/controls.js';
 import {
   ENTITY,
   FIELD_TRIGGERS_REF,
@@ -15,8 +16,10 @@ import {
   ROUTE_BUTTONS,
   ROUTE_DIRS,
   ROUTE_MOVE_DIR,
+  ROUTE_TALK_BUTTON,
   ROUTE_WATCH,
   WALKMESH,
+  blockingModel,
   canEnter,
   findPath,
   inTriangle,
@@ -24,8 +27,10 @@ import {
   locate,
   lockedCount,
   moveDirOf,
+  openWindow,
   packLeg,
   padFor,
+  readPlayer,
   readWalkmesh,
   unpackLeg,
 } from '../../../semantic/walkmesh.js';
@@ -107,6 +112,7 @@ function fakeRam(tris, { blocked = [], control = 0, player = [16, 16], models = 
   };
   setModel(0, { x: player[0], y: player[1] });
   models.forEach((m, i) => setModel(i + 1, m));
+  w16(ROUTE_WATCH.modelCount, 1 + models.length);
   return { ram, dv, at };
 }
 
@@ -131,6 +137,31 @@ function toyBackend(tris, opts = {}) {
     f.dv.setUint16(f.at(e + ENTITY.posI), locate(mesh, f.dv.getInt32(f.at(e + ENTITY.posX), true) / 4096, f.dv.getInt32(f.at(e + ENTITY.posY), true) / 4096), true);
   }
   let pad = 0;
+  let lastCircle = false;
+  // A talker (opts.talker: { model, window, pages, clears }): an Interact
+  // press in its talk range opens `window` at 6; each later press turns a
+  // page, and the last closes it; then model `clears` (a blocker) steps away.
+  const talker = opts.talker;
+  const talkWindow = talker?.window ?? 0;
+  let pages = 0;
+  const talkFrame = (edge) => {
+    if (!talker || !edge) return;
+    const wa = f.at(ROUTE_WATCH.windows[talkWindow]);
+    if (f.dv.getInt16(wa, true) === 6) {
+      pages -= 1;
+      if (pages > 0) return;
+      f.dv.setInt16(wa, 0, true);
+      if (talker.clears) f.dv.setInt32(f.at(ENTITY.base + talker.clears * ENTITY.size + ENTITY.posX), 4000 * 4096, true);
+      return;
+    }
+    const e = ENTITY.base + talker.model * ENTITY.size;
+    const [x, y] = pos();
+    const d = Math.hypot(f.dv.getInt32(f.at(e + ENTITY.posX), true) / 4096 - x, f.dv.getInt32(f.at(e + ENTITY.posY), true) / 4096 - y);
+    if (d < f.dv.getUint16(f.at(e + ENTITY.talkRange), true) + 10) {
+      f.dv.setInt16(wa, 6, true);
+      pages = talker.pages;
+    }
+  };
   return {
     frames: 0,
     readMem: (a, l) => f.ram.slice(a - BASE, a - BASE + l),
@@ -139,7 +170,12 @@ function toyBackend(tris, opts = {}) {
     },
     stepFrame() {
       this.frames += 1;
-      const code = ROUTE_BUTTONS.findIndex((b) => padMask([...b]) === pad);
+      const circle = (pad & CIRCLE) !== 0;
+      const edge = circle && !lastCircle;
+      lastCircle = circle;
+      talkFrame(edge);
+      if (f.dv.getInt16(f.at(ROUTE_WATCH.windows[talkWindow]), true) !== 0) return; // a message holds the player
+      const code = ROUTE_BUTTONS.findIndex((b) => padMask([...b]) === (pad & ~CIRCLE));
       if (code < 0) return;
       const d = ((ROUTE_MOVE_DIR[code] + (opts.control ?? 0)) & 0xff) * (Math.PI / 128);
       const [x, y] = pos();
@@ -147,6 +183,13 @@ function toyBackend(tris, opts = {}) {
       const ny = Math.round(y - Math.cos(d) * 1);
       const t = locate(mesh, nx, ny);
       if (t < 0 || !canEnter(mesh, t, true)) return;
+      for (const [k, m] of (opts.models ?? []).entries()) {
+        if (!m.block) continue;
+        const e = ENTITY.base + (k + 1) * ENTITY.size;
+        const mx = f.dv.getInt32(f.at(e + ENTITY.posX), true) / 4096;
+        const my = f.dv.getInt32(f.at(e + ENTITY.posY), true) / 4096;
+        if (Math.hypot(nx - mx, ny - my) < (m.solid ?? 10) + 10) return; // solid contact stops the player dead
+      }
       f.dv.setInt32(f.at(e0 + ENTITY.posX), nx * 4096, true);
       f.dv.setInt32(f.at(e0 + ENTITY.posY), ny * 4096, true);
       f.dv.setUint16(f.at(e0 + ENTITY.posI), t, true);
@@ -154,6 +197,8 @@ function toyBackend(tris, opts = {}) {
     },
   };
 }
+
+const CIRCLE = padMask([ROUTE_TALK_BUTTON]);
 
 const frameOn = (b) => (mask) => {
   b.setPad(mask, 0);
@@ -170,6 +215,20 @@ describe('semantic/walkmesh.js', () => {
     assert.equal(at('fieldX').address, ENTITY.base + ENTITY.posX);
     assert.equal(at('fieldTalkRange').address, ENTITY.base + ENTITY.talkRange);
     assert.equal(at('fieldSolidRange').address, ENTITY.base + ENTITY.solidRange);
+    assert.equal(at('fieldModelCount').address, ROUTE_WATCH.modelCount);
+    assert.deepEqual([...ROUTE_WATCH.windows], ['dialogState', 'dialogState1', 'dialogState2', 'dialogState3'].map((n) => at(n).address));
+    assert.equal(ROUTE_TALK_BUTTON, FIELD_ACTIONS.find((a) => a.id === 'interact').button);
+  });
+
+  it('names the model in solid contact, and the open window', () => {
+    const f = fakeRam(corridor(3), { player: [16, 16], models: [{ x: 60, y: 16, solid: 10 }, { x: 30, y: 16, solid: 6 }] });
+    const read = (a, l) => f.ram.slice(a - BASE, a - BASE + l);
+    // Model 2 (index + 1 = 3) is 14 units away, within 6 + 10 + 8; model 1 is 44 away.
+    assert.equal(blockingModel(read, readPlayer(read)), 3);
+    assert.equal(blockingModel(read, readPlayer(read), -4), 0);
+    assert.equal(openWindow(read), 0);
+    f.dv.setInt16(f.at(ROUTE_WATCH.windows[1]), 2, true);
+    assert.equal(openWindow(read), 2);
   });
 
   it('reads a mesh, and refuses one whose pointers disagree', () => {
@@ -262,6 +321,50 @@ describe('runner/route.js', () => {
     assert.equal(r.frames, 20);
     const empty = { readMem: () => new Uint8Array(4), setPad() {}, stepFrame() {} };
     assert.equal(runRoute(empty, { to: { gateway: 0 }, timeout: 20 }, () => {}).outcome, ROUTE_OUTCOME.noMesh);
+  });
+
+  it('sidesteps a solid model on a stall when detours are allowed, and names it when not', () => {
+    const opts = { control: 128, models: [{ x: 80, y: 6, solid: 4, block: true }], gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 } };
+    const b0 = toyBackend(corridor(5), opts);
+    const r0 = runRoute(b0, { to: { gateway: 0 }, timeout: 1000 }, frameOn(b0));
+    assert.equal(r0.outcome, ROUTE_OUTCOME.stuck);
+    assert.equal(r0.block, 2);
+    assert.equal(r0.detours, 0);
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 1000, detour: 4 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.ok(r.detours >= 1 && r.detours <= 4, `detours ${r.detours}`);
+  });
+
+  it('talks to a model through its message, and the way it clears opens', () => {
+    // Model 1 talks (window 1, three pages); model 2 blocks the corridor until the talk ends.
+    const opts = {
+      control: 128,
+      models: [{ x: 60, y: 6, talk: 16, solid: 4 }, { x: 110, y: 16, solid: 8, block: true }],
+      talker: { model: 1, window: 1, pages: 3, clears: 2 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b = toyBackend(corridor(5), opts);
+    const go = frameOn(b);
+    const t = runRoute(b, { to: { model: 1 }, timeout: 1000, talk: 600 }, go);
+    assert.equal(t.outcome, ROUTE_OUTCOME.reached);
+    assert.ok(t.talk > 0, `talk ${t.talk}`);
+    assert.ok(t.talked > 0, `talked ${t.talked}`);
+    assert.equal(t.window, 2);
+    assert.equal(openWindow(b.readMem), 0);
+    const g = runRoute(b, { to: { gateway: 0 }, timeout: 1000 }, go);
+    assert.equal(g.outcome, ROUTE_OUTCOME.reached);
+    // Without the talk, model 2 stops Cloud short of the line.
+    const b2 = toyBackend(corridor(5), opts);
+    assert.equal(runRoute(b2, { to: { gateway: 0 }, timeout: 1000 }, frameOn(b2)).outcome, ROUTE_OUTCOME.stuck);
+  });
+
+  it('reports no talk when no window opens, and talks only to model goals', () => {
+    const b = toyBackend(corridor(5), { control: 128, models: [{ x: 60, y: 16, talk: 16, solid: 4 }] });
+    const r = runRoute(b, { to: { model: 1 }, timeout: 1000, talk: 100 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.deepEqual([r.talk, r.talked, r.window], [0, 0, 0]);
+    assert.throws(() => loadScenario2({ format: 2, name: 'route-load', boot: { fixture: 'pad-echo', from: 'pad-echo-ready' }, input: [{ route: { to: { gateway: 0 }, timeout: 10, talk: 5 } }], assert: [], metrics: [] }, {}), /talk needs a model goal/);
   });
 
   it('names metrics for the reports and the legs from legFrom', () => {

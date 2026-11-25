@@ -54,11 +54,33 @@ export const MATERIA_CONFIRMED_COLUMNS = 2;
 
 /**
  * The slot-cursor plan along a row, column `from` to column `to` (Left and
- * Right; never wraps). Columns beyond MATERIA_CONFIRMED_COLUMNS throw
- * RangeError, as planCursorMove does for any row out of range.
+ * Right; never wraps). Columns beyond `columns` (default
+ * MATERIA_CONFIRMED_COLUMNS: what is known for any item) throw RangeError,
+ * as planCursorMove does for any row out of range.
  */
-export function materiaColumnPlan(from, to, timing) {
-  return planCursorMove({ from, to, rows: MATERIA_CONFIRMED_COLUMNS, axis: 'horizontal', wraps: false, timing });
+export function materiaColumnPlan(from, to, timing, columns = MATERIA_CONFIRMED_COLUMNS) {
+  if (!(Number.isInteger(columns) && columns >= 1 && columns <= MATERIA_MAX_COLUMNS)) throw new RangeError(`columns must be 1..${MATERIA_MAX_COLUMNS}, got ${columns}`);
+  return planCursorMove({ from, to, rows: columns, axis: 'horizontal', wraps: false, timing });
+}
+
+/**
+ * Materia slots a weapon or armor record holds (Savemap: 8 words each,
+ * #117): no row has more columns than this. A caller that knows an item's
+ * slot count passes it as materiaColumnPlan's `columns`; #255 tests it.
+ */
+export const MATERIA_MAX_COLUMNS = 8;
+
+/** Slot rows on the Materia screen: 0 weapon, 1 armor (materiaSlotRow, #244). */
+export const MATERIA_SLOT_ROWS = 2;
+export const MATERIA_ROW_WEAPON = 0;
+export const MATERIA_ROW_ARMOR = 1;
+
+/**
+ * The slot-cursor plan between the weapon row (0) and the armor row (1):
+ * Down and Up (#244 save-boot-25a: Down reads 1, Up reads 0); never wraps.
+ */
+export function materiaRowPlan(from, to, timing) {
+  return planCursorMove({ from, to, rows: MATERIA_SLOT_ROWS, wraps: false, timing });
 }
 
 /**

@@ -12,8 +12,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 
 **Next for agents** (take the oldest `status:ready` first, per `docs/CONTINUITY.md`). Owner decisions of 2026-11-23 (chat session; recorded on each issue and on #123):
 - **One implementer from 2026-11-26** (owner): the second subscription has ended, so the main implementer takes ready work in both lanes (Trip mode rule 9, "After 2026-11-25"); claims the second implementer left open count as abandoned (there were none).
-- **Ready, oldest first:** #256 part 2 (`native-item` offers the Item list past page 1 via `itemSlotPlan`; Labs flag, `tier3-deferred`) and #257 part 1 (native Save screen, Tier 2), then #257 part 2.
-- **Blocked on the owner:** #120 (third budget spent, PR #197 open; its route tooling can be split out for #168) and #168 (third budget spent; `notes/168-choice-cursor.md`). #269 (Tier 2 deadline; slow runners cut the last 12 scenarios) is `needs-owner`.
+- **Ready, oldest first:** #120 stretch 2, fourth budget (owner, 2026-11-26): a scene-driving route through md1_1's gate scene, which includes Cloud's naming screen (owner-confirmed; see #120), on the route tooling now on main (PR #282). Then #256 part 2 (`native-item` offers the Item list past page 1 via `itemSlotPlan`; Labs flag, `tier3-deferred`) and #257 part 1 (native Save screen, Tier 2), then #257 part 2.
+- **Blocked on the owner:** #168 (third budget spent; `notes/168-choice-cursor.md`; it can use the route tooling from PR #282). #269 (Tier 2 deadline; slow runners cut the last 12 scenarios) is `needs-owner`. PR #197 (#120's earlier attempts) is to be closed once budget 4 carries its probes over.
 - Done since 2026-11-23: #250, #251, #252, #253, #254, #255, #260 and #267, plus #256 part 1.
 - PR #191 (#149, sandbox memory report) is merged. #147 stays parked: it unblocks nothing else. The native shell stays unplanned (it needs a Mac).
 

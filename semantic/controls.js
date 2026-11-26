@@ -148,3 +148,37 @@ export function interactLabel(sample) {
   if (inRange('exit')) return { ...INTERACT_LABELS.exit, dim: false };
   return { id: plain.id, label: plain.label, dim: true };
 }
+
+/**
+ * Naming screen actions (#289). Cloud's name entry runs as gameState menu
+ * (5) with fieldEventCmd 6 (semantic/layer.js naming()). "Use default name"
+ * presses Start, then Circle: Start moves the screen's cursor to its
+ * confirm item, Circle takes it. #120 budget 4 measured it in md1_1's gate
+ * scene (PR #197, `touch-s2s-gw-sc`): the screen closed 179 frames after it
+ * opened. Circle alone never closed it. Each group is held `hold` frames,
+ * one group every `every` frames, in turn, until the screen closes or
+ * `timeout` frames pass. That `timeout` is an agent default, about ten
+ * times the measured 179.
+ */
+export const NAMING_ACTIONS = Object.freeze({
+  useDefault: Object.freeze({
+    id: 'use-default',
+    label: 'Use default name',
+    sequence: Object.freeze([Object.freeze(['start']), Object.freeze(['circle'])]),
+    hold: 4,
+    every: 30,
+    timeout: 1800,
+  }),
+});
+
+/**
+ * Which press group the "Use default name" plan holds at frame `f` (0 at
+ * the first press) of a run, or null between presses. Groups cycle in order:
+ * group (f / every) mod n is held for frames [k * every, k * every + hold).
+ * Pure; the route step (runner/route.js) and the touch layer both follow it.
+ */
+export function namingPressAt(f, action = NAMING_ACTIONS.useDefault) {
+  if (!(Number.isInteger(f) && f >= 0)) throw new RangeError(`frame ${f}`);
+  if (f % action.every >= action.hold) return null;
+  return action.sequence[Math.floor(f / action.every) % action.sequence.length];
+}

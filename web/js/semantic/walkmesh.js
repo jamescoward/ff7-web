@@ -310,7 +310,7 @@ export function legsOf(codes) {
 /**
  * Addresses a route watches. They restate entries of the address table
  * (semantic/addresses.js: playerModel, fieldId, gameState confirmed;
- * fieldEventCmd a hypothesis), because a
+ * fieldEventCmd confirmed for 6 by #289), because a
  * module copied to runner/semantic/ has no imports; a Tier 1 test keeps
  * them equal.
  */
@@ -334,7 +334,7 @@ export const ROUTE_WATCH = Object.freeze({
   windowWaitingStates: Object.freeze([4, 6, 11, 13, 14]),
   /** gameState's menu value (confirmed). The naming screen runs in it. */
   menuMode: 5,
-  /** fieldEventCmd (u8, a hypothesis, #120 budget 4): with gameState menu, nameEntry means the naming screen. */
+  /** fieldEventCmd (u8, confirmed for 6 by #289): with gameState menu, nameEntry means the naming screen. */
   eventCmd: 0x8009abf5,
   nameEntry: 6,
 });
@@ -481,7 +481,7 @@ export function readEventCmd(readMem) {
   return b ? b[0] : null;
 }
 
-/** True while the naming screen runs: gameState menu with the name-entry event command (a hypothesis, #120 budget 4). */
+/** True while the naming screen runs: gameState menu with the name-entry event command (#120 budget 4; confirmed by #289). */
 export function namingScreen(readMem) {
   return readS16(readMem, ROUTE_WATCH.gameState) === ROUTE_WATCH.menuMode && readEventCmd(readMem) === ROUTE_WATCH.nameEntry;
 }

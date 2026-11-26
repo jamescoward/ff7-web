@@ -591,4 +591,19 @@ Stretch 1 (`touch-playthrough`) is unchanged: battle_wait 839, turn1 496, t1_tar
   - `named` > 0: the naming screen is reached; `nleft` says whether Start, Circle confirmed it;
   - still held: `wlast` names the holding state per window, and `wpress` whether pressing happened at all.
 
-Tier 2: pending.
+### Attempt 2 results (`e6ecba7`; tier2-eval 45823175785, two shards): 125 pass, 1 fail, 0 error. **md1_2 reached.**
+
+| probe | status | out_g | scenes | wmask | named | nleft | smode | evt | wlast | wpress | remain |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `touch-s2s-gw-sc` (Start, then Circle) | **pass** (map_cur = md1_2) | 1 (reached) | 4 | 15 (windows 0-3) | 929 | 179 | 0 | 0 | – | – | 3 |
+| `touch-s2s-gw-c` (Circle only) | fail | 3 (timeout) | 3 | 6 | 929 | 0 | – | – | 0 | 6 | 2 |
+
+Stretch 1 (`touch-playthrough`) is unchanged.
+
+- **The fix worked.** With Interact pressed in every waiting state, the gate scene plays through, and both probes reach the naming screen at the same route frame (929): gameState 5 with `fieldEventCmd` 6, as the decomp suggests. (`smode` stays 0 because the naming check runs first.)
+- **Start, then Circle confirms the default name.** That plan left the naming screen after 179 frames, back in field mode. The scene went on in all four windows, and then the route reached gateway 1 and md1_2. With Circle alone, the naming screen never closed (`nleft` 0) until the timeout.
+- `remain` is read after the route ends. Once md1_2 has loaded, it describes md1_2's mesh, so 3 means nothing there.
+- `fieldEventCmd` = 6 on the naming screen now has Tier 2 evidence from two probes. Promoting it to `confirmed` is left to the naming-action issue, together with its own acceptance scenario.
+
+**Next (owner's stop condition):** the touch layer has no naming action, so it is filed as its own issue: in naming mode, offer "confirm the default name", which plays Start, then Circle. Once that is merged, `touch-playthrough` gets stretch 2: the scene-driving route, using that action's sequence.
+

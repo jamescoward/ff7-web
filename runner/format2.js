@@ -191,6 +191,7 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
       if (!allowUntil) throw new ScenarioError(`${w}: a boot point script has no route`);
       const r = s.route;
       if (r.talk !== undefined && r.to.model === undefined) throw new ScenarioError(`${w}.route: talk needs a model goal`);
+      if (r.naming !== undefined && r.scene === undefined) throw new ScenarioError(`${w}.route: naming needs scene`);
       return {
         kind: 'route',
         to: { ...r.to },
@@ -199,6 +200,8 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
         ...(r.detour !== undefined ? { detour: r.detour } : {}),
         ...(r.talk !== undefined ? { talk: r.talk } : {}),
         ...(r.nudge !== undefined ? { nudge: r.nudge } : {}),
+        ...(r.scene !== undefined ? { scene: r.scene } : {}),
+        ...(r.naming !== undefined ? { naming: r.naming.map((g) => [...g]) } : {}),
         report: { ...(r.report ?? {}) },
         leg: [...(r.leg ?? [])],
         legFrom: r.legFrom ?? 0,

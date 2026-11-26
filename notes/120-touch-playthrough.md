@@ -49,6 +49,51 @@ Reading:
 ### Run 2
 The next push repeats the same script, to check determinism (the acceptance asks for two runs).
 
+## Stretch 2: md1_1 → md1_2 (`touch-2-md1-1-walk`, PR #197)
+Only one Tier 2 slot, so stretch 1's waits stay in the scenario (a timeout still fails it) but its metric names are dropped: the 8 metrics go to the current stretch.
+
+### Attempt 1 (`4237845`, probe; tier2: 64 pass, 0 fail)
+In md1_1 just after it loads: wait 30 frames, mark, drag up 20 frames.
+| scenario | metrics |
+|---|---|
+| touch-playthrough | gw0_to 116, gw1_to 118, g0x −1, g0y −1, g1x −1, g1y 1, up_dx 1, up_dy 1 |
+
+Reading:
+- md1_1 gateway 0 leads back to md1stin (116); **gateway 1 leads to md1_2 (118 = 0x76)**.
+- Gateway 1's first end lies at −x, +y from the player (signs of x1/y1 only; the line could still straddle the player in x).
+- A drag up moves the player +x, +y, as in md1stin (`reactor-field-5-walk-up`), so the camera is turned the same way, and the md1_2 exit is **up-left**, the drag that left md1stin.
+- Stretch 1's waits all held (the scenario passed), so stretch 1 repeated for a third run.
+
+### Attempt 2 (diagnostic walk)
+A fixed 2400-frame drag up-left with Interact taps (15 of every 20 frames), no `wait.until`, so the end checks report where it got to: `map_cur` and `game_state` at the end, the signs of both ends of gateway 1 against the player (in whatever field it ends in), and the signs of the player's move. The goal check is md1_2 (0x76) in field mode. #101 held Up+Left in md1_1 for 5236 frames (from a generated save, progress 6) and met a random battle without leaving, so up-left alone may hit a wall; if so, attempt 3 uses these signs to route round it.
+
+### Attempt 2 results (`6a723f2`, tier2: 63 pass, 1 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough (fail) | map_cur 117, game_state 1, g1x 1, g1y 1, g1x2 1, g1y2 1, mv_dx −1, mv_dy −1 |
+
+Reading:
+- **2400 frames of up-left did not leave md1_1**; the game is in field mode at the end, so no battle or menu.
+- Over the walk the player's PosX and PosY both fell. A drag up moves +x/+y, so up-left was expected to give mostly +y; the net −x/−y suggests a wall, a slide along one, or a scene moving Cloud (the Interact taps may have started one). Not resolved: there are no metrics for it.
+- At the end **both ends of gateway 1 (to md1_2) lie at +x/+y** from the player: the direction a drag up moves.
+- Every other scenario passed unchanged.
+
+### Attempt 3 (last of 3)
+The same up-left leg (its end state is known), then mark and drag **up** with Interact taps for 1200 frames. Same checks and metrics, with the move signs over the up leg only. If it still doesn't arrive, stop and report on #120 (attempt budget used).
+
+### Attempt 3 results (`423bc94`, tier2: 63 pass, 1 fail)
+| scenario | metrics |
+|---|---|
+| touch-playthrough (fail) | map_cur 117, game_state 1, g1x −1, g1x2 1, g1y 1, g1y2 1, mv_dx 1, mv_dy 1 |
+
+Reading:
+- After 1200 more frames of drag up (with Interact taps), the player is **still in md1_1, in field mode**. Over the up leg it moved +x/+y, as a drag up should.
+- At the end, **gateway 1 straddles the player in x** (x1 left, x2 right) and **both ends are still at +y**: Cloud is just below the md1_2 exit line but did not cross it, after up to 1200 frames of trying.
+- Hypotheses (not tested): a wall or solid model between Cloud and the line (in the game, the party and a gate stand at md1_1's far side); a scene that must play first (the field's script may hold the exit until an event, for example Barret's at the gate, has run, and Interact taps alone did not start it); or the gateway's line is out of reach (z), since `fieldZ` is still a hypothesis.
+- Every other scenario passed unchanged.
+
+**Stop: three attempts used** (CLAUDE.md). Stretch 2 is reported on #120 with these blockers; PR #197 stays `[WIP]`. Suggested next step for a fresh budget: one diagnostic that measures, during the up leg, whether PosY stops rising (a `change … since` mark partway), whether a message window opens (`dialogState`, #108) and whether field models other than the player move (a scene); then route accordingly.
+
 ## Next stretches (route still unknown)
 md1_1 → md1_2 → the reactor interior → the first save point. Field IDs and exits come from `nearby()` gateways (#112) and the field ID reader. There is only one slot, so exploration diagnostics have to share the scenario's 8 metrics. If that is too slow, record it on #120 as the owner question on the slot cap.
 
@@ -153,3 +198,412 @@ Reading:
 - Four field models stand in the band between Cloud's stall point and the md1_2 exit line (in y). That fits a **solid model** hypothesis (#200, #202: the obstacle spans the line's x-range just below it): for example party members or an NPC at the exit, which a field-script scene may move. It does not rule out a walkmesh wall.
 - Caveats: model positions for k ≥ 1 are address-table hypotheses (#99 confirmed only model 0), and only y was compared.
 - **Suggested next step for #120 stretch 2** (needs a fresh budget there; the 3/3 stop stands): read models 1-4's x against gateway 1's x1/x2 (8 metrics fit), and, if one stands in the line's x-range, check whether it is talkable (`fieldTalkOff`, hypothesis) and try Interact while facing it. A field-script scene may need a talk to clear the way.
+
+## Stretch 2, fresh budget (owner, 2026-11-18): attempt 1, a batch of probes
+The owner gave stretch 2 a fresh budget of 3 attempts (#120, comment of 2026-11-18) and raised the Tier 2 cap to 128 (PR #206). So attempt 1 batches four probes, each its own scenario booting from `touch-md1-1` (`touch-playthrough` runs first and keeps it; file names sort `touch-p` < `touch-s`). `touch-playthrough` stays stretch 1 and stays green. All input is drag directions (field-drag.js) and Interact taps (15 of every 20 frames). Generated by `probeScenarios()` (`PROBES_ON`).
+
+| scenario | question | metrics |
+|---|---|---|
+| `touch-s2a-models-x` | which of models 1-4 stands in gateway 1's x-range at #200's stall point (#204's suggested step) | `a<k>` / `b<k>`: sign of x1 / x2 minus model k's x |
+| `touch-s2b-window-up-left` | does window 0 open during the up-left leg (taps would close it again, so #200's end read would miss it) | `w_ul`, `w_close`, `map_cur`, `dlg` |
+| `touch-s2c-window-up` | the same during the up leg; if so, close it and drag up to the exit | `w_up`, `w_close`, `w_exit`, `map_cur`, `dlg` |
+| `touch-s2d-around-right` | a route round the obstacle's right end: stall, up-right 600, up 400, left 1200 | `map_cur`, `dy_u2`, `dx_l`, `dy_l`, `g1x`, `g1x2`, `g1y`, `g1y2` |
+
+A wait that times out stops its script and reports 0 (s2b, s2c), so those probes may fail by design. Model positions for k ≥ 1 are still hypotheses (#99).
+
+### Fresh attempt 1 results (`b89cbc0`, tier2: 65 pass, 3 fail by design)
+`touch-playthrough` (stretch 1) passed with the same metrics as before (battle_wait 839, turn1 496, turn2 752, end_wait 482, next_wait 495, match 1).
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2a-models-x | pass | a1 −1, b1 −1; a2 1, b2 1; **a3 −1, b3 1**; a4 −1, b4 −1 |
+| touch-s2b-window-up-left | fail (by design) | w_ul 0, w_close 0, map_cur 117, dlg 0 |
+| touch-s2c-window-up | fail (by design) | w_up 0, w_close 0, w_exit 0, map_cur 117, dlg 0 |
+| touch-s2d-around-right | fail (md1_2 not reached) | dy_u2 1, dx_l −1, dy_l 1, g1x −1, g1x2 −1, g1y 1, g1y2 1, map_cur 117 |
+
+Reading:
+- **Model 3 is the only one of models 1-4 inside gateway 1's x-range** (x1 < its x < x2). Model 2 is left of the line, and models 1 and 4 are right of it. With #204, model 3 stands between Cloud's stall point and the exit line, in both x and y. (Model positions for k ≥ 1 are still hypotheses.)
+- **No message window opens** during 2400 frames of up-left or 1200 frames of up with Interact taps. So dragging up into the obstacle and tapping Interact starts no talk.
+- Round the right end: after the up-right slide, 400 frames up keep raising PosY, and the left drag moves Cloud left and still up. He ends right of the whole line and still below it (both ends +y). This route doesn't reach the line in 2200 frames.
+
+## Stretch 2, fresh attempt 2: talk to model 3 facing other ways
+Six probes replace attempt 1's, again booting from `touch-md1-1` with `touch-playthrough` left as stretch 1:
+- `touch-s2f-talk-{up-left,up-right,left,right,still}`: segment `touch-2-stall`, then Interact taps while dragging that way (or with no drag), until window 0 opens (`w_talk`, 600 frames). If it opens: taps until it closes (`w_close`), then drag up until the field ID leaves md1_1 (`w_exit`), and check md1_2.
+- `touch-s2e-models-still`: after the stall, 600 frames with no input. Do models 1-4 move (`dy1..dy4`, `dx3`), which would mean a scene is running? Which side of Cloud is model 3 (`c3x`)? `dxc` checks that Cloud stays put.
+
+### Fresh attempt 2 results (`aa67516`, tier2: 65 pass, 5 fail by design)
+`touch-playthrough` passed unchanged.
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2e-models-still | pass | c3x 1, dy1 0, dy2 0, dy3 0, dy4 0, dx3 0, dxc 0, map_cur 117 |
+| touch-s2f-talk-{up-left,up-right,left,right,still} | fail (no window) | w_talk 0, w_close 0, w_exit 0, map_cur 117, dlg 0 (all five) |
+
+Reading:
+- **No message window opens** in 600 frames of Interact taps facing up-left, up-right, left or right, or with no drag. With attempt 1 (up-left, up), Interact at the stall point starts no talk in any direction.
+- **Models 1-4 don't move** during 600 still frames, and Cloud stays put: no scene is running at the stall. Model 3 (the one in the line's x-range) is to Cloud's right.
+- So the way past is not a talk at the stall. Left: a scene trigger elsewhere in md1_1 that the route never crossed, or a walkmesh route not yet tried.
+
+## Stretch 2, fresh attempt 3 (last): route sweeps over md1_1
+Eight sweeps (`touch-s2g-sweep-*`) replace attempt 2's probes. Each boots from `touch-md1-1`, waits 30 frames, marks `go`, then drags with Interact taps: up 2400; up-right 2400; right 1200 then up 1200; from the stall right 300 then up 900, or left 300 then up 900; from the stall down 200, right 600, up 900, left 600; up-left 1200, up 600, right 900, up 600; and from the stall **running** (a drag past RUN_DISTANCE adds Cross, as field-drag.js does) up 600, up-right 300, up-left 300. Each checks for md1_2 at the end. Metrics: `map_cur`; `dy1..dy4` and `dx3`, the field models' moves since `go` (a scene started); `cy`, Cloud's PosY since `go`; `dlg`.
+
+### Fresh attempt 3 results (`2916822`, tier2: 64 pass, 8 fail; last of the fresh budget)
+`touch-playthrough` passed unchanged.
+
+| sweep | map_cur | cy | dy1 dy2 dy3 dy4 dx3 | dlg |
+|---|---|---|---|---|
+| up 2400 | 117 | 1 | 0 0 0 0 0 | 0 |
+| up-right 2400 | 117 | 1 | 0 0 0 0 0 | 0 |
+| right 1200, up 1200 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, right 300, up 900 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, left 300, up 900 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, down 200, right 600, up 900, left 600 | 117 | 1 | 0 0 0 0 0 | 0 |
+| stall, run up 600, up-right 300, up-left 300 | 117 | 1 | 0 0 0 0 0 | 0 |
+| up-left 1200, up 600, right 900, up 600 | **116** | 1 | −1 1 1 1 1 | 0 |
+
+Reading:
+- **No sweep reaches md1_2.** In md1_1, models 1-4 never move and no window opens, from the entry or from the stall, walking or running.
+- The up-left, up, right, up sweep ends in **md1stin (116)**: it crossed gateway 0 back. Its model signs come from md1stin's models, so they say nothing about md1_1.
+- **Stop (fresh budget 3/3).** Six attempts over two budgets, plus three measurement-only issues (#200, #202, #204), haven't found the way to md1_2. What is known: model 3 stands in the exit line's x-range, between the stall point and the line. Nothing in md1_1 reacts to Interact at the stall or along these sweeps. No scene runs.
+- **No touch action is shown to be missing.** Every stretch-2 input is a walk or run drag plus Interact, which is all the classic pad does in a field without a menu. The blocker is route knowledge (a trigger or path not found), not a touch action.
+
+## Stretch 2, owner-hint attempt (owner, 2026-11-23): talk to a party member
+The owner's hint, from memory and so a hypothesis: in md1_1 the way to md1_2 opens after talking to a party member (Biggs, else Jessie). If this fails, stretch 2 gets a third budget of 3 attempts that reads md1_1's line triggers and walkmesh instead of more sweeps.
+
+Why it is worth a fresh look after "no talk at the stall": fresh attempts 1-3 watched only message window 0 and pressed Interact wherever Cloud stopped. Since then #237 confirmed the talk rule (`fieldTalkOff`, `fieldTalkRange`, `fieldSolidRange`, format 2's `near`), and #224 found messages that open in window 1.
+
+The eight sweeps (`touch-s2g-*`) are replaced by ten probes (`hintScenarios()`), all booting from `touch-md1-1`; `touch-playthrough` stays stretch 1. Memory comes from the address table: windows 0-3 (`DIALOG_STATE_ENTRIES`), and element k of `fieldX`, `fieldY`, `fieldTalkRange`, `fieldTalkOff`, plus the player's `fieldSolidRange`.
+
+| scenario | question | metrics |
+|---|---|---|
+| `touch-s2h-info-entry` | at md1_1's entry: is any of models 1-4 talkable (TalkOff) and in talk range | `off1..off4` (raw), `n1..n4` (near sign; −1 within) |
+| `touch-s2h-info-stall` | the same at #200's stall point | the same |
+| `touch-s2h-talk-{right,up-right,up,up-left,left,still}` | from the stall, Interact taps facing that way (or no drag): does **window 1** open? If so, close it and drag up to the exit | `w1_open`, `w1_close`, `exit`, `map_cur`, `n1..n4` at the end |
+| `touch-s2h-talk-{r150,l150}-up` | the same after a 150-frame step right / left (model 3 is to Cloud's right) | the same |
+
+A wait that times out stops its script and reports 0. md1_2 is the only end check, so the talk probes fail by design unless one reaches it.
+
+### Owner-hint attempt results (`5035cc4`, tier2: 109 pass, 2 fail, 8 error)
+`touch-playthrough` (stretch 1) passed with the same metrics as before (battle_wait 839, turn1 496, turn2 752, end_wait 482, next_wait 495, match 1).
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2h-info-entry | fail (by design) | off1 **1**, off2 0, off3 0, off4 0; n1 1, n2 1, n3 1, n4 1 |
+| touch-s2h-info-stall | fail (by design) | off1 **1**, off2 0, off3 0, off4 0; n1 1, n2 1, n3 1, n4 1 |
+| touch-s2h-talk-* (all 8) | **error** | none (not run, see below) |
+
+Reading:
+- **Models 2, 3 and 4 are talkable** (TalkOff 0); model 1 is not (TalkOff 1), at the entry and at the stall alike.
+- **No model is within talk range** (ground distance ≥ TalkRange_k + the player's SolidRange) at the entry or at the stall. So every Interact press at the stall in fresh attempts 1-3 could not have started a talk under the confirmed rule (#237), whichever window it would open. The hint is not tested yet: Cloud has to be brought into range of model 2, 3 or 4 first.
+- **The talk probes were most likely never started: the run hit Tier 2's time deadline.** `runner/tier2.js` stops starting scenarios after 1140 s (`--deadline-s`, under the sandbox's 1200 s limit) and reports the rest as `error`. The eval step ran 1149 s (04:50:21 to 05:09:30), and the eight errors are exactly the last eight scenarios in file order. A scenario fault isn't ruled out from this run alone, but the same steps load and pass every Tier 1 check. Tier 2's wall-clock budget, not the 128-slot cap, now limits how many probes a run can carry; main's own ~109 scenarios already take most of it.
+
+**Next (cheap, few scenarios):** one probe at the stall that brackets how far out of range models 2-4 are, with `near` checks at several `plus` values (for example model 3 at +32, +64, +128, +256 and models 2 and 4 at +64, +256), then a walk towards the nearest talkable model (model 3 is right of Cloud and above him) with Interact taps, watching window 1 and the near sign. Keep each push to two or three probe scenarios because of the time budget.
+
+### Owner-hint attempt, run 2 results (`0b3d215`, tier2: 110 pass, 3 fail)
+`touch-playthrough` (stretch 1) passed unchanged. The eval step took 14.5 min with 113 scenarios, and nothing hit the deadline.
+
+| scenario | status | metrics |
+|---|---|---|
+| touch-s2i-a-stall | pass | map_cur 117 (snapshot `touch-stall` kept) |
+| touch-s2i-b-range | fail (by design) | n3p32 1, n3p64 1, n3p128 1, n3p256 1; n2p64 1, n2p256 1; n4p64 1, n4p256 1 |
+| touch-s2i-walk-up-right | fail | w1_open 0 (timeout), so every later value is 0; map_cur 117 |
+| touch-s2i-walk-right-up | fail | the same |
+
+Reading:
+- The kept snapshot chains: the other three probes booted from `touch-stall`.
+- At the stall, **models 2, 3 and 4 are each more than 256 field units beyond talk range** (TalkRange_k + SolidRange_0 + 256).
+- Neither walk towards model 3 (up-right with Interact taps, or right 150 and then up) opened window 1 within 900 frames. The timeout zeroed the end checks, so it is not known where the walks ended or whether they came closer.
+
+### Owner-hint attempt, run 3 plan (`touch-s2i-*`)
+`touch-s2i-a-stall` stays. The range probe and the two waiting walks are replaced:
+- `touch-s2i-b-axis-3`: the sign of |model 3 − Cloud| along PosX and along PosY, minus 256, 512, 1024 and 2048 field units. A `near` check with the other coordinate set to Cloud's own gives one axis only.
+- `touch-s2i-c-axis-24`: the same for models 2 and 4, at 512 and 2048.
+- `touch-s2i-walk-right-300` and `touch-s2i-walk-up-right-300`: from the stall, drag with Interact taps for 300 frames, then 30 still frames. There is **no wait**, so nothing can zero the end values. Metrics:
+  - n3, n3p256 and n3p1024;
+  - raw w0 and w1;
+  - cx and cy, the sign of Cloud's PosX and PosY change;
+  - map_cur.
+
+What it decides:
+- A walk whose n3 bracket falls below the stall's (for example n3p256 −1) is heading into range. The next run lengthens that walk and taps until window 1 opens.
+- If neither walk moves Cloud closer (cx or cy 0, or the brackets unchanged), the way to model 3 is walled. Use the axis brackets to try a route round.
+- If nothing works, the hint attempt ends and the owner's third budget (line triggers and walkmesh) starts.
+
+### Owner-hint attempt, run 3 results (`520b9ab`, tier2: 110 pass, 4 fail; the fails are probes)
+`touch-playthrough` (stretch 1) passed unchanged. `touch-s2i-a-stall` passed (map_cur 117).
+
+Axis brackets at the stall (sign of |model k − Cloud| along one axis minus n field units):
+
+| model | ax | ay | \|Δx\| | \|Δy\| |
+|---|---|---|---|---|
+| 3 | 256 −, 512 −, 1024 −, 2048 − | 256 +, 512 +, 1024 +, 2048 − | < 256 | 1024–2048 |
+| 2 | 512 −, 2048 − | 512 +, 2048 − | < 512 | 512–2048 |
+| 4 | 512 −, 2048 − | 512 +, 2048 − | < 512 | 512–2048 |
+
+Fixed walks from the stall (Interact taps, 300 frames, then 30 still; no wait):
+
+| walk | cx | cy | n3 | n3p256 | n3p1024 | w0 | w1 | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| right 300 | +1 | −1 | 1 | 1 | 1 | 0 | 0 | 117 |
+| up-right 300 | +1 | +1 | 1 | 1 | **−1** | 0 | 0 | 117 |
+
+Reading:
+- **Model 3 is almost straight along PosY from the stall** (x within 256, y 1024–2048). Models 2 and 4 are in the same band.
+- **Up-right closes in on model 3**: after 300 frames it is within TalkRange + SolidRange + 1024, but not + 256. Right moves Cloud −y and away. So model 3 lies on Cloud's +y side.
+- Up-right also moves Cloud +x, so a longer up-right walk may drift past model 3 in x. Up or up-left may hold x better (md1_1's pad-to-axis mapping is not measured for those).
+- No window was open at the end of either walk.
+
+### Owner-hint attempt, run 4 plan (`touch-s2i-go-*`)
+The axis probes and run 3's walks are removed (definitions in `520b9ab`); `touch-s2i-a-stall` stays. Five fixed walks from the stall: up-right 450 and 600, up 300 and 450, up-left 300. Each drags with **no Interact** for that time, then 10 still frames, Interact for 4 frames, and 40 still frames. Nothing waits on a condition. Metrics: n3, n3p256, ax3_256, ay3_256, raw w0 and w1, cx, cy.
+
+What it decides:
+- **A walk ends in range (n3 −1) and a window reads 6:** model 3's talk opens. Next, press through it and drag up to the exit, as the owner's hint expects.
+- **In range but no window:** the hint fails for model 3. Try models 2 and 4 the same way, or start the third budget (line triggers and walkmesh).
+- **Not in range:** the per-axis signs show which leg to add (x within 256 and y within 256 means close).
+
+### Owner-hint attempt, run 4 results (`5190ebf`, tier2 run 464: 110 pass, 5 fail; the fails are the walks, md1_2 not reached by design)
+Recorded 2026-11-24 from the `eval` job log. `touch-playthrough` (stretch 1) and `touch-s2i-a-stall` (map_cur 117) passed unchanged. Eval step 10.1 min.
+
+| walk | cx | cy | n3 | n3p256 | ax3_256 | ay3_256 | w0 | w1 |
+|---|---|---|---|---|---|---|---|---|
+| up 300 | 0 | 0 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up 450 | 0 | 0 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up-left 300 | −1 | −1 | 1 | 1 | −1 | +1 | 0 | 0 |
+| up-right 450 | +1 | +1 | 1 | 1 | **+1** | **−1** | 0 | 0 |
+| up-right 600 | +1 | +1 | 1 | 1 | +1 | −1 | 0 | 0 |
+
+Reading:
+- **Up does not move Cloud at all from the stall** (cx, cy 0): a wall, most likely.
+- Up-left moves him −x −y, away from model 3 (which is on his +y side).
+- **Up-right lines Cloud up with model 3 along PosY** (Δy within 256) but carries him more than 256 past it along PosX, and he stays beyond TalkRange + SolidRange + 256. 450 and 600 frames give the same signs, so he may stall there as well (a hypothesis).
+- No window was open after any walk.
+
+### Owner-hint attempt, run 5 plan (`touch-s2i-go-*`, two legs)
+The run 4 walks are replaced by five two-leg routes from the stall: up-right, then a correcting leg back along −x. The right drag moved Cloud +x −y (run 3), so left is taken to move −x +y (inferred, not measured in md1_1).
+
+| route | legs |
+|---|---|
+| ur450-l60 / l120 / l200 | up-right 450, then left 60 / 120 / 200 |
+| ur600-l120 | up-right 600, then left 120 |
+| ur450-ul100 | up-right 450, then up-left 100 |
+
+Each leg is dragged with no Interact, then 10 still frames, Interact for 4 frames, and 40 still frames. No step waits on a condition. Metrics: n3, n3p256, ax3_256, ay3_256, w0, w1, and **sx3, sy3** (the sign of model 3's PosX / PosY minus Cloud's), which take the place of cx and cy, so the side of any remaining gap is known.
+
+What it decides:
+- **n3 −1 and a window at 6:** model 3's talk opened. Next, press through it and drag up to the exit.
+- **n3 −1 and no window:** in range but no talk (facing, or no talk at this progress value). Try models 2 and 4, or start the third budget (line triggers and walkmesh).
+- **n3 +1:** the sides show which way the gap is. One more corrective run at most; if model 3 still can't be reached, the hint attempt ends and the third budget (walkmesh-aware routing, which #168 also needs) starts.
+
+### Owner-hint attempt, run 5 results (`3df6efc`, tier2 run 475: 116 pass, 5 fail; the fails are the routes)
+Recorded 2026-11-24 from the `eval` job log. `touch-playthrough` (stretch 1) and `touch-s2i-a-stall` passed unchanged. Eval step 12.1 min, with main's scenarios included.
+
+All five routes (up-right 450 then left 60, 120 or 200; up-right 600 then left 120; up-right 450 then up-left 100) gave **identical** values: n3 +1, n3p256 +1, ax3_256 +1, ay3_256 −1, **sx3 −1, sy3 +1**, w0 0, w1 0.
+
+Reading:
+- After up-right, model 3 lies on Cloud's −x side, more than 256 away along PosX and within 256 along PosY. That matches run 4.
+- The correcting leg changes nothing, at any length or direction. Left 60 and left 200 end with the same signs, and so does up-left 100. Up-right 450 and 600 already agreed in run 4. So **Cloud is pinned after up-right**, most likely against walkmesh edges, and no pad leg from there closes the x gap. This is a hypothesis: no position was reported.
+- No window opened.
+
+### Conclusion of the owner-hint attempt (2026-11-24)
+Model 3 (and models 2 and 4, in the same band, run 3) can't be brought into talk range with straight or two-leg pad walks from the stall. Up is walled, up-left and right move away, and up-right pins Cloud more than 256 short along x. So the hint (talk to a party member) is **not tested**: the talk can't be reached by these walks. It is not refuted either.
+
+**Next: the owner's third budget** (owner, 2026-11-23: "a third budget reads md1_1's line triggers and walkmesh"). Plan for its attempt 1:
+- Inside the sandbox, read md1_1's walkmesh triangles and gateway/line triggers from field memory (addresses from the decomp, reference only). Search a path on the mesh from Cloud's position to (a) the md1_2 gateway line and (b) a point within model 3's talk range.
+- Report **only** the pad legs (direction and frames), the path's triangle count and pass/fail. No mesh coordinates leave.
+- If an off-device search is too much for one attempt, start smaller: report which neighbour triangle each of the stall triangle's three edges leads to (−1 for a wall). That is enough to choose legs by hand.
+- #168 (blocked) needs the same routing for mds7st1, so build it once in a reusable runner module.
+
+## Third budget (owner, 2026-11-23): route over md1_1's walkmesh
+
+### Attempt 1 (2026-11-24): the format 2 `route` step
+Blind pad sweeps can't tell a wall from a lock, and they can't steer round corners. So the sandbox now does the routing itself. A new script step, `{ "route": { "to": { "gateway": k } | { "model": k }, "timeout": n, "report": {...}, "leg": [...] } }`, works in three parts:
+- `semantic/walkmesh.js` (pure, synced to `runner/semantic/` and `web/js/semantic/`) reads the walkmesh, adjacency and locks, finds a triangle path (A*), and picks pad directions;
+- `runner/route.js` runs the closed loop. Each frame it reads Cloud's triangle and position, steers at the next portal midpoint (or at the goal in the last triangle), presses one of the 8 pad directions, and re-plans if Cloud leaves the path;
+- it stops when the goal is reached, after 60 frames without moving (stuck), on leaving field mode (a random battle, say), or at the timeout.
+
+**Only numbers leave:**
+- the outcome code;
+- the path length in triangles with and without blocked accesses (`path`, `free`);
+- the locked-triangle count;
+- frames;
+- the pad legs, packed as code × 10000 + frames.
+
+The emulator is deterministic, so a reported leg list replays exactly as ordinary drags from the same snapshot. That is how the playthrough will use it: touch-layer drags only.
+
+**Layout (reference only, no code):** Xeeynamo/ff7-decomp@33ce78c94021b2e1705785347da58a2ca30ba705.
+- `src/field/field_private.h`: `FieldWalkmesh` is a u16 triangle count and a u16 pad, then count × 3 SVECTOR (s16 x, y, z, pad), then count × `FieldWalkmeshAccess` (3 × s16, −1 is a wall). `D_8009A044` is a `FieldWalkmesh**`.
+- `src/field/field_loop.c` and `config/symbols.field.us.txt`: `g_WalkmeshTriangles` (0x800E4274) is the vertex data, and `g_WalkmeshAccesses` (0x80114458) follows it. The reader requires both pointers to agree with the header's, or it reports no walkmesh.
+- `src/field/field_entity.c`:
+  - `FieldEntityWalkmeshCross`: a point is inside when all three edge cross products are ≥ 0, and edge k (vertex k → k+1) leads to access k. A set bit `access` in `g_FieldState.blockedAccesses` (IDLCK) also stops the move.
+  - `FieldEntityMovementUpdate`: the pad sets MoveDir to up 0, up-left 32, left 64, …, up-right 224, then adds `FieldTriggers.controlDirection`.
+  - `FieldEntityMove`: the player stops dead on contact with a solid model, and slides along walkmesh edges.
+- `include/game.h`: `FieldState.blockedAccesses` is at +0xB2 (64 bytes) of 0x8009ABF4 (offsets counted from the struct; `modelCount` at +0x28 checks the count). `FieldTriggers.controlDirection` is at +0x09, and `FieldEntity.PosI` (the triangle a model stands in) at +0x72.
+
+**Probes (Tier 2):** these replace the s2i hint probes and the stall segment. All boot from `touch-md1-1`.
+- `touch-s2r-gw1`: route to gateway 1 (md1_2). `path` = 0 with `free` > 0 means IDLCK locks close the way.
+- `touch-s2r-m2`, `-m3`, `-m4`: route to the talk range of models 2, 3 and 4, then one Interact press. `w0` and `w1` show whether a message opened.
+- `touch-s2r-m3-gw1`: route to model 3, tap Interact through any message, then route to gateway 1. Compare `locked_g` with s2r-gw1's `locked`: did the talk unlock triangles?
+
+Untested hypotheses: the field updates the player every frame (closed-loop steering doesn't depend on it), and the md1_1 snapshot is settled with the walkmesh loaded.
+
+**Run 1 of attempt 1 (`832691f`; tier2-eval 45485806546, eval took 19 min): no route data.** 110 pass, 0 fail, 13 error. The sandbox stopped starting scenarios at its deadline, after `save-boot-7h`. The 13 cut were everything from `save-boot-8-world-midgar` on, including `touch-playthrough` and all five `touch-s2r-*` probes, so none of them ran. Recent tier2-eval runs on main took 13 to 20 minutes for the same set, so runner speed varies a lot. This run was on the slow side; whether the new step costs anything before the touch scenarios is unknown. It isn't counted as an attempt: there is no result. Next: let the next push's run report them. If the deadline cuts them again, trim probes (s2r-m2 and s2r-m4 first), because the sandbox time limit is a protected path.
+
+**Run 2 of attempt 1 (`483bc41`; tier2-eval 45492271606, eval took 12 min): route data.** 121 pass, 2 fail (`touch-s2r-gw1` and `touch-s2r-m3-gw1`, whose md1_2 end check fails while the way is shut), 0 error. `touch-playthrough` passes.
+
+| probe | outcome | other metrics |
+|---|---|---|
+| touch-s2r-gw1 | 2 stuck | path 7, free 7, locked 0, 406 frames, 12 legs (first: right 14, down-right 8) |
+| touch-s2r-m2 | 2 stuck | 400 frames, 11 legs; after one Interact press, w0 0, **w1 2** |
+| touch-s2r-m3 | 2 stuck | 400 frames, 12 legs; after one Interact press, w0 0, **w1 2** |
+| touch-s2r-m4 | **1 reached** | 302 frames, 11 legs; after one Interact press, w0 0, w1 0 |
+| touch-s2r-m3-gw1 | out_m 2 stuck, out_g 2 stuck | to gateway 1: path 2, free 2, locked 0, 60 frames (stuck at once); still md1_1 |
+
+What this says (measurements, then hypotheses):
+- **The walkmesh reader works on the real disc** (no outcome 5), and **nothing is locked** (`locked` 0, `path` = `free`). So IDLCK doesn't close the exit.
+- All routes share their first legs and stall after 340 to 400 frames. After the model 3 attempt, Cloud stands **2 triangles from gateway 1**. Hypothesis: a solid model stops him. FieldEntityMove stops the player dead on solid contact, and the stall is in the band where earlier probes found models 1-4.
+- Model 4's talk range **is reachable** (first time any talkable model was reached). One Interact press there, at the route's last heading, opened no window.
+- After the stalls near models 2 and 3, one press left **window 1 in state 2 (text typing)**: a talk started. Which model answered isn't known.
+- The route to the gateway after model 3 stalled at once (60 frames). The 400 frames of fixed taps probably didn't finish the message (Cloud can't move while it is open), or a scene held him.
+- Counted as attempt 1 of the third budget.
+
+### Attempt 2 (2026-11-25): talk through the message, then exit with detours
+The route step gains three options (Tier 1: `runner/test/unit/route.test.js`, with a toy blocker and a toy talker whose message clears it):
+- `talk: n` (model goals): after the route ends reached or stuck, face the model (hold the pad towards it) with Interact taps until a window 0-3 opens. Then press Interact whenever a window waits (state 6) until all are closed for 30 frames. It reports `talk`, `talked` and `window`.
+- `detour: n`: on a stall, sidestep 24 frames at 90° (right first, then alternating), go 16 frames on, and re-plan. It reports `detours`, plus `block`, the model in solid contact at the last stall (index + 1).
+- `patience: n`: still frames before a stall (default 60), so a scene after a talk can play out.
+
+Probes `touch-s2r-talk-m2`, `-m3`, `-m4` replace attempt 1's five, which keeps the Tier 2 time down. Each routes to model k with up to 6 detours, then talks (up to 1200 frames), then routes to gateway 1 with patience 600 and 6 detours. The end check is md1_2. Metrics: `out_m`, `talk`, `talked`, `win`, `out_g`, `det_g`, `block_g`, `map_cur`.
+
+How to read the result:
+- **md1_2 reached:** that talk opens the way. Next: report the legs (a `legFrom` probe) and write stretch 2 into `touch-playthrough`. A talk is a tap on Interact facing the model, so it is a touch-layer action.
+- **talk > 0, talked > 0, out_g 2 with block_g = k:** the talk ran but model k still blocks. Try a talk to k, or more detours.
+- **talk 0:** no window opened. Facing or reach is the problem.
+- **talked 0:** the message didn't close: a choice window or a long scene. Look at `win`.
+
+### Attempt 2 results (`f9c0ff5`; tier2-eval 45549628796, eval 12.1 min): 118 pass, 3 fail (the probes), 0 error
+Recorded 2026-11-25 from the `eval` job log. `touch-playthrough` (stretch 1) passes unchanged.
+
+| probe | out_m | talk | talked | win | out_g | det_g | block_g | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| touch-s2r-talk-m2 | 2 stuck | 1 | 37 | 2 | **3 timeout** | 4 | 0 | 117 |
+| touch-s2r-talk-m3 | 2 stuck | 1 | 37 | 2 | **3 timeout** | 4 | 0 | 117 |
+| touch-s2r-talk-m4 | 1 reached | 0 | 0 | 0 | **3 timeout** | 4 | 0 | 117 |
+
+Reading:
+- **m2 and m3 are the same run in effect:** the route stalls at the same point, and window 1 is already open when the talk phase starts (`talk` 1 means the first frame). So the window was opened by reaching that point (or by the stall), not by a facing press. It closed within about 7 frames of pressing (talked 37 = 30 closed frames + ~7). Hypothesis: a touch or line trigger there runs a short message.
+- **m4's talk range is reached, but 1200 frames of facing and tapping open nothing.** Model 4 has no talk at this point of the story, or facing is wrong.
+- **Every gateway route times out**, whatever came before, after only 4 sidesteps: 4 stalls of 600 still frames plus sidesteps and walking fill the 3000 frames. At the last stall **no model is in solid contact** (block_g 0). So what holds Cloud short of md1_2 is not a solid model as far as `blockingModel` sees (it skips models more than the talk height apart), and not a lock (attempt 1: locked 0).
+- Remaining hypotheses: (a) a window or scene holds Cloud during the gateway route, and nothing presses through it (the route step pressed no buttons); (b) a model at another height (the gate, say) blocks him and `blockingModel` skips it; (c) a walkmesh edge the steering slides along without passing.
+- Counted as attempt 2 of the third budget.
+
+### Attempt 3 (last of the third budget): nudge each stall, and say why it stalled
+The route step gains `nudge: n`. On each new stall point, before any sidestep: if a window is open, press Interact through it; otherwise hold the last direction and tap Interact for up to n frames, and press through any window that opens. Once per stall point; the next stall there goes on to the sidesteps. New reports, numbers only:
+- `opened`: windows the nudges pressed through;
+- `wstall`: the window open at the last stall (index + 1), which tests (a);
+- `near`: the nearest other model within 256 at the last stall, at any height and solid or not (index + 1), which tests (b) against `block`;
+- `remain`: triangles from the end position to the gateway (1 = in a gateway triangle), which shows how far short Cloud ends.
+
+Probes (they replace attempt 2's three; m2 and m3 were the same run, and m4 adds nothing to the gateway leg):
+- `touch-s2r3-gw`: route straight to gateway 1 with nudges (6000 frames, patience 120, nudge 300, 6 sidesteps).
+- `touch-s2r3-m3-gw`: attempt 2's model 3 route and talk, then the same gateway route.
+
+Tier 1: `runner/test/unit/route.test.js` gains a toy blocker that talks (a nudge opens its message and it steps away), a window already open at a stall, and a quiet blocker (one 60-frame nudge, then stuck).
+
+How to read the result:
+- **md1_2 reached:** the nudge opens the way. Next: replay the legs as drags plus Interact taps in `touch-playthrough` (the legs carry no button field, so the Interact taps of a nudge need their own leg probe or a fixed tap pattern).
+- **opened > 0, still timeout:** a message held Cloud and pressing through it was not enough; `remain` and `near` say where he ends.
+- **wstall 0, near k, block_g 0:** model k is near at a different height: hypothesis (b).
+- **wstall 0, near 0:** nothing near: hypothesis (c), a walkmesh edge. `remain` says how many triangles short.
+
+If md1_2 isn't reached, the third budget is spent: report on #120 with these readings and stop.
+
+### Attempt 3 results (`039db47`; tier2-eval 45617447865, eval 11.8 min): 118 pass, 2 fail (the probes), 0 error
+Recorded 2026-11-25. `touch-playthrough` (stretch 1) passes unchanged.
+
+| probe | out_g | det_g | opened | wstall | remain | near | block_g | map_cur |
+|---|---|---|---|---|---|---|---|---|
+| touch-s2r3-gw | 2 stuck | 6 | 1 | **3** (window 2) | 2 | 3 (model 2) | 0 | 117 |
+| touch-s2r3-m3-gw | 2 stuck | 6 | 1 | **2** (window 1) | 2 | 3 (model 2) | 0 | 117 |
+
+Reading:
+- With patience 120, the routes now end **stuck** after all 6 sidesteps rather than timing out. Cloud ends **2 triangles from gateway 1**, as in attempt 1.
+- **A message window is open at the last stall in both probes**: window 2 on the direct route, and window 1 after the talk to model 3. The nudge at one stall point opened and pressed through one window (`opened` 1). The window open at the last stall was not pressed through, because the nudge runs once per point and that point had already been nudged. Its state is not reported, so it is unknown whether it was waiting for Circle (state 6) or still typing (state 2, which attempt 1 saw). Either way, nothing pressed it at that point.
+- **Model 2 is the nearest model** (within 256 at any height) and is not in solid contact (block 0). So Cloud is held by a message and not by a solid model. Model 2 (a party member, by #237's reading) talks when Cloud comes near it, with no button press.
+- Hypothesis (a) is **supported**: a window or scene holds Cloud. Hypothesis (b), a model at another height, is not supported (block 0, and near is model 2, which talks). Hypothesis (c), a walkmesh edge, isn't needed to explain the stall.
+
+### Third budget: spent (3 of 3)
+md1_2 was not reached. What the three attempts established, with no coordinates leaving:
+- md1_1's walkmesh reads correctly. The path to gateway 1 has 7 triangles and none is locked.
+- Every route stalls 2 triangles short of gateway 1, beside model 2, while a message window is open. The nudges pressed one window through, and a window was open again at the last stall.
+- Talks to models 2 and 3 open window 1 at once and it closes after pressing through, but the way to the gateway stays shut. Model 4 doesn't talk.
+
+Suggested next step (needs a fresh budget, so an owner decision): a scene-driving route. On every stall, poll all four windows every frame for up to ~2000 frames, pressing Circle whenever any is at state 6, and report each window's state and how long each stays open. Then re-route. If the scene is a sequence of messages with pauses (party members talking at the gate), the route must ride it out rather than nudge once. Also report the field script's "player can move" flag, if one can be found in the decomp, to tell a scene lock from a message.
+
+## Budget 4 (owner, 2026-11-26): scene-driving route
+
+**Inputs.** The owner approved a fourth budget of 3 attempts, and confirmed that Cloud's naming screen comes in md1_1's gate scene. Agent research (#120 comment, public walkthroughs; source claims only) says md1_1 is the Sector 1 gate scene: a conversation with Biggs and Jessie, then the naming screen, then the door opens.
+
+**Decomp reading (reference only, Xeeynamo/ff7-decomp@33ce78c, no code copied).**
+- `src/main/110B8.c`: in `GAMESTATE_MENU`, the main loop dispatches on `g_FieldState.eventCmd`, and `EVTCMD_CHAR_NAME_ENTRY` (6) calls `HandleNameMenu`.
+- `src/main/1F6B4.c`: `HandleNameMenu` loads `YAMA_NAMEMENU` with the static `LoadMenuOvl`, not `SysMenuLoadMenuFileById`. So **`menuOverlay` does not change for the naming screen**. Watching it, as first planned, would miss the screen.
+- `include/game.h`: `FieldState.eventCmd` is the u8 at +0x01 of `g_FieldState` (0x8009ABF4). New address-table entry `fieldEventCmd` (0x8009ABF5, hypothesis).
+- NAMEMENU itself is not decompiled, so which press confirms the default name is unknown.
+
+**Attempt 1 (`5fe7d01`).** The route step gets `scene` and `naming` (runner/route.js):
+- while a window is open, or the game is out of field mode, it stops steering;
+- it presses Interact whenever a window waits (state 6);
+- on the naming screen it presses the `naming` groups in turn, each held 4 frames, one every 30;
+- when every window has been closed in field mode for 90 frames, it reads the walkmesh again and re-plans.
+
+New reports: `scenes`, `wmask`, `named`, `nleft`, `smode`, `evt`. Three probes from `touch-md1-1` replace the third budget's two:
+
+| probe | naming plan | first |
+|---|---|---|
+| `touch-s2s-gw-c` | Circle | gateway route |
+| `touch-s2s-gw-sc` | Start, then Circle | gateway route |
+| `touch-s2s-m3-gw-sc` | Start, then Circle | talk to model 3, then gateway route |
+
+What each result means:
+- `named` > 0 and `nleft` > 0 means the plan confirmed the name. That press becomes the touch layer's naming action, filed as its own issue before the playthrough uses it, per the owner's stop condition.
+- `named` 0 with `smode` 5 means `fieldEventCmd` is wrong (see `evt`).
+
+### Attempt 1 results (`241ef06`; tier2-eval 45758243678, two shards): 124 pass, 3 fail (the probes), 0 error
+
+Stretch 1 (`touch-playthrough`) is unchanged: battle_wait 839, turn1 496, t1_target 1, t1_done 1, turn2 752, end_wait 482, next_wait 495, match 1.
+
+| probe | out_g | scenes | wmask | named | nleft | smode | evt | remain |
+|---|---|---|---|---|---|---|---|---|
+| `touch-s2s-gw-c` | 3 (timeout) | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+| `touch-s2s-gw-sc` | 3 | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+| `touch-s2s-m3-gw-sc` | 3 | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+
+- All three are identical, so the model 3 talk first changes nothing.
+- Three drives of up to 3000 frames used the whole 9000-frame timeout, so in each drive windows 1 and 2 never all closed (the drive ends only after 90 closed frames). The game never left field mode (`smode` 0), and the naming screen was never seen.
+- **Reading (hypothesis):** the drive pressed Interact only in state 6. `field_dialog.c` (reference only) also waits for Circle in states 4 (wait row), 11 (pause scroll until ok), 13 (pause until ok) and 14 (wait next window). The semantic layer already lists them (`addresses.js` `WINDOW_WAITING_STATES`), but the route used 6 alone. A two-speaker scene in windows 1 and 2 waiting in 14 or 13 would hold exactly like this.
+
+### Attempt 2 (2026-11-26): press on every waiting state, and report which state holds
+
+- `semantic/walkmesh.js`: `ROUTE_WATCH.windowWaitingStates` = [4, 6, 11, 13, 14] (a Tier 1 test keeps it equal to `WINDOW_WAITING_STATES`); `windowWaiting()` uses it. This also changes the talk phase and nudges, which use the same check.
+- New route reports: `wlast` (the four windows' states when the last drive ended, window i in bits 4i..4i+3, 15 for a state outside 0..14) and `wpress` (Interact presses the drives made on waiting windows).
+- Probes: `touch-s2s-gw-c` now reports `out_g scenes wmask wlast wpress named smode remain`; `touch-s2s-gw-sc` keeps attempt 1's metrics. `touch-s2s-m3-gw-sc` is dropped.
+- What the result means:
+  - md1_2 reached: extend `touch-playthrough` with stretch 2 (with the naming plan that worked, filed first as the touch layer's naming action if the naming screen was seen);
+  - `named` > 0: the naming screen is reached; `nleft` says whether Start, Circle confirmed it;
+  - still held: `wlast` names the holding state per window, and `wpress` whether pressing happened at all.
+
+### Attempt 2 results (`e6ecba7`; tier2-eval 45823175785, two shards): 125 pass, 1 fail, 0 error. **md1_2 reached.**
+
+| probe | status | out_g | scenes | wmask | named | nleft | smode | evt | wlast | wpress | remain |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `touch-s2s-gw-sc` (Start, then Circle) | **pass** (map_cur = md1_2) | 1 (reached) | 4 | 15 (windows 0-3) | 929 | 179 | 0 | 0 | – | – | 3 |
+| `touch-s2s-gw-c` (Circle only) | fail | 3 (timeout) | 3 | 6 | 929 | 0 | – | – | 0 | 6 | 2 |
+
+Stretch 1 (`touch-playthrough`) is unchanged.
+
+- **The fix worked.** With Interact pressed in every waiting state, the gate scene plays through, and both probes reach the naming screen at the same route frame (929): gameState 5 with `fieldEventCmd` 6, as the decomp suggests. (`smode` stays 0 because the naming check runs first.)
+- **Start, then Circle confirms the default name.** That plan left the naming screen after 179 frames, back in field mode. The scene went on in all four windows, and then the route reached gateway 1 and md1_2. With Circle alone, the naming screen never closed (`nleft` 0) until the timeout.
+- `remain` is read after the route ends. Once md1_2 has loaded, it describes md1_2's mesh, so 3 means nothing there.
+- `fieldEventCmd` = 6 on the naming screen now has Tier 2 evidence from two probes. Promoting it to `confirmed` is left to the naming-action issue, together with its own acceptance scenario.
+
+**Next (owner's stop condition):** the touch layer has no naming action, so it is filed as its own issue: in naming mode, offer "confirm the default name", which plays Start, then Circle. Once that is merged, `touch-playthrough` gets stretch 2: the scene-driving route, using that action's sequence.
+

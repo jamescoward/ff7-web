@@ -629,6 +629,17 @@ const FIELD_ENTRIES = [
     scenario: SC('reactor-next-4-models'),
   },
   {
+    // #120 budget 4: the naming screen loads its overlay directly
+    // (HandleNameMenu -> LoadMenuOvl), so menuOverlay does not change; this
+    // byte is how the main loop knows which menu to run.
+    name: 'fieldEventCmd',
+    address: FIELD_STATE + 0x01,
+    type: 'u8',
+    meaning: 'the field\'s pending event command (g_FieldState.eventCmd, enum FieldEventCmd): with gameState menu (5), 6 = character name entry (eventCmdParam at +0x02 names the character), 7 = party select, 8 = shop, 9 = the main menu',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_FieldState 0x8009ABF4), include/game.h (FieldState: renderBuffer at +0, eventCmd at +1, eventCmdParam at +2; enum FieldEventCmd: EVTCMD_CHAR_NAME_ENTRY = 6), src/main/110B8.c (GAMESTATE_MENU dispatches on eventCmd to HandleNameMenu) and src/main/1F6B4.c (HandleNameMenu loads YAMA_NAMEMENU with LoadMenuOvl, not SysMenuLoadMenuFileById). Not seen in Tier 2 yet (#120 budget 4 watches it through md1_1's gate scene)`,
+    status: 'hypothesis',
+  },
+  {
     name: 'fieldZ',
     address: FIELD_ENTITY + 0x14,
     type: 's32',

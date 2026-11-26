@@ -7,7 +7,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, WINDOW_WAITING_STATES } from '../../../semantic/addresses.js';
 import { FIELD_ACTIONS } from '../../../semantic/controls.js';
 import {
   ENTITY,
@@ -33,9 +33,10 @@ import {
   readPlayer,
   readWalkmesh,
   unpackLeg,
+  windowStates,
 } from '../../../semantic/walkmesh.js';
 import { padMask } from '../../pad.js';
-import { NO_DIRECTION, ROUTE_OUTCOME, emptyRoute, routeMetrics, runRoute } from '../../route.js';
+import { NAME_EVERY, NO_DIRECTION, ROUTE_OUTCOME, ROUTE_REPORT, SCENE_QUIET, emptyRoute, routeMetrics, runRoute } from '../../route.js';
 import { loadScenario2, playScript } from '../../format2.js';
 
 const BASE = 0x80000000;
@@ -138,6 +139,51 @@ function toyBackend(tris, opts = {}) {
   }
   let pad = 0;
   let lastCircle = false;
+  let lastStart = false;
+  // A scene (opts.scene: { atX, window, pages, naming, clears }, budget 4):
+  // when the player reaches x >= atX, `window` opens at 6 and holds him;
+  // each Interact press turns a page and the last closes it. With naming,
+  // the naming screen follows (gameState menu, fieldEventCmd 6) until Start
+  // and then Circle are pressed; then model `clears` steps away.
+  const sc = opts.scene;
+  let sceneState = 'idle';
+  let scenePages = 0;
+  let startSeen = false;
+  const sceneEnd = () => {
+    sceneState = 'done';
+    if (sc.clears) f.dv.setInt32(f.at(ENTITY.base + sc.clears * ENTITY.size + ENTITY.posX), 4000 * 4096, true);
+  };
+  const sceneFrame = (edge, startEdge) => {
+    if (!sc || sceneState === 'done') return false;
+    const wa = f.at(ROUTE_WATCH.windows[sc.window]);
+    if (sceneState === 'idle') {
+      if (pos()[0] < sc.atX) return false;
+      f.dv.setInt16(wa, sc.states?.[0] ?? 6, true);
+      scenePages = sc.pages;
+      sceneState = 'msg';
+      return true;
+    }
+    if (sceneState === 'msg') {
+      // sc.states: the window's state on each page (default 6 throughout).
+      if (edge && scenePages > 1 && sc.states) f.dv.setInt16(wa, sc.states[sc.pages - scenePages + 1] ?? 6, true);
+      if (edge && --scenePages <= 0) {
+        f.dv.setInt16(wa, 0, true);
+        if (sc.naming) {
+          f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.menuMode, true);
+          f.ram[f.at(ROUTE_WATCH.eventCmd)] = ROUTE_WATCH.nameEntry;
+          sceneState = 'naming';
+        } else sceneEnd();
+      }
+      return true;
+    }
+    if (startEdge) startSeen = true;
+    else if (edge && startSeen) {
+      f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.fieldMode, true);
+      f.ram[f.at(ROUTE_WATCH.eventCmd)] = 0;
+      sceneEnd();
+    } else if (edge) startSeen = false; // Circle first types a letter: the name is not confirmed
+    return true;
+  };
   // A talker (opts.talker: { model, window, pages, clears }): an Interact
   // press in its talk range opens `window` at 6; each later press turns a
   // page, and the last closes it; then model `clears` (a blocker) steps away.
@@ -174,6 +220,10 @@ function toyBackend(tris, opts = {}) {
       const circle = (pad & CIRCLE) !== 0;
       const edge = circle && !lastCircle;
       lastCircle = circle;
+      const start = (pad & padMask(['start'])) !== 0;
+      const startEdge = start && !lastStart;
+      lastStart = start;
+      if (sceneFrame(edge, startEdge)) return; // a scene holds the player
       talkFrame(edge);
       if (f.dv.getInt16(f.at(ROUTE_WATCH.windows[talkWindow]), true) !== 0) return; // a message holds the player
       const code = ROUTE_BUTTONS.findIndex((b) => padMask([...b]) === (pad & ~CIRCLE));
@@ -419,6 +469,77 @@ describe('runner/route.js', () => {
     assert.equal(rw.frames, plain.frames + 60 + 60);
   });
 
+  it('drives a scene: presses through its message, confirms the naming screen, re-plans and reaches the gateway (budget 4)', () => {
+    // Model 1 blocks the corridor until a scene ends; the scene starts at x 90: a message in window 2, then the naming screen.
+    const opts = {
+      control: 128,
+      models: [{ x: 110, y: 16, solid: 8, block: true }],
+      scene: { atX: 90, window: 2, pages: 3, naming: true, clears: 1 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    // Without scene driving the route stalls in the message: stuck, window 2 open.
+    const b0 = toyBackend(corridor(5), opts);
+    const r0 = runRoute(b0, { to: { gateway: 0 }, timeout: 3000 }, frameOn(b0));
+    assert.equal(r0.outcome, ROUTE_OUTCOME.stuck);
+    assert.equal(r0.wstall, 3);
+    assert.deepEqual([r0.scenes, r0.wmask, r0.named], [0, 0, 0]);
+    // With it, and Start then Circle on the naming screen: reached.
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 3000, scene: 2000, naming: [['start'], ['circle']] }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.ok(r.scenes >= 1, `scenes ${r.scenes}`);
+    assert.equal(r.wmask, 1 << 2);
+    assert.ok(r.named > 0 && r.named <= r.frames, `named ${r.named}`);
+    assert.ok(r.nleft > NAME_EVERY && r.nleft <= 2 * NAME_EVERY, `nleft ${r.nleft}`);
+    assert.equal(r.smode, 0, 'the naming screen is not reported as another mode');
+    assert.equal(r.legs.reduce((n, l) => n + (l % 10000), 0), r.frames);
+    assert.ok(r.frames > SCENE_QUIET, 'the drive waited for the quiet period');
+    // Circle alone never confirms the name in this toy: the route times out on the naming screen, which stays reported.
+    const bc = toyBackend(corridor(5), opts);
+    const rc = runRoute(bc, { to: { gateway: 0 }, timeout: 1500, scene: 2000, naming: [['circle']] }, frameOn(bc));
+    assert.equal(rc.outcome, ROUTE_OUTCOME.timeout);
+    assert.ok(rc.named > 0);
+    assert.equal(rc.nleft, 0);
+    assert.equal(rc.frames, 1500);
+  });
+
+  it('presses through every Circle-waiting window state, not only 6, and reports wlast and wpress (budget 4 attempt 2)', () => {
+    assert.deepEqual([...ROUTE_WATCH.windowWaitingStates], [...WINDOW_WAITING_STATES]);
+    // A two-speaker scene: window 1 waits in 14 (wait next window), then 4 (wait row), then 13 (pause until ok).
+    const opts = {
+      control: 128,
+      models: [{ x: 110, y: 16, solid: 8, block: true }],
+      scene: { atX: 90, window: 1, pages: 3, states: [14, 4, 13], clears: 1 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 3000, scene: 2000 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r.wmask, 1 << 1);
+    assert.equal(r.wpress, 3);
+    assert.equal(r.wlast, 0, 'every window closed when the drive ended');
+    // A window in a state that does not wait (2, typing) is never pressed: the drive runs to its limit and wlast shows it.
+    const b2 = toyBackend(corridor(5), { ...opts, scene: { ...opts.scene, states: [2, 2, 2] } });
+    const r2 = runRoute(b2, { to: { gateway: 0 }, timeout: 1000, scene: 500 }, frameOn(b2));
+    assert.equal(r2.outcome, ROUTE_OUTCOME.timeout);
+    assert.equal(r2.wpress, 0);
+    assert.equal(r2.wlast, 2 * 16);
+    assert.equal(windowStates(b2.readMem), 2 * 16);
+  });
+
+  it('reports another mode seen in a scene drive, with fieldEventCmd', () => {
+    const b = toyBackend(corridor(5), { control: 128, gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 } });
+    b.poke16(ROUTE_WATCH.gameState, 2);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 200, scene: 100 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.timeout);
+    assert.deepEqual([r.smode, r.evt, r.named], [2, 0, 0]);
+    // Without scene, the same start is "left field mode" at once, as before.
+    const b2 = toyBackend(corridor(5), { control: 128, gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 } });
+    b2.poke16(ROUTE_WATCH.gameState, 2);
+    assert.equal(runRoute(b2, { to: { gateway: 0 }, timeout: 200 }, frameOn(b2)).outcome, ROUTE_OUTCOME.left);
+    assert.ok(['scenes', 'wmask', 'named', 'nleft', 'smode', 'evt'].every((k) => ROUTE_REPORT.includes(k) && k in emptyRoute()));
+  });
+
   it('names metrics for the reports and the legs from legFrom', () => {
     const step = { report: { outcome: 'out', legs: 'n' }, leg: ['l0', 'l1'], legFrom: 1 };
     const m = routeMetrics(step, { ...emptyRoute(), outcome: 1, legs: [10, 20] });
@@ -444,6 +565,13 @@ describe('format 2 route step', () => {
     const run = playScript(b, sc.steps, {});
     assert.equal(run.routes.get(sc.steps[0]).outcome, ROUTE_OUTCOME.reached);
     assert.equal(run.frames, b.frames);
+  });
+
+  it('loads scene and naming, and refuses naming without scene', () => {
+    const sc = loadScenario2(doc({ to: { gateway: 0 }, timeout: 100, scene: 50, naming: [['start'], ['circle']], report: { named: 'nm' } }, ['nm']), {});
+    assert.equal(sc.steps[0].scene, 50);
+    assert.deepEqual(sc.steps[0].naming, [['start'], ['circle']]);
+    assert.throws(() => loadScenario2(doc({ to: { gateway: 0 }, timeout: 100, naming: [['start']] }, []), {}), /naming needs scene/);
   });
 
   it('refuses a metric it names that is not listed', () => {

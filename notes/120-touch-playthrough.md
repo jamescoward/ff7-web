@@ -567,4 +567,28 @@ What each result means:
 - `named` > 0 and `nleft` > 0 means the plan confirmed the name. That press becomes the touch layer's naming action, filed as its own issue before the playthrough uses it, per the owner's stop condition.
 - `named` 0 with `smode` 5 means `fieldEventCmd` is wrong (see `evt`).
 
+### Attempt 1 results (`241ef06`; tier2-eval 45758243678, two shards): 124 pass, 3 fail (the probes), 0 error
+
+Stretch 1 (`touch-playthrough`) is unchanged: battle_wait 839, turn1 496, t1_target 1, t1_done 1, turn2 752, end_wait 482, next_wait 495, match 1.
+
+| probe | out_g | scenes | wmask | named | nleft | smode | evt | remain |
+|---|---|---|---|---|---|---|---|---|
+| `touch-s2s-gw-c` | 3 (timeout) | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+| `touch-s2s-gw-sc` | 3 | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+| `touch-s2s-m3-gw-sc` | 3 | 3 | 6 | 0 | 0 | 0 | 0 | 2 |
+
+- All three are identical, so the model 3 talk first changes nothing.
+- Three drives of up to 3000 frames used the whole 9000-frame timeout, so in each drive windows 1 and 2 never all closed (the drive ends only after 90 closed frames). The game never left field mode (`smode` 0), and the naming screen was never seen.
+- **Reading (hypothesis):** the drive pressed Interact only in state 6. `field_dialog.c` (reference only) also waits for Circle in states 4 (wait row), 11 (pause scroll until ok), 13 (pause until ok) and 14 (wait next window). The semantic layer already lists them (`addresses.js` `WINDOW_WAITING_STATES`), but the route used 6 alone. A two-speaker scene in windows 1 and 2 waiting in 14 or 13 would hold exactly like this.
+
+### Attempt 2 (2026-11-26): press on every waiting state, and report which state holds
+
+- `semantic/walkmesh.js`: `ROUTE_WATCH.windowWaitingStates` = [4, 6, 11, 13, 14] (a Tier 1 test keeps it equal to `WINDOW_WAITING_STATES`); `windowWaiting()` uses it. This also changes the talk phase and nudges, which use the same check.
+- New route reports: `wlast` (the four windows' states when the last drive ended, window i in bits 4i..4i+3, 15 for a state outside 0..14) and `wpress` (Interact presses the drives made on waiting windows).
+- Probes: `touch-s2s-gw-c` now reports `out_g scenes wmask wlast wpress named smode remain`; `touch-s2s-gw-sc` keeps attempt 1's metrics. `touch-s2s-m3-gw-sc` is dropped.
+- What the result means:
+  - md1_2 reached: extend `touch-playthrough` with stretch 2 (with the naming plan that worked, filed first as the touch layer's naming action if the naming screen was seen);
+  - `named` > 0: the naming screen is reached; `nleft` says whether Start, Circle confirmed it;
+  - still held: `wlast` names the holding state per window, and `wpress` whether pressing happened at all.
+
 Tier 2: pending.

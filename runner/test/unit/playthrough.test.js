@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { NAMING_PLANS, SCENE_GW_TIMEOUT, SCENE_LIMIT, sceneScenarios, ROUTE_NUDGE, ROUTE_TIMEOUT, AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { NAMING_PLANS, SCENE_GW_TIMEOUT, SCENE_METRICS, SCENE_LIMIT, sceneScenarios, ROUTE_NUDGE, ROUTE_TIMEOUT, AXIS_BRACKETS, HINT_MODELS, WALK_PRESS, hintMemory, hintScenarios, STALL_SNAPSHOT, WALKS, runButtons, runLeg, PROBE_MEMORY, PROBE_MODELS, probeScenarios, stallSegment, tapLeg, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
 
@@ -195,8 +195,8 @@ describe('#120 touch playthrough', () => {
   test('stretch 2 scene probes (budget 4): route steps and touch-layer buttons only, boot from touch-md1-1, after touch-playthrough, <= 8 metrics', () => {
     const offered = new Set([...DRAG_DIRECTIONS.flatMap((d) => dragButtons(d)), ...FIELD_ACTIONS.map((a) => a.button)]);
     const probes = sceneScenarios();
-    assert.deepEqual(probes.map((p) => p.name), ['touch-s2s-gw-c', 'touch-s2s-gw-sc', 'touch-s2s-m3-gw-sc']);
-    // Attempt 1: each ends on a scene-driving gateway route to gateway 1 (md1_2), with a naming plan; one talks to model 3 first.
+    assert.deepEqual(probes.map((p) => p.name), ['touch-s2s-gw-c', 'touch-s2s-gw-sc']);
+    // Attempt 2: each is one scene-driving gateway route to gateway 1 (md1_2), with a naming plan.
     for (const p of probes) {
       const routes = p.input.filter((s) => s.route).map((s) => s.route);
       const gw = routes.at(-1);
@@ -205,11 +205,11 @@ describe('#120 touch playthrough', () => {
       assert.equal(gw.timeout, SCENE_GW_TIMEOUT, p.name);
       assert.equal(gw.scene, SCENE_LIMIT, p.name);
       assert.deepEqual(gw.naming, NAMING_PLANS[p.name.endsWith('-sc') ? 'sc' : 'c'], p.name);
-      for (const k of ['scenes', 'named', 'nleft', 'smode', 'evt']) assert.ok(p.metrics.includes(gw.report[k]), `${p.name}: ${k}`);
-      if (p.name.includes('-m3-')) {
-        assert.equal(routes.length, 2, p.name);
-        assert.ok(routes[0].to.model === 3 && routes[0].talk > 0 && routes[0].timeout === ROUTE_TIMEOUT, p.name);
-      } else assert.equal(routes.length, 1, p.name);
+      const plan = p.name.endsWith('-sc') ? 'sc' : 'c';
+      assert.deepEqual(p.metrics, [...SCENE_METRICS[plan]], p.name);
+      const want = plan === 'c' ? ['scenes', 'wmask', 'wlast', 'wpress', 'named', 'smode'] : ['scenes', 'named', 'nleft', 'smode', 'evt'];
+      for (const k of want) assert.ok(p.metrics.includes(gw.report[k]), `${p.name}: ${k}`);
+      assert.equal(routes.length, 1, p.name);
     }
     const files = new Set(playthroughFiles().map((f) => f.data.name));
     for (const p of probes) {
@@ -231,6 +231,6 @@ describe('#120 touch playthrough', () => {
     }
     // The hint probes and attempt 1's route probes they replace are no longer generated.
     for (const n of files) assert.ok(!n.startsWith('touch-s2i-'), n);
-    for (const n of ['touch-s2r3-gw', 'touch-s2r3-m3-gw', 'touch-s2r-gw1', 'touch-s2r-m2', 'touch-s2r-m3', 'touch-s2r-m4', 'touch-s2r-m3-gw1', 'touch-s2r-talk-m2', 'touch-s2r-talk-m3', 'touch-s2r-talk-m4']) assert.ok(!files.has(n), n);
+    for (const n of ['touch-s2r3-gw', 'touch-s2r3-m3-gw', 'touch-s2r-gw1', 'touch-s2r-m2', 'touch-s2r-m3', 'touch-s2r-m4', 'touch-s2r-m3-gw1', 'touch-s2r-talk-m2', 'touch-s2r-talk-m3', 'touch-s2r-talk-m4', 'touch-s2s-m3-gw-sc']) assert.ok(!files.has(n), n);
   });
 });

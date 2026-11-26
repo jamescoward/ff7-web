@@ -324,6 +324,14 @@ export const ROUTE_WATCH = Object.freeze({
   /** dialogState, dialogState1-3 (s16): message windows 0-3; 0 closed, 6 text done and waiting for Circle. */
   windows: Object.freeze([0x800832a0, 0x800832d0, 0x80083300, 0x80083330]),
   windowWaiting: 6,
+  /**
+   * Every window state that waits for Circle and nothing else moves on
+   * (addresses.js WINDOW_WAITING_STATES, from field_dialog.c: 4 wait row,
+   * 6 done, 11 pause scroll until ok, 13 pause until ok, 14 wait next
+   * window). Only 6 is confirmed in Tier 2. #120 budget 4 attempt 2: a scene
+   * drive that pressed on 6 alone held windows 1 and 2 open for 3000 frames.
+   */
+  windowWaitingStates: Object.freeze([4, 6, 11, 13, 14]),
   /** gameState's menu value (confirmed). The naming screen runs in it. */
   menuMode: 5,
   /** fieldEventCmd (u8, a hypothesis, #120 budget 4): with gameState menu, nameEntry means the naming screen. */
@@ -451,9 +459,20 @@ export function openWindow(readMem) {
   return 0;
 }
 
-/** Whether any message window waits for Circle (state 6). */
+/** Whether any message window waits for Circle (one of ROUTE_WATCH.windowWaitingStates). */
 export function windowWaiting(readMem) {
-  return ROUTE_WATCH.windows.some((a) => readS16(readMem, a) === ROUTE_WATCH.windowWaiting);
+  return ROUTE_WATCH.windows.some((a) => ROUTE_WATCH.windowWaitingStates.includes(readS16(readMem, a)));
+}
+
+/**
+ * The four message windows' states packed one nibble each (window i at bits
+ * 4i..4i+3; a state outside 0..14, or unreadable, packs as 15).
+ */
+export function windowStates(readMem) {
+  return ROUTE_WATCH.windows.reduce((n, a, i) => {
+    const v = readS16(readMem, a);
+    return n + (v === null || v < 0 || v > 14 ? 15 : v) * 16 ** i;
+  }, 0);
 }
 
 /** The field's pending event command (fieldEventCmd, u8), or null. */

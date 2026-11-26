@@ -36,6 +36,7 @@ import {
   routeGoal,
   steerPoint,
   windowWaiting,
+  windowStates,
 } from './semantic/walkmesh.js';
 
 /** How a route ended (the `outcome` report). 0 is "not run" (the script stopped before the step). */
@@ -58,8 +59,11 @@ export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, l
  * the naming screen before field mode came back (0: never came back);
  * smode: the first gameState other than field seen in a drive (0 none);
  * evt: fieldEventCmd at that frame (0 also when no other mode was seen).
+ * Budget 4 attempt 2: wlast: the windows' states when the last scene drive
+ * ended (windowStates: window i's state in bits 4i..4i+3; 0 no drive or all
+ * closed); wpress: Interact presses the drives made on waiting windows.
  */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt']);
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'wlast', 'wpress']);
 /** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
@@ -84,7 +88,7 @@ export const NAME_HOLD = 4;
 export const NAME_EVERY = 30;
 
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0 });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0, wlast: 0, wpress: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
@@ -307,6 +311,11 @@ function inScene(readMem) {
  * at() gives the route frame count so far.
  */
 function driveScene(readMem, limit, pressButtons, naming, res, at) {
+  driveSceneFrames(readMem, limit, pressButtons, naming, res, at);
+  res.wlast = windowStates(readMem);
+}
+
+function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
   let closed = 0;
   let hold = 0;
   let rest = 0;
@@ -341,7 +350,10 @@ function driveScene(readMem, limit, pressButtons, naming, res, at) {
     });
     closed = open ? 0 : closed + 1;
     if (closed >= SCENE_QUIET) return;
-    if (hold === 0 && rest === 0 && windowWaiting(readMem)) hold = ROUTE_TALK_HOLD;
+    if (hold === 0 && rest === 0 && windowWaiting(readMem)) {
+      hold = ROUTE_TALK_HOLD;
+      res.wpress += 1;
+    }
     if (hold > 0) {
       pressButtons([ROUTE_TALK_BUTTON]);
       hold -= 1;

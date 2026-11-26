@@ -7,7 +7,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ADDRESS_TABLE } from '../../../semantic/addresses.js';
+import { ADDRESS_TABLE, WINDOW_WAITING_STATES } from '../../../semantic/addresses.js';
 import { FIELD_ACTIONS } from '../../../semantic/controls.js';
 import {
   ENTITY,
@@ -33,6 +33,7 @@ import {
   readPlayer,
   readWalkmesh,
   unpackLeg,
+  windowStates,
 } from '../../../semantic/walkmesh.js';
 import { padMask } from '../../pad.js';
 import { NAME_EVERY, NO_DIRECTION, ROUTE_OUTCOME, ROUTE_REPORT, SCENE_QUIET, emptyRoute, routeMetrics, runRoute } from '../../route.js';
@@ -157,12 +158,14 @@ function toyBackend(tris, opts = {}) {
     const wa = f.at(ROUTE_WATCH.windows[sc.window]);
     if (sceneState === 'idle') {
       if (pos()[0] < sc.atX) return false;
-      f.dv.setInt16(wa, 6, true);
+      f.dv.setInt16(wa, sc.states?.[0] ?? 6, true);
       scenePages = sc.pages;
       sceneState = 'msg';
       return true;
     }
     if (sceneState === 'msg') {
+      // sc.states: the window's state on each page (default 6 throughout).
+      if (edge && scenePages > 1 && sc.states) f.dv.setInt16(wa, sc.states[sc.pages - scenePages + 1] ?? 6, true);
       if (edge && --scenePages <= 0) {
         f.dv.setInt16(wa, 0, true);
         if (sc.naming) {
@@ -498,6 +501,30 @@ describe('runner/route.js', () => {
     assert.ok(rc.named > 0);
     assert.equal(rc.nleft, 0);
     assert.equal(rc.frames, 1500);
+  });
+
+  it('presses through every Circle-waiting window state, not only 6, and reports wlast and wpress (budget 4 attempt 2)', () => {
+    assert.deepEqual([...ROUTE_WATCH.windowWaitingStates], [...WINDOW_WAITING_STATES]);
+    // A two-speaker scene: window 1 waits in 14 (wait next window), then 4 (wait row), then 13 (pause until ok).
+    const opts = {
+      control: 128,
+      models: [{ x: 110, y: 16, solid: 8, block: true }],
+      scene: { atX: 90, window: 1, pages: 3, states: [14, 4, 13], clears: 1 },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 3000, scene: 2000 }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r.wmask, 1 << 1);
+    assert.equal(r.wpress, 3);
+    assert.equal(r.wlast, 0, 'every window closed when the drive ended');
+    // A window in a state that does not wait (2, typing) is never pressed: the drive runs to its limit and wlast shows it.
+    const b2 = toyBackend(corridor(5), { ...opts, scene: { ...opts.scene, states: [2, 2, 2] } });
+    const r2 = runRoute(b2, { to: { gateway: 0 }, timeout: 1000, scene: 500 }, frameOn(b2));
+    assert.equal(r2.outcome, ROUTE_OUTCOME.timeout);
+    assert.equal(r2.wpress, 0);
+    assert.equal(r2.wlast, 2 * 16);
+    assert.equal(windowStates(b2.readMem), 2 * 16);
   });
 
   it('reports another mode seen in a scene drive, with fieldEventCmd', () => {

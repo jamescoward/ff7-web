@@ -710,34 +710,46 @@ export function routeScenarios() {
  * s2s-gw-c Circle alone, and s2s-m3-gw-sc talks to model 3 first (as attempt 3
  * did) with Start then Circle. Whichever confirms becomes the touch layer's
  * naming action (an issue of its own) before the playthrough uses it.
+ *
+ * Attempt 1 (Tier 2, all three identical): out_g 3 (timeout), scenes 3,
+ * wmask 6 (windows 1 and 2), named 0, smode 0, remain 2. Three drives of
+ * 3000 frames used the whole 9000-frame timeout, so the windows never all
+ * closed. The drive pressed Interact only on state 6, but field_dialog.c
+ * also waits for Circle in states 4, 11, 13 and 14 (addresses.js
+ * WINDOW_WAITING_STATES), for example 14 "wait next window" in a two-speaker
+ * scene. Attempt 2 presses on every waiting state (semantic/walkmesh.js
+ * windowWaitingStates). s2s-gw-c also reports wlast (the windows' states when
+ * the last drive ended) and wpress (presses made), so a further hold shows
+ * which state held it. The model 3 talk probe is dropped: its attempt 1
+ * result equalled s2s-gw-sc's.
  */
 export const SCENE_LIMIT = 3000;
 export const SCENE_GW_TIMEOUT = 9000;
 export const NAMING_PLANS = Object.freeze({ sc: Object.freeze([['start'], ['circle']]), c: Object.freeze([['circle']]) });
-const SCENE_METRICS = ['out_g', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'remain'];
+const SCENE_REPORT = Object.freeze({ outcome: 'out_g', scenes: 'scenes', wmask: 'wmask', named: 'named', nleft: 'nleft', smode: 'smode', evt: 'evt', remain: 'remain', wlast: 'wlast', wpress: 'wpress' });
+/** Metrics per naming plan: the Circle probe trades nleft and evt for the window diagnostics. */
+export const SCENE_METRICS = Object.freeze({
+  c: Object.freeze(['out_g', 'scenes', 'wmask', 'wlast', 'wpress', 'named', 'smode', 'remain']),
+  sc: Object.freeze(['out_g', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'remain']),
+});
 const sceneRoute = (plan) =>
   routeStep(
     { gateway: GW_MD1_2 },
-    { outcome: 'out_g', scenes: 'scenes', wmask: 'wmask', named: 'named', nleft: 'nleft', smode: 'smode', evt: 'evt', remain: 'remain' },
+    Object.fromEntries(Object.entries(SCENE_REPORT).filter(([, m]) => SCENE_METRICS[plan].includes(m))),
     [],
     0,
     { timeout: SCENE_GW_TIMEOUT, patience: ROUTE_GW_PATIENCE, detour: ROUTE_DETOURS, nudge: ROUTE_NUDGE, scene: SCENE_LIMIT, naming: NAMING_PLANS[plan].map((g) => [...g]) },
   );
 const sceneWhat = (plan) =>
-  `route to gateway ${GW_MD1_2} (md1_2), at most ${SCENE_GW_TIMEOUT} frames, driving scenes: whenever a message window is open or the game is out of field mode, up to ${SCENE_LIMIT} frames of Interact through every waiting window and, on the naming screen (gameState 5 with fieldEventCmd 6, a hypothesis), ${NAMING_PLANS[plan].map((g) => g.join('+')).join(' then ')} in turn (each held 4 frames, one every 30); then the walkmesh is read again and the route re-planned. Stalls as attempt 3 (${ROUTE_GW_PATIENCE} still frames; a nudge of up to ${ROUTE_NUDGE} frames, then up to ${ROUTE_DETOURS} sidesteps). End check: md1_2 (0x${MD1_2.toString(16)}). Metrics: out_g (outcome), scenes (scene drives), wmask (windows seen open, bit i = window i), named (route frame + 1 when the naming screen was first seen, 0 never), nleft (frames on the naming screen until field mode came back, 0 never), smode (first other gameState seen in a drive, 0 none), evt (fieldEventCmd then), remain (triangles from the end to the gateway).`;
+  `route to gateway ${GW_MD1_2} (md1_2), at most ${SCENE_GW_TIMEOUT} frames, driving scenes: whenever a message window is open or the game is out of field mode, up to ${SCENE_LIMIT} frames of Interact through every waiting window and, on the naming screen (gameState 5 with fieldEventCmd 6, a hypothesis), ${NAMING_PLANS[plan].map((g) => g.join('+')).join(' then ')} in turn (each held 4 frames, one every 30); then the walkmesh is read again and the route re-planned. Stalls as attempt 3 (${ROUTE_GW_PATIENCE} still frames; a nudge of up to ${ROUTE_NUDGE} frames, then up to ${ROUTE_DETOURS} sidesteps). End check: md1_2 (0x${MD1_2.toString(16)}). Metrics: out_g (outcome), scenes (scene drives), wmask (windows seen open, bit i = window i), named (route frame + 1 when the naming screen was first seen, 0 never), nleft (frames on the naming screen until field mode came back, 0 never), smode (first other gameState seen in a drive, 0 none), evt (fieldEventCmd then), remain (triangles from the end to the gateway), wlast (window states when the last drive ended, window i in bits 4i..4i+3), wpress (Interact presses on waiting windows: states 4, 6, 11, 13, 14).`;
 
 export function sceneScenarios() {
-  const routeBudget4 = (name, what, input) => ({
-    ...routeProbe(name, what, input, [{ expect: { mem: 'map_cur', equals: MD1_2 } }], SCENE_METRICS),
+  const routeBudget4 = (name, what, input, plan) => ({
+    ...routeProbe(name, what, input, [{ expect: { mem: 'map_cur', equals: MD1_2 } }], [...SCENE_METRICS[plan]]),
   });
   return [
-    routeBudget4('touch-s2s-gw-c', `Input: wait 30 frames; ${sceneWhat('c')}`, [{ wait: { frames: 30 } }, sceneRoute('c')]),
-    routeBudget4('touch-s2s-gw-sc', `Input: wait 30 frames; ${sceneWhat('sc')}`, [{ wait: { frames: 30 } }, sceneRoute('sc')]),
-    routeBudget4(
-      'touch-s2s-m3-gw-sc',
-      `Input: wait 30 frames; route to talk range of model 3 (at most ${ROUTE_TIMEOUT} frames, up to ${ROUTE_DETOURS} sidesteps) and talk to it (up to ${ROUTE_TALK} frames, pressing through until all windows close); ${ROUTE_SETTLE} still frames; ${sceneWhat('sc')}`,
-      [{ wait: { frames: 30 } }, routeStep({ model: 3 }, {}, [], 0, { detour: ROUTE_DETOURS, talk: ROUTE_TALK }), { wait: { frames: ROUTE_SETTLE } }, sceneRoute('sc')],
-    ),
+    routeBudget4('touch-s2s-gw-c', `Input: wait 30 frames; ${sceneWhat('c')}`, [{ wait: { frames: 30 } }, sceneRoute('c')], 'c'),
+    routeBudget4('touch-s2s-gw-sc', `Input: wait 30 frames; ${sceneWhat('sc')}`, [{ wait: { frames: 30 } }, sceneRoute('sc')], 'sc'),
   ];
 }
 

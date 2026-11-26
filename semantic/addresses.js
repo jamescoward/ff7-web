@@ -636,8 +636,9 @@ const FIELD_ENTRIES = [
     address: FIELD_STATE + 0x01,
     type: 'u8',
     meaning: 'the field\'s pending event command (g_FieldState.eventCmd, enum FieldEventCmd): with gameState menu (5), 6 = character name entry (eventCmdParam at +0x02 names the character), 7 = party select, 8 = shop, 9 = the main menu',
-    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_FieldState 0x8009ABF4), include/game.h (FieldState: renderBuffer at +0, eventCmd at +1, eventCmdParam at +2; enum FieldEventCmd: EVTCMD_CHAR_NAME_ENTRY = 6), src/main/110B8.c (GAMESTATE_MENU dispatches on eventCmd to HandleNameMenu) and src/main/1F6B4.c (HandleNameMenu loads YAMA_NAMEMENU with LoadMenuOvl, not SysMenuLoadMenuFileById). Not seen in Tier 2 yet (#120 budget 4 watches it through md1_1's gate scene)`,
-    status: 'hypothesis',
+    source: `Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_FieldState 0x8009ABF4), include/game.h (FieldState: renderBuffer at +0, eventCmd at +1, eventCmdParam at +2; enum FieldEventCmd: EVTCMD_CHAR_NAME_ENTRY = 6), src/main/110B8.c (GAMESTATE_MENU dispatches on eventCmd to HandleNameMenu) and src/main/1F6B4.c (HandleNameMenu loads YAMA_NAMEMENU with LoadMenuOvl, not SysMenuLoadMenuFileById). #120 budget 4 (PR #197, tier2-eval 45823175785) read 6 on md1_1's naming screen. #289 confirms it (PR #294, Tier 2 on e8b2a4e): touch-s2n-naming-confirm reaches the naming screen through the gate scene (named = 929: the route's naming check, gameState 5 with this byte 6, first held at route frame 928), confirms the default name with NAMING_ACTIONS.useDefault (nleft = 179 frames), and ends in md1_2 in field mode with the byte no longer 6. Only value 6 is checked; the others are the reference's`,
+    status: 'confirmed',
+    scenario: SC('touch-s2n-naming-confirm'),
   },
   {
     name: 'fieldZ',

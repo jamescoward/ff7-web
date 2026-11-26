@@ -107,6 +107,8 @@ export function pushMovieSample(samples, frame, value) {
 /** Raw g_GameState in battle (#76). */
 const BATTLE_GAME_STATE = 2;
 const MENU_GAME_STATE = 5;
+/** fieldEventCmd's character name entry value (#120 budget 4, #289): with gameState menu, the naming screen runs. */
+const NAME_ENTRY_EVENT_CMD = 6;
 /** itemMenuScreen values the native Item screen acts on (#135): confirmed in Tier 2. */
 const ITEM_PAGES = Object.freeze({ 1: 'list', 2: 'target' });
 
@@ -300,6 +302,23 @@ export function createSemantic({ backend, exeSha1, table = ADDRESS_TABLE }) {
         return { value: { mode: 'movie', raw, previous }, confirmed: r.confirmed && m.confirmed };
       }
       return { value: { mode: label('gameState', raw), raw, previous }, confirmed: r.confirmed };
+    },
+
+    /**
+     * #289: is the naming screen open? { value: boolean }. It runs as
+     * gameState menu (5) with fieldEventCmd 6 (character name entry); the
+     * screen loads its own overlay, so menuOverlay does not show it.
+     * confirmed: gameState's read is confirmed and, in the menu, so is
+     * fieldEventCmd's address. Out of the menu the answer is false, as
+     * confirmed as gameState.
+     */
+    async naming() {
+      const g = await read(['gameState']);
+      if (!g.values) return fail(g);
+      if (g.values.gameState !== MENU_GAME_STATE) return { value: false, confirmed: g.confirmed };
+      const c = await read(['fieldEventCmd']);
+      if (!c.values) return fail(c);
+      return { value: c.values.fieldEventCmd === NAME_ENTRY_EVENT_CMD, confirmed: g.confirmed && c.confirmed };
     },
 
     /**

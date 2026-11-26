@@ -602,3 +602,25 @@ body {
 .nm-member { min-height: 28px; display: flex; align-items: center; padding: 0 8px; font-size: 14px; }
 .nm-slots, .nm-list, .nm-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .nm-nav .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+
+/* "Use default name" (#289), Labs flag `naming-confirm` (off by default): one
+   button in the picture's top-right corner, shown by js/naming-confirm.js only
+   while a confirmed naming screen is open (<html data-naming-confirm-on>). It
+   sits over the picture in every orientation, so nothing moves when it comes
+   and goes, and the classic pad below or beside the picture stays free. */
+.naming-confirm {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+}
+.naming-confirm[hidden] { display: none; }
+.nc-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  font-size: 16px;
+  background: #000000cc;
+  border: 1px solid #ffffff66;
+}
+.nc-btn:disabled { opacity: 0.6; }

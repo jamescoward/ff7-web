@@ -12,6 +12,7 @@ import { BATTLE_CROP_FLAG, createBattleCrop } from './battle-crop.js';
 import { createDialogueTaps, TAPS_FLAG } from './dialogue-taps.js';
 import { createInteractLabel, INTERACT_FLAG } from './interact-label.js';
 import { createMenuPanel, PANEL_FLAG } from './menu-panel.js';
+import { createNamingConfirm, NAMING_FLAG } from './naming-confirm.js';
 import { createItemScreen, ITEM_FLAG } from './native-item.js';
 import { createEquipScreen, EQUIP_FLAG } from './native-equip.js';
 import { createMateriaScreen, MATERIA_FLAG } from './native-materia.js';
@@ -256,6 +257,18 @@ labs.registerFlag(CRT_FLAG, {
     'Try each strength in the Labs panel: is Subtle the right default?',
   ],
 });
+labs.registerFlag(NAMING_FLAG, {
+  label: 'Use default name',
+  description: 'On a character naming screen, a button in the picture\'s top-right corner keeps the default name (it presses Start, then Circle, until the screen closes). The classic pad still types a name.',
+  pr: 295,
+  checklist: [
+    'At Cloud\'s naming screen (first reactor, after the gate scene): is the button shown, and does a tap keep the name Cloud?',
+    'After the screen closes: the button goes away and the scene carries on.',
+    'Does the button hide anything you need on the naming screen?',
+    'The classic pad can still type a different name on that screen.',
+    'Flag off: no button; the classic pad still works.',
+  ],
+});
 labs.registerFlag(HIRES_FLAG, {
   label: '2x resolution',
   description: 'The core draws 3D at twice the PS1 resolution (sharper models; 2D backgrounds stay as they are). It may run slower. Takes effect when the page is reloaded.',
@@ -342,6 +355,15 @@ const battleHud = createBattleHud({ root: $('hud'), labs });
 const dialogueTaps = createDialogueTaps({ target: canvas, mixer, labs });
 const interactLabel = createInteractLabel({ fieldRoot: $('field'), labs });
 const menuPanel = createMenuPanel({ root: $('menu-panel'), mixer, labs });
+// Naming screen (#289): its button lives in the picture's corner; the element is made here.
+const namingRoot = document.createElement('div');
+namingRoot.className = 'naming-confirm';
+namingRoot.id = 'naming-confirm';
+namingRoot.setAttribute('role', 'group');
+namingRoot.setAttribute('aria-label', 'Naming screen');
+namingRoot.hidden = true;
+document.querySelector('.screen').append(namingRoot);
+const namingConfirm = createNamingConfirm({ root: namingRoot, mixer, labs });
 const battlePanel = createBattlePanel({ root: $('battle-panel'), mixer, labs });
 const itemScreen = createItemScreen({ root: $('native-item'), mixer, labs, names: gameNames.names });
 const equipScreen = createEquipScreen({ root: $('native-equip'), mixer, labs, names: gameNames.names });
@@ -438,6 +460,7 @@ const backendReady = createWorkerBackend({
     dialogueTaps.setGate(gate);
     interactLabel.setGate(gate);
     menuPanel.setGate(gate);
+    namingConfirm.setGate(gate);
     battlePanel.setGate(gate);
     itemScreen.setGate(gate);
     equipScreen.setGate(gate);
@@ -461,6 +484,7 @@ const backendReady = createWorkerBackend({
   dialogueTaps.setBackend(b);
   interactLabel.setBackend(b);
   menuPanel.setBackend(b);
+  namingConfirm.setBackend(b);
   battlePanel.setBackend(b);
   itemScreen.setBackend(b);
   equipScreen.setBackend(b);
@@ -598,6 +622,7 @@ window.ff7web = {
   dialogueTaps,
   interactLabel,
   menuPanel,
+  namingConfirm,
   itemScreen,
   equipScreen,
   materiaScreen,

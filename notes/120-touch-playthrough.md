@@ -538,3 +538,33 @@ md1_2 was not reached. What the three attempts established, with no coordinates 
 - Talks to models 2 and 3 open window 1 at once and it closes after pressing through, but the way to the gateway stays shut. Model 4 doesn't talk.
 
 Suggested next step (needs a fresh budget, so an owner decision): a scene-driving route. On every stall, poll all four windows every frame for up to ~2000 frames, pressing Circle whenever any is at state 6, and report each window's state and how long each stays open. Then re-route. If the scene is a sequence of messages with pauses (party members talking at the gate), the route must ride it out rather than nudge once. Also report the field script's "player can move" flag, if one can be found in the decomp, to tell a scene lock from a message.
+
+## Budget 4 (owner, 2026-11-26): scene-driving route
+
+**Inputs.** The owner approved a fourth budget of 3 attempts, and confirmed that Cloud's naming screen comes in md1_1's gate scene. Agent research (#120 comment, public walkthroughs; source claims only) says md1_1 is the Sector 1 gate scene: a conversation with Biggs and Jessie, then the naming screen, then the door opens.
+
+**Decomp reading (reference only, Xeeynamo/ff7-decomp@33ce78c, no code copied).**
+- `src/main/110B8.c`: in `GAMESTATE_MENU`, the main loop dispatches on `g_FieldState.eventCmd`, and `EVTCMD_CHAR_NAME_ENTRY` (6) calls `HandleNameMenu`.
+- `src/main/1F6B4.c`: `HandleNameMenu` loads `YAMA_NAMEMENU` with the static `LoadMenuOvl`, not `SysMenuLoadMenuFileById`. So **`menuOverlay` does not change for the naming screen**. Watching it, as first planned, would miss the screen.
+- `include/game.h`: `FieldState.eventCmd` is the u8 at +0x01 of `g_FieldState` (0x8009ABF4). New address-table entry `fieldEventCmd` (0x8009ABF5, hypothesis).
+- NAMEMENU itself is not decompiled, so which press confirms the default name is unknown.
+
+**Attempt 1 (`5fe7d01`).** The route step gets `scene` and `naming` (runner/route.js):
+- while a window is open, or the game is out of field mode, it stops steering;
+- it presses Interact whenever a window waits (state 6);
+- on the naming screen it presses the `naming` groups in turn, each held 4 frames, one every 30;
+- when every window has been closed in field mode for 90 frames, it reads the walkmesh again and re-plans.
+
+New reports: `scenes`, `wmask`, `named`, `nleft`, `smode`, `evt`. Three probes from `touch-md1-1` replace the third budget's two:
+
+| probe | naming plan | first |
+|---|---|---|
+| `touch-s2s-gw-c` | Circle | gateway route |
+| `touch-s2s-gw-sc` | Start, then Circle | gateway route |
+| `touch-s2s-m3-gw-sc` | Start, then Circle | talk to model 3, then gateway route |
+
+What each result means:
+- `named` > 0 and `nleft` > 0 means the plan confirmed the name. That press becomes the touch layer's naming action, filed as its own issue before the playthrough uses it, per the owner's stop condition.
+- `named` 0 with `smode` 5 means `fieldEventCmd` is wrong (see `evt`).
+
+Tier 2: pending.

@@ -15,7 +15,8 @@ _Update this when an issue closes or a blocker appears. Fine-grained progress li
 - **Ready, oldest first:** #120 stretch 2, fourth budget (owner, 2026-11-26): a scene-driving route through md1_1's gate scene, which includes Cloud's naming screen (owner-confirmed; see #120), on the route tooling now on main (PR #282). #168, fourth budget (owner, 2026-11-26; `notes/168-choice-cursor.md`), can use the same route tooling. Then #256 part 2 (`native-item` offers the Item list past page 1 via `itemSlotPlan`; Labs flag, `tier3-deferred`) and #257 part 1 (native Save screen, Tier 2), then #257 part 2.
 - **Menu design (owner, 2026-11-26):** #285 (FF7-style window theme, Labs flag `menu-theme`) and #287 part 1 (read the player's window colours) are ready. #286 (menu font; OFL, Apache-2.0, MIT or CC BY 4.0, and the owner approves the pick) and #288 (cursor and layouts) wait on #285.
 - **Blocked:** PR #197 (#120's earlier attempts) is to be closed once budget 4 carries its probes over.
-- Done since 2026-11-23: #250, #251, #252, #253, #254, #255, #260, #267, #269 and #290, plus #256 part 1.
+- Done since 2026-11-23: #250, #251, #252, #253, #254, #255, #260, #267, #269, #289 and #290, plus #256 part 1.
+- **#289** (PRs #294 and #295): the naming screen. `naming()` (gameState 5 with `fieldEventCmd` 6, confirmed) and `NAMING_ACTIONS.useDefault` (Start, then Circle) are proved in Tier 2 (`touch-s2n-naming-confirm`). Labs flag `naming-confirm` (`tier3-deferred`) adds a "Use default name" button in the picture's corner. #120 stretch 2 can now take the naming screen through the route's `naming` plan.
 - PR #191 (#149, sandbox memory report) is merged. #147 stays parked: it unblocks nothing else. The native shell stays unplanned (it needs a Mac).
 
 **Done in M2:**

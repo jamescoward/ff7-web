@@ -8,6 +8,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { SHARDS } from '../lib.js';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WF = path.resolve(HERE, '../../../../.github/workflows');
 const build = readFileSync(path.join(WF, 'tier2-build.yml'), 'utf8');
@@ -171,4 +173,47 @@ test('eval: checkouts never keep credentials', () => {
     const n = (code(text).match(/actions\/checkout@/g) ?? []).length;
     assert.equal((code(text).match(/persist-credentials: false/g) ?? []).length, n);
   }
+});
+
+test('eval: the shard matrix, the shards\' outputs and the merge agree with SHARDS (#269)', () => {
+  const ev = job(evalWf, 'eval');
+  const idx = Array.from({ length: SHARDS }, (_, i) => i);
+  assert.match(ev, new RegExp(`matrix:\\n {8}shard: \\[${idx.join(', ')}\\]\\n`));
+  assert.match(ev, /fail-fast: false/);
+  for (const i of idx) assert.match(ev, new RegExp(`summary_${i}: \\$\\{\\{ steps\\.summary\\.outputs\\.summary_${i} \\}\\}`));
+  assert.match(ev, /SHARD: \$\{\{ matrix\.shard \}\}/);
+  const s = jobSteps(evalWf, 'eval');
+  const check = s.find((x) => /tier2\.js check-work/.test(x));
+  assert.match(check, new RegExp(`--shard "\\$SHARD" --shards ${SHARDS}$`, 'm'));
+  const out = s.find((x) => /tier2\.js output-summary/.test(x));
+  assert.match(out, /id: summary\n/);
+  assert.match(out, /if: always\(\)\n/);
+  assert.match(out, /--shard "\$SHARD"/);
+  const finish = job(evalWf, 'finish');
+  for (const i of idx) assert.match(finish, new RegExp(`SUMMARY_${i}: \\$\\{\\{ needs\\.eval\\.outputs\\.summary_${i} \\}\\}`));
+  assert.match(finish, new RegExp(`merge --root "\\$RUNNER_TEMP/tier2" --shards ${SHARDS}$`, 'm'));
+});
+
+test('eval: start and finish hold no secrets; only they may write the check, and the eval job no longer can', () => {
+  for (const name of ['start', 'finish']) {
+    const j = job(evalWf, name);
+    assert.ok(!j.includes('secrets.') && !j.includes('environment:'), name);
+    assert.match(j, /checks: write/, name);
+    assert.ok(!/download-artifact|upload-artifact/.test(j), `${name} touches no artifact`);
+  }
+  assert.match(job(evalWf, 'start'), /needs: gate\n/);
+  const finish = job(evalWf, 'finish');
+  assert.match(finish, /needs: \[gate, start, eval\]/);
+  assert.match(finish, /if: always\(\) && needs\.start\.outputs\.check_id != ''\n/);
+  const fs = jobSteps(evalWf, 'finish');
+  const idx = (re) => fs.findIndex((x) => re.test(x));
+  const merge = idx(/tier2\.js merge/);
+  const done = idx(/tier2\.js check-finish/);
+  assert.ok(idx(/tier2\.js prepare/) < merge && merge < done, 'prepare, merge, then finish');
+  assert.match(fs[done], /if: always\(\)\n/);
+  assert.match(fs[done], /CHECK_ID: \$\{\{ needs\.start\.outputs\.check_id \}\}/);
+  assert.match(fs[fs.length - 1], /if: always\(\)\n[\s\S]*tier2\.js cleanup --root/);
+  const ev = job(evalWf, 'eval');
+  assert.ok(!/checks: write/.test(ev), 'the job holding the disc secrets cannot write checks');
+  assert.ok(!/check-start|check-finish/.test(ev));
 });

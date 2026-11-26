@@ -4,11 +4,18 @@
 //
 //   tier2.js gate          decide whether this run may go on (writes step outputs)
 //   tier2.js prepare       --root DIR   create the job's directories (empty)
-//   tier2.js check-work    --root DIR [--digest HEX]
-//                          check the unpacked artifact, write expect.json; with
-//                          --digest, the tree must be exactly the one inspected
+//   tier2.js check-work    --root DIR [--digest HEX] [--shard I --shards N]
+//                          check the unpacked artifact, write expect.json (only
+//                          shard I's scenarios, #269); with --digest, the tree
+//                          must be exactly the one inspected
 //   tier2.js record-error  --root DIR --code CODE   write an error summary
 //   tier2.js evaluate      --root DIR   sandbox + validator; writes and prints the summary
+//   tier2.js output-summary --root DIR --shard I
+//                          write summary.json as the step output summary_<I>
+//                          (one line), for the job that merges the shards
+//   tier2.js merge         --root DIR --shards N
+//                          merge SUMMARY_0 .. SUMMARY_<N-1> (environment) into
+//                          summary.json, and print it
 //   tier2.js cleanup       --root DIR   remove the disc, the output mount and the build
 //   tier2.js check-start   --sha SHA    create the in-progress `tier2` check run
 //   tier2.js check-finish  --id ID --root DIR   complete it from summary.json
@@ -28,7 +35,8 @@ import { parseArgs } from 'node:util';
 
 import {
   buildExpect, checkRunOutput, ERRORS, checkWork, CHECK_NAME, BUILD_WORKFLOW_FILE, cleanup, evaluate, gateDispatch,
-  gateWorkflowRun, layout, makeSummary, permissionAllows, pickArtifact, pickBuildRun, prepare, Tier2Error,
+  gateWorkflowRun, layout, makeSummary, mergeSummaries, permissionAllows, pickArtifact, pickBuildRun, prepare,
+  SHARDS, Tier2Error,
 } from './lib.js';
 
 function setOutputs(obj) {
@@ -109,17 +117,26 @@ async function gate() {
   return 0;
 }
 
-function checkWorkCmd(root, wantDigest) {
+/** --shard / --shards as integers (shard defaults to 0 of 1), or null if malformed. */
+function shardArgs(values) {
+  const num = (v, d) => (v === undefined ? d : /^[0-9]{1,2}$/.test(v) ? Number(v) : NaN);
+  const shard = num(values.shard, 0);
+  const shards = num(values.shards, 1);
+  return Number.isInteger(shard) && Number.isInteger(shards) && shards >= 1 && shards <= SHARDS && shard < shards ? { shard, shards } : null;
+}
+
+function checkWorkCmd(root, wantDigest, shard) {
   const L = layout(root);
   try {
+    if (shard === null) throw new Tier2Error('internal');
     if (wantDigest !== undefined && !/^[0-9a-f]{64}$/.test(wantDigest)) throw new Tier2Error('artifact-rejected');
     const { files, bytes, digest } = checkWork(L.work);
     if (wantDigest !== undefined && digest !== wantDigest) throw new Tier2Error('artifact-rejected');
-    const expect = buildExpect(L.work);
+    const expect = buildExpect(L.work, shard);
     writeFileSync(L.expect, JSON.stringify(expect));
     const n = Object.keys(expect.scenarios).length;
     setOutputs({ scenarios: n, digest });
-    console.log(`check-work: ${files} files, ${bytes} bytes, ${n} tier 2 scenarios, digest ${digest}`);
+    console.log(`check-work: ${files} files, ${bytes} bytes, ${n} tier 2 scenarios (shard ${shard.shard} of ${shard.shards}), digest ${digest}`);
     return 0;
   } catch (e) {
     const code = e instanceof Tier2Error ? e.code : 'internal';
@@ -144,6 +161,47 @@ async function evaluateCmd(root) {
   return 0;
 }
 
+/** Read a summary file; anything unreadable becomes an internal error summary. */
+function readSummary(file) {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return makeSummary({ result: 'error', error: 'internal' });
+  }
+}
+
+function outputSummary(root, values) {
+  const shard = shardArgs({ shard: values.shard, shards: String(SHARDS) });
+  if (shard === null || values.shard === undefined) throw new Error('--shard must be 0 to SHARDS-1');
+  // Re-checked here as well as in merge: only the known shape goes out.
+  const s = mergeSummaries([readSummary(layout(root).summary)]);
+  setOutputs({ [`summary_${shard.shard}`]: JSON.stringify(s) });
+  console.log(`output-summary: shard ${shard.shard}, ${s.result}`);
+  return 0;
+}
+
+function mergeCmd(root, values) {
+  const shard = shardArgs({ shard: '0', shards: values.shards });
+  if (shard === null || values.shards === undefined) throw new Error('--shards must be 1 to SHARDS');
+  const list = [];
+  for (let i = 0; i < shard.shards; i++) {
+    const raw = process.env[`SUMMARY_${i}`] ?? '';
+    let parsed = null;
+    if (raw.length > 0 && raw.length <= 256 * 1024) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = null;
+      }
+    }
+    list.push(parsed);
+  }
+  const L = layout(root);
+  writeFileSync(L.summary, JSON.stringify(mergeSummaries(list)));
+  console.log(readFileSync(L.summary, 'utf8'));
+  return 0;
+}
+
 async function checkStart(sha) {
   if (!/^[0-9a-f]{40}$/.test(sha ?? '')) throw new Error('--sha must be a commit id');
   const repo = process.env.GITHUB_REPOSITORY;
@@ -161,13 +219,7 @@ async function checkStart(sha) {
 async function checkFinish(id, root) {
   if (!/^[0-9]+$/.test(id ?? '')) throw new Error('--id must be a number');
   const L = layout(root);
-  let summary;
-  try {
-    summary = JSON.parse(readFileSync(L.summary, 'utf8'));
-  } catch {
-    summary = makeSummary({ result: 'error', error: 'internal' });
-  }
-  const { conclusion, output } = checkRunOutput(summary);
+  const { conclusion, output } = checkRunOutput(readSummary(L.summary));
   await api('PATCH', `/repos/${process.env.GITHUB_REPOSITORY}/check-runs/${id}`, {
     status: 'completed',
     conclusion,
@@ -178,16 +230,16 @@ async function checkFinish(id, root) {
 }
 
 async function main(argv) {
-  const usage = 'usage: tier2.js gate | prepare|check-work|evaluate|cleanup --root DIR | check-start --sha SHA | check-finish --id ID --root DIR';
+  const usage = 'usage: tier2.js gate | prepare|check-work|evaluate|cleanup --root DIR | output-summary --root DIR --shard I | merge --root DIR --shards N | check-start --sha SHA | check-finish --id ID --root DIR';
   const [verb, ...rest] = argv;
   let values;
   try {
-    ({ values } = parseArgs({ args: rest, options: { root: { type: 'string' }, sha: { type: 'string' }, id: { type: 'string' }, digest: { type: 'string' }, code: { type: 'string' } } }));
+    ({ values } = parseArgs({ args: rest, options: { root: { type: 'string' }, sha: { type: 'string' }, id: { type: 'string' }, digest: { type: 'string' }, code: { type: 'string' }, shard: { type: 'string' }, shards: { type: 'string' } } }));
   } catch {
     console.error(usage);
     return 2;
   }
-  const needRoot = ['prepare', 'check-work', 'record-error', 'evaluate', 'cleanup', 'check-finish'];
+  const needRoot = ['prepare', 'check-work', 'record-error', 'evaluate', 'cleanup', 'check-finish', 'output-summary', 'merge'];
   if (needRoot.includes(verb) && !values.root) {
     console.error(usage);
     return 2;
@@ -199,7 +251,9 @@ async function main(argv) {
         prepare(values.root);
         console.log('prepare: done');
         return 0;
-      case 'check-work': return checkWorkCmd(values.root, values.digest);
+      case 'check-work': return checkWorkCmd(values.root, values.digest, shardArgs(values));
+      case 'output-summary': return outputSummary(values.root, values);
+      case 'merge': return mergeCmd(values.root, values);
       case 'record-error': return recordError(values.root, values.code);
       case 'evaluate': return await evaluateCmd(values.root);
       case 'cleanup': {

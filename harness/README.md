@@ -66,7 +66,7 @@ node runner/tier2.js --disc /disc/disc.bin --out /out   # the fixed command (#35
 node runner/tier2.js --disc /dev/null --out /tmp/out --scenarios DIR --fixtures DIR   # locally, for homebrew
 ```
 
-A scenario that crashes, hangs past the deadline (1140 s by default, `--deadline-s`) or fails to load reports `error`. Metrics with values the validator would refuse are dropped, so one scenario can't get the whole output rejected.
+A scenario that crashes, hangs past the deadline (1140 s by default, `--deadline-s`) or fails to load reports `error`. The private eval splits the scenarios over two shards (#269), each a separate sandbox run with its own deadline, and passes each shard's names as `--only`; a snapshot chain always stays in one shard. The `tier2` check shows the merged result. Metrics with values the validator would refuse are dropped, so one scenario can't get the whole output rejected.
 
 Save-state boot points are format 2 (below). Fixtures fetched by pinned URL and hash are not supported yet; they will be added when a scenario needs them.
 

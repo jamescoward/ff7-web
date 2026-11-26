@@ -48,6 +48,60 @@ export function itemListPlan(from, to) {
   return planCursorMove({ from, to, ...menuPlanArgs('itemList') });
 }
 
+/**
+ * Inventory slots the item list walks over (Savemap.inventory, 320 entries;
+ * MenuTable [1] row count, a source claim: Xeeynamo/ff7-decomp@33ce78c,
+ * reference only).
+ */
+export const ITEM_INVENTORY_SLOTS = 320;
+
+/**
+ * The inventory slot under the list cursor: listOffset + listRow (#135: the
+ * list indexes Savemap.inventory[row + offset] directly, so empty slots keep
+ * their place). null unless both are confirmed integers in range.
+ */
+export function itemListSlot(listRow, listOffset) {
+  if (!Number.isInteger(listRow) || listRow < 0 || listRow >= ITEM_PAGE_ROWS) return null;
+  if (!Number.isInteger(listOffset) || listOffset < 0 || listOffset > ITEM_INVENTORY_SLOTS - ITEM_PAGE_ROWS) return null;
+  return listOffset + listRow;
+}
+
+/**
+ * Where one press leaves the list cursors { row, offset }: Down moves the
+ * row until row 9, then scrolls one entry (offset + 1); Up moves the row
+ * until row 0, then scrolls back. Tier 2 (#256, save-boot-31a/31b): 13
+ * Downs from the top read row 9 offset 4, and the plan's 13 steps reach
+ * inventory slot 13 across empty slots, so index = offset + row holds.
+ * Up at row 0 (scroll back) is not run on this list. Callers never step
+ * past the list ends.
+ */
+export function itemListStep({ row, offset }, button) {
+  if (button === 'down') return row < ITEM_PAGE_ROWS - 1 ? { row: row + 1, offset } : { row, offset: offset + 1 };
+  if (button === 'up') return row > 0 ? { row: row - 1, offset } : { row, offset: offset - 1 };
+  throw new RangeError(`button must be "up" or "down", got ${button}`);
+}
+
+/**
+ * The list-cursor plan from `from` = { row, offset } (the confirmed
+ * itemListRow and itemListOffset) to inventory slot `toSlot`, scrolling past
+ * page 1 when needed and never wrapping. A planCursorMove plan over the list
+ * index (rows = ITEM_INVENTORY_SLOTS; an executor reads itemListSlot(row,
+ * offset) as its cursor), where each step also carries the { row, offset }
+ * it should leave, so checks can read both cursors. Bad input throws
+ * RangeError. itemListPlan (one page, no scroll) is unchanged.
+ */
+export function itemSlotPlan(from, toSlot, timing) {
+  const index = itemListSlot(from?.row, from?.offset);
+  if (index === null) throw new RangeError(`from must be { row: 0..${ITEM_PAGE_ROWS - 1}, offset: 0..${ITEM_INVENTORY_SLOTS - ITEM_PAGE_ROWS} }, got ${JSON.stringify(from)}`);
+  const plan = planCursorMove({ from: index, to: toSlot, rows: ITEM_INVENTORY_SLOTS, wraps: false, timing });
+  let pos = { row: from.row, offset: from.offset };
+  const steps = plan.steps.map((s) => {
+    pos = itemListStep(pos, s.button);
+    return Object.freeze({ ...s, row: pos.row, offset: pos.offset });
+  });
+  return Object.freeze({ ...plan, steps: Object.freeze(steps) });
+}
+
 /** The party-cursor plan for a tap on party slot `to` with the cursor at `from` (never wraps). */
 export function itemTargetPlan(from, to) {
   return planCursorMove({ from, to, ...menuPlanArgs('itemTarget') });

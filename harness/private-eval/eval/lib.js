@@ -14,10 +14,14 @@
 //   expect      the scenario names and metric keys the summary may hold,
 //               read from the artifact's tier 2 scenario files *before* the
 //               disc is fetched (validator, #34)
+//   shards      the scenarios split over SHARDS eval jobs, each under the
+//               sandbox time limit; a snapshot chain (#74) stays in one
+//               shard (#269)
 //   evaluate    the untrusted build runs only inside the sandbox (#33), and
 //               only the validator's summary comes out
 //   cleanup     the disc, the output mount and the build are removed when
 //               the job ends, even on failure
+//   merge       the shards' summaries become one, re-checked field by field
 //   check run   the `tier2` check holds the summary and nothing else
 //
 // Nothing here prints file contents from the artifact or the sandbox.
@@ -32,7 +36,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { releaseOutput, runSandbox } from '../sandbox/sandbox.js';
-import { loadExpect, MAX_METRICS, MAX_SCENARIOS, METRIC_RE, NAME_RE } from '../validate/validate.js';
+import {
+  LIMIT_NAMES, loadExpect, MAX_METRICS, MAX_SCENARIOS, METRIC_RE, NAME_RE, REASONS, STATUSES,
+} from '../validate/validate.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const VALIDATE_JS = path.resolve(HERE, '../validate/validate.js');
@@ -61,6 +67,14 @@ export const MAX_SCENARIO_BYTES = 64 * 1024;
  */
 export const SANDBOX_COMMAND = ['node', 'runner/tier2.js', '--disc', '/disc/disc.bin', '--out', '/out'];
 export const SANDBOX_LIMITS = { timeoutS: 1200, memoryMiB: 2048, cpus: 2, pids: 64, outMiB: 4, tmpMiB: 64 };
+
+/**
+ * Eval jobs per run (#269). Each runs its share of the scenarios in its own
+ * sandbox, under SANDBOX_LIMITS. .github/workflows/tier2-eval.yml has the
+ * same count in the eval job's matrix and its summary_<i> outputs
+ * (test/workflows.test.js checks they agree).
+ */
+export const SHARDS = 2;
 
 /** Repository permissions that allow a run (the API's `permission` field). */
 export const WRITE_PERMISSIONS = ['admin', 'write'];
@@ -270,10 +284,14 @@ export function treeDigest(dir, files) {
  * fetched: everything it reads was written without access to the disc.
  * Returns { format: 1, scenarios: { name: [keys] } }; scenarios may be empty.
  */
-export function buildExpect(work) {
+export function buildExpect(work, { shard = 0, shards = 1 } = {}) {
   const bad = () => {
     throw new Tier2Error('bad-scenario');
   };
+  if (!Number.isInteger(shards) || shards < 1 || !Number.isInteger(shard) || shard < 0 || shard >= shards) {
+    throw new Tier2Error('internal');
+  }
+  const links = [];
   const dir = path.join(work, SCENARIO_DIR);
   const st = lstatSync(dir, { throwIfNoEntry: false });
   const scenarios = {};
@@ -297,11 +315,74 @@ export function buildExpect(work) {
     if (!Array.isArray(keys) || keys.length > MAX_METRICS) bad();
     if (!keys.every((k) => typeof k === 'string' && METRIC_RE.test(k)) || new Set(keys).size !== keys.length) bad();
     scenarios[doc.name] = [...keys].sort();
+    links.push({ name: doc.name, ...chainLinks(doc) });
   }
-  const doc = { format: 1, scenarios };
   if (Object.keys(scenarios).length > MAX_SCENARIOS) bad();
-  if (Object.keys(scenarios).length) loadExpect(doc);
+  const mine = new Set(shardOf(links, shards)[shard]);
+  const picked = Object.fromEntries(Object.entries(scenarios).filter(([name]) => mine.has(name)));
+  const doc = { format: 1, scenarios: picked };
+  if (Object.keys(picked).length) loadExpect(doc);
   return doc;
+}
+
+// ---------------------------------------------------------------- shards
+
+/**
+ * What ties a tier 2 scenario to others in a run (#74), read the way
+ * runner/tier2.js reads it: `keeps` is the snapshot name it keeps its end
+ * state under, `after` the snapshot name it boots from (a format 2 boot with
+ * no disc or fixture source). Either is null. Only names matter here; the
+ * runner does the rest.
+ */
+export function chainLinks(doc) {
+  const f2 = isObj(doc) && doc.format === 2 && isObj(doc.boot);
+  const hasSource = f2 && (doc.boot.disc !== undefined || doc.boot.fixture !== undefined);
+  const after = f2 && !hasSource && typeof doc.boot.from === 'string' ? doc.boot.from : null;
+  const keeps = f2 && typeof doc.snapshot === 'string' ? doc.snapshot : null;
+  return { after, keeps };
+}
+
+/**
+ * Split scenarios into `shards` lists of names (#269). links:
+ * [{ name, after, keeps }]. A scenario that boots from a snapshot goes in
+ * the same shard as every scenario that keeps a snapshot of that name, so
+ * a chain never crosses shards (the runner keeps snapshots in memory for
+ * one run only). Whole groups go, largest first (then by first name), to
+ * the shard with the fewest scenarios so far (then the lowest index).
+ * Deterministic; each list is sorted by name.
+ */
+export function shardOf(links, shards) {
+  const parent = new Map(links.map((l) => [l.name, l.name]));
+  const find = (x) => {
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
+    return x;
+  };
+  const union = (a, b) => {
+    const [ra, rb] = [find(a), find(b)];
+    if (ra !== rb) parent.set(ra < rb ? rb : ra, ra < rb ? ra : rb);
+  };
+  const keepers = new Map();
+  for (const l of links) if (l.keeps !== null) keepers.set(l.keeps, [...(keepers.get(l.keeps) ?? []), l.name]);
+  for (const l of links) for (const k of (l.after !== null ? keepers.get(l.after) ?? [] : [])) union(l.name, k);
+  const groups = new Map();
+  for (const l of links) groups.set(find(l.name), [...(groups.get(find(l.name)) ?? []), l.name]);
+  const ordered = [...groups.values()].map((g) => g.sort())
+    .sort((a, b) => b.length - a.length || (a[0] < b[0] ? -1 : 1));
+  const out = Array.from({ length: shards }, () => []);
+  for (const g of ordered) {
+    let best = 0;
+    for (let i = 1; i < shards; i++) if (out[i].length < out[best].length) best = i;
+    out[best].push(...g);
+  }
+  return out.map((names) => names.sort());
+}
+
+/** The sandbox command for an expect file's scenarios: the contract plus --only (#269). */
+export function sandboxCommand(expect) {
+  return [...SANDBOX_COMMAND, '--only', Object.keys(expect.scenarios).sort().join(',')];
 }
 
 // ---------------------------------------------------------------- evaluate
@@ -332,9 +413,10 @@ function runValidator(L) {
  * The expect file must already be written (buildExpect). Returns the
  * summary; never throws for a failure of the untrusted program.
  */
-export async function evaluate(root, { command = SANDBOX_COMMAND, limits = SANDBOX_LIMITS, image } = {}) {
+export async function evaluate(root, { command, limits = SANDBOX_LIMITS, image } = {}) {
   const L = layout(root);
   const expect = JSON.parse(readFileSync(L.expect, 'utf8'));
+  command ??= sandboxCommand(expect);
   if (Object.keys(expect.scenarios).length === 0) return makeSummary({ result: 'no-scenarios' });
   const d = lstatSync(L.disc, { throwIfNoEntry: false });
   if (!d || !d.isFile() || d.size === 0) return makeSummary({ result: 'error', error: 'disc-missing' });
@@ -357,6 +439,78 @@ export async function evaluate(root, { command = SANDBOX_COMMAND, limits = SANDB
       /* cleanup() tries again at the end of the job */
     }
   }
+}
+
+// ---------------------------------------------------------------- merge
+
+const RESULTS = ['pass', 'fail', 'error', 'no-scenarios'];
+const isCount = (v) => Number.isInteger(v) && v >= 0 && v <= MAX_SCENARIOS;
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * A shard's summary, re-checked field by field before it is merged: it came
+ * from another job, through job outputs. Anything not in the shape
+ * makeSummary and the validator produce becomes an `internal` error summary,
+ * so no other text can reach the check.
+ */
+export function checkShardSummary(s) {
+  const err = makeSummary({ result: 'error', error: 'internal' });
+  if (!isObj(s) || s.format !== 1 || !RESULTS.includes(s.result) || typeof s.ok !== 'boolean') return err;
+  if (s.error !== null && !ERRORS.includes(s.error)) return err;
+  if (s.validator === null) {
+    return s.result === 'pass' || s.result === 'fail' ? err : makeSummary({ result: s.result, error: s.error });
+  }
+  const v = s.validator;
+  if (!isObj(v) || v.format !== 1 || typeof v.ok !== 'boolean' || !['accepted', 'rejected'].includes(v.output)) return err;
+  if (v.reason !== null && !REASONS.includes(v.reason)) return err;
+  if (!Array.isArray(v.limits_hit) || !v.limits_hit.every((x) => LIMIT_NAMES.includes(x))) return err;
+  const c = v.counts;
+  if (!isObj(c) || !['pass', 'fail', 'error', 'missing'].every((k) => isCount(c[k]))) return err;
+  if (!Array.isArray(v.scenarios) || v.scenarios.length > MAX_SCENARIOS) return err;
+  const scenarios = [];
+  for (const x of v.scenarios) {
+    if (!isObj(x) || typeof x.name !== 'string' || !NAME_RE.test(x.name) || !STATUSES.includes(x.status)) return err;
+    const out = { name: x.name, status: x.status };
+    if (x.metrics !== undefined) {
+      if (!isObj(x.metrics)) return err;
+      const keys = Object.keys(x.metrics);
+      if (keys.length > MAX_METRICS || !keys.every((k) => METRIC_RE.test(k) && isNum(x.metrics[k]))) return err;
+      out.metrics = Object.fromEntries(keys.sort().map((k) => [k, x.metrics[k]]));
+    }
+    scenarios.push(out);
+  }
+  const validator = {
+    format: 1, ok: v.ok, output: v.output, reason: v.reason, limits_hit: [...v.limits_hit],
+    counts: { pass: c.pass, fail: c.fail, error: c.error, missing: c.missing }, scenarios,
+  };
+  return makeSummary({ result: s.result, error: s.error, validator });
+}
+
+/**
+ * One summary from the shards' summaries (#269), each checked with
+ * checkShardSummary first; a missing one (null) is an internal error.
+ * Result: error if any shard errored; else fail if any failed; else pass,
+ * or no-scenarios when no shard had any. Counts add up, scenarios are
+ * sorted by name, limits are joined, and the first rejected shard's reason
+ * is kept.
+ */
+export function mergeSummaries(list) {
+  const shards = list.map((s) => checkShardSummary(s ?? null));
+  const errored = shards.find((s) => s.result === 'error');
+  const vs = shards.map((s) => s.validator).filter(Boolean);
+  const validator = vs.length === 0 ? null : {
+    format: 1,
+    ok: vs.every((v) => v.ok),
+    output: vs.every((v) => v.output === 'accepted') ? 'accepted' : 'rejected',
+    reason: vs.find((v) => v.reason !== null)?.reason ?? null,
+    limits_hit: LIMIT_NAMES.filter((x) => vs.some((v) => v.limits_hit.includes(x))),
+    counts: Object.fromEntries(['pass', 'fail', 'error', 'missing'].map((k) => [k, vs.reduce((a, v) => a + v.counts[k], 0)])),
+    scenarios: vs.flatMap((v) => v.scenarios).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+  };
+  if (errored) return makeSummary({ result: 'error', error: errored.error ?? 'internal', validator });
+  if (shards.some((s) => s.result === 'fail')) return makeSummary({ result: 'fail', validator });
+  if (shards.every((s) => s.result === 'no-scenarios')) return makeSummary({ result: 'no-scenarios' });
+  return makeSummary({ result: 'pass', validator });
 }
 
 // ---------------------------------------------------------------- cleanup

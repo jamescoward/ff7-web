@@ -95,3 +95,46 @@ export function battleListPlan(name, from, toIndex, timing) {
   });
   return Object.freeze({ from: start, to: toIndex, rows: list.entries, wraps: false, skips: false, timing: vertical.timing, steps: Object.freeze(steps) });
 }
+
+/** enabledMagic id of an empty Magic list entry. */
+export const MAGIC_ID_NONE = 0xff;
+
+/**
+ * The entries a list offers, from raw reads, in list order (#253 part 2):
+ *   magic: raw.ids = the spell id at each list index (battleMagicId);
+ *          gives [{ index, id }] for each index whose id is not 0xFF;
+ *   item:  raw.counts = the battle count at each list index (battleItemCount;
+ *          list index = inventory slot), raw.inventory = the inventory()
+ *          value ([{ slot, index, kind, number, ... }]) or null; gives
+ *          [{ index, count, item }] for each index whose count is above 0,
+ *          item = { index, kind, number } of that inventory slot, or null.
+ * IDs and counts only: names are game data. Anything not an array gives [].
+ */
+export function battleListEntries(name, raw) {
+  listOf(name);
+  if (name === 'magic') {
+    if (!Array.isArray(raw?.ids)) return [];
+    const out = [];
+    raw.ids.forEach((id, index) => { if (isInt(id) && id !== MAGIC_ID_NONE) out.push(Object.freeze({ index, id })); });
+    return out;
+  }
+  if (name === 'item') {
+    if (!Array.isArray(raw?.counts)) return [];
+    const bySlot = new Map((Array.isArray(raw.inventory) ? raw.inventory : []).map((it) => [it.slot, it]));
+    const out = [];
+    raw.counts.forEach((count, index) => {
+      if (!isInt(count) || count <= 0) return;
+      const it = bySlot.get(index);
+      out.push(Object.freeze({ index, count, item: it ? Object.freeze({ index: it.index, kind: it.kind, number: it.number }) : null }));
+    });
+    return out;
+  }
+  return [];
+}
+
+/** A list entry's button text: generic, IDs and counts only. */
+export function battleListLabel(name, entry) {
+  if (name === 'magic') return `Spell #${entry.id}`;
+  if (name === 'item') return `${entry.item ? `${entry.item.kind} #${entry.item.number}` : `Slot ${entry.index}`} ×${entry.count}`;
+  return `#${entry.index}`;
+}

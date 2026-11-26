@@ -54,11 +54,36 @@ export const MATERIA_CONFIRMED_COLUMNS = 2;
 
 /**
  * The slot-cursor plan along a row, column `from` to column `to` (Left and
- * Right; never wraps). Columns beyond MATERIA_CONFIRMED_COLUMNS throw
- * RangeError, as planCursorMove does for any row out of range.
+ * Right; never wraps). Columns beyond `columns` (default
+ * MATERIA_CONFIRMED_COLUMNS: what is known for any item) throw RangeError,
+ * as planCursorMove does for any row out of range. With a known slot count
+ * it is confirmed up to 8 (#255): on an 8-slot weapon, 8 Rights from column
+ * 0 end on column 7 with no wrap (save-boot-30a), and the 7-Right plan fills
+ * weapon slot 7 (30b).
  */
-export function materiaColumnPlan(from, to, timing) {
-  return planCursorMove({ from, to, rows: MATERIA_CONFIRMED_COLUMNS, axis: 'horizontal', wraps: false, timing });
+export function materiaColumnPlan(from, to, timing, columns = MATERIA_CONFIRMED_COLUMNS) {
+  if (!(Number.isInteger(columns) && columns >= 1 && columns <= MATERIA_MAX_COLUMNS)) throw new RangeError(`columns must be 1..${MATERIA_MAX_COLUMNS}, got ${columns}`);
+  return planCursorMove({ from, to, rows: columns, axis: 'horizontal', wraps: false, timing });
+}
+
+/**
+ * Materia slots a weapon or armor record holds (Savemap: 8 words each,
+ * #117): no row has more columns than this. A caller that knows an item's
+ * slot count passes it as materiaColumnPlan's `columns`; #255 tests it.
+ */
+export const MATERIA_MAX_COLUMNS = 8;
+
+/** Slot rows on the Materia screen: 0 weapon, 1 armor (materiaSlotRow, #244). */
+export const MATERIA_SLOT_ROWS = 2;
+export const MATERIA_ROW_WEAPON = 0;
+export const MATERIA_ROW_ARMOR = 1;
+
+/**
+ * The slot-cursor plan between the weapon row (0) and the armor row (1):
+ * Down and Up (#244 save-boot-25a: Down reads 1, Up reads 0); never wraps.
+ */
+export function materiaRowPlan(from, to, timing) {
+  return planCursorMove({ from, to, rows: MATERIA_SLOT_ROWS, wraps: false, timing });
 }
 
 /**
@@ -67,7 +92,9 @@ export function materiaColumnPlan(from, to, timing) {
  * save-boot-25b; past empty slots, #248 save-boot-27a). Up moves the row
  * until row 0 with the offset unchanged (#248 save-boot-27b: six Ups from
  * row 9, offset 4 read rows 8-3, offset 4), then scrolls back (offset - 1;
- * Up at row 0 with offset > 0 is not yet run in Tier 2).
+ * Up at row 0 with offset > 0 scrolls back, #255 save-boot-30c). At the
+ * list's last slot (199: row 9, offset 190) Down does nothing: the cursor
+ * stays there and doesn't wrap to slot 0 (#255 save-boot-30d).
  */
 export function materiaListStep({ row, offset }, button) {
   if (button === 'down') return row < MATERIA_PAGE_ROWS - 1 ? { row: row + 1, offset } : { row, offset: offset + 1 };

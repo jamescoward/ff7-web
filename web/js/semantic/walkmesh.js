@@ -308,8 +308,9 @@ export function legsOf(codes) {
 }
 
 /**
- * Addresses a route watches. They restate confirmed entries of the address
- * table (semantic/addresses.js: playerModel, fieldId, gameState), because a
+ * Addresses a route watches. They restate entries of the address table
+ * (semantic/addresses.js: playerModel, fieldId, gameState confirmed;
+ * fieldEventCmd a hypothesis), because a
  * module copied to runner/semantic/ has no imports; a Tier 1 test keeps
  * them equal.
  */
@@ -323,6 +324,11 @@ export const ROUTE_WATCH = Object.freeze({
   /** dialogState, dialogState1-3 (s16): message windows 0-3; 0 closed, 6 text done and waiting for Circle. */
   windows: Object.freeze([0x800832a0, 0x800832d0, 0x80083300, 0x80083330]),
   windowWaiting: 6,
+  /** gameState's menu value (confirmed). The naming screen runs in it. */
+  menuMode: 5,
+  /** fieldEventCmd (u8, a hypothesis, #120 budget 4): with gameState menu, nameEntry means the naming screen. */
+  eventCmd: 0x8009abf5,
+  nameEntry: 6,
 });
 /** FieldTriggers.gateways: 12 records of 0x18 bytes at +0x38; the line's x1, y1, x2, y2 at +0, +2, +6, +8; the field it leads to at +0x12 (0x7FFF unused). */
 export const GATEWAYS = Object.freeze({ offset: 0x38, size: 0x18, count: 12, x1: 0x0, y1: 0x2, x2: 0x6, y2: 0x8, to: 0x12, unused: 0x7fff });
@@ -448,6 +454,17 @@ export function openWindow(readMem) {
 /** Whether any message window waits for Circle (state 6). */
 export function windowWaiting(readMem) {
   return ROUTE_WATCH.windows.some((a) => readS16(readMem, a) === ROUTE_WATCH.windowWaiting);
+}
+
+/** The field's pending event command (fieldEventCmd, u8), or null. */
+export function readEventCmd(readMem) {
+  const b = safeRead(readMem, ROUTE_WATCH.eventCmd, 1);
+  return b ? b[0] : null;
+}
+
+/** True while the naming screen runs: gameState menu with the name-entry event command (a hypothesis, #120 budget 4). */
+export function namingScreen(readMem) {
+  return readS16(readMem, ROUTE_WATCH.gameState) === ROUTE_WATCH.menuMode && readEventCmd(readMem) === ROUTE_WATCH.nameEntry;
 }
 
 /**

@@ -694,11 +694,58 @@ export function routeScenarios() {
   ];
 }
 
+/**
+ * Budget 4 (owner, 2026-11-26): a scene-driving route. Attempt 3 of the third
+ * budget stalled 2 triangles short of gateway 1 beside model 2 with a message
+ * window open; public walkthroughs (#120, source claims) and the owner say
+ * md1_1 is the gate scene, with Cloud's naming screen partway through. So the
+ * gateway route now drives scenes (runner/route.js `scene`): whenever a window
+ * is open or the game is out of field mode, it presses Interact through every
+ * waiting window, and on the naming screen (gameState menu with
+ * fieldEventCmd 6, a hypothesis from the decomp) it presses the `naming`
+ * groups in turn; then it re-reads the walkmesh and re-plans.
+ *
+ * Which press confirms the default name is unknown (NAMEMENU is not
+ * decompiled), so attempt 1 measures it: s2s-gw-sc presses Start then Circle,
+ * s2s-gw-c Circle alone, and s2s-m3-gw-sc talks to model 3 first (as attempt 3
+ * did) with Start then Circle. Whichever confirms becomes the touch layer's
+ * naming action (an issue of its own) before the playthrough uses it.
+ */
+export const SCENE_LIMIT = 3000;
+export const SCENE_GW_TIMEOUT = 9000;
+export const NAMING_PLANS = Object.freeze({ sc: Object.freeze([['start'], ['circle']]), c: Object.freeze([['circle']]) });
+const SCENE_METRICS = ['out_g', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'remain'];
+const sceneRoute = (plan) =>
+  routeStep(
+    { gateway: GW_MD1_2 },
+    { outcome: 'out_g', scenes: 'scenes', wmask: 'wmask', named: 'named', nleft: 'nleft', smode: 'smode', evt: 'evt', remain: 'remain' },
+    [],
+    0,
+    { timeout: SCENE_GW_TIMEOUT, patience: ROUTE_GW_PATIENCE, detour: ROUTE_DETOURS, nudge: ROUTE_NUDGE, scene: SCENE_LIMIT, naming: NAMING_PLANS[plan].map((g) => [...g]) },
+  );
+const sceneWhat = (plan) =>
+  `route to gateway ${GW_MD1_2} (md1_2), at most ${SCENE_GW_TIMEOUT} frames, driving scenes: whenever a message window is open or the game is out of field mode, up to ${SCENE_LIMIT} frames of Interact through every waiting window and, on the naming screen (gameState 5 with fieldEventCmd 6, a hypothesis), ${NAMING_PLANS[plan].map((g) => g.join('+')).join(' then ')} in turn (each held 4 frames, one every 30); then the walkmesh is read again and the route re-planned. Stalls as attempt 3 (${ROUTE_GW_PATIENCE} still frames; a nudge of up to ${ROUTE_NUDGE} frames, then up to ${ROUTE_DETOURS} sidesteps). End check: md1_2 (0x${MD1_2.toString(16)}). Metrics: out_g (outcome), scenes (scene drives), wmask (windows seen open, bit i = window i), named (route frame + 1 when the naming screen was first seen, 0 never), nleft (frames on the naming screen until field mode came back, 0 never), smode (first other gameState seen in a drive, 0 none), evt (fieldEventCmd then), remain (triangles from the end to the gateway).`;
+
+export function sceneScenarios() {
+  const routeBudget4 = (name, what, input) => ({
+    ...routeProbe(name, what, input, [{ expect: { mem: 'map_cur', equals: MD1_2 } }], SCENE_METRICS),
+  });
+  return [
+    routeBudget4('touch-s2s-gw-c', `Input: wait 30 frames; ${sceneWhat('c')}`, [{ wait: { frames: 30 } }, sceneRoute('c')]),
+    routeBudget4('touch-s2s-gw-sc', `Input: wait 30 frames; ${sceneWhat('sc')}`, [{ wait: { frames: 30 } }, sceneRoute('sc')]),
+    routeBudget4(
+      'touch-s2s-m3-gw-sc',
+      `Input: wait 30 frames; route to talk range of model 3 (at most ${ROUTE_TIMEOUT} frames, up to ${ROUTE_DETOURS} sidesteps) and talk to it (up to ${ROUTE_TALK} frames, pressing through until all windows close); ${ROUTE_SETTLE} still frames; ${sceneWhat('sc')}`,
+      [{ wait: { frames: 30 } }, routeStep({ model: 3 }, {}, [], 0, { detour: ROUTE_DETOURS, talk: ROUTE_TALK }), { wait: { frames: ROUTE_SETTLE } }, sceneRoute('sc')],
+    ),
+  ];
+}
+
 /** [{ file, data }] for every generated file. */
 export function playthroughFiles() {
   const probes = PROBES_ON
     ? [
-        ...routeScenarios().map((s) => ({ file: path.join(SCENARIO_DIR, `${s.name}.json`), data: s })),
+        ...sceneScenarios().map((s) => ({ file: path.join(SCENARIO_DIR, `${s.name}.json`), data: s })),
       ]
     : [];
   return [...mainFiles(), ...probes];

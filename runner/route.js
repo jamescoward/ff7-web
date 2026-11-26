@@ -24,9 +24,11 @@ import {
   goalReached,
   legsOf,
   lockedCount,
+  namingScreen,
   openWindow,
   padFor,
   readControlDirection,
+  readEventCmd,
   readModel,
   readPlayer,
   readS16,
@@ -50,8 +52,14 @@ export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, l
  * goal (1 = in a goal triangle, 0 = no path); near: the nearest other model
  * within NEAR_RANGE of the player at the last stall, ignoring height and
  * solidity (index + 1, 0 none).
+ * Budget 4 (scene driving): scenes: scene drives run; wmask: windows seen
+ * open during them (bit i for window i); named: the route frame (+ 1) at
+ * which the naming screen was first seen (0 never); nleft: frames spent on
+ * the naming screen before field mode came back (0: never came back);
+ * smode: the first gameState other than field seen in a drive (0 none);
+ * evt: fieldEventCmd at that frame (0 also when no other mode was seen).
  */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near']);
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt']);
 /** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
@@ -69,9 +77,14 @@ export const ROUTE_TALK_CLOSED = 30;
 export const NO_DIRECTION = 8;
 /** Ground distance (field units) within which `near` names a model. */
 export const NEAR_RANGE = 256;
+/** Scene drive: it ends once every window has been closed, in field mode, for this many frames. */
+export const SCENE_QUIET = 90;
+/** Naming screen: each press group of `naming` is held this many frames, one group every NAME_EVERY frames, in turn. */
+export const NAME_HOLD = 4;
+export const NAME_EVERY = 30;
 
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0 });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
@@ -88,12 +101,19 @@ export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, fram
  *   Interact for up to this many frames, and press through a window that
  *   opens. Once per stall point: a further stall without moving goes on to
  *   the detours.
+ * - scene (budget 4): whenever a message window is open or the game is out
+ *   of field mode, stop steering and drive the scene for up to this many
+ *   frames: press Interact whenever a window waits for Circle, and on the
+ *   naming screen press the `naming` groups in turn; the drive ends once
+ *   every window has been closed in field mode for SCENE_QUIET frames. Then
+ *   the walkmesh is read again and the route re-planned.
+ * - naming: press groups (arrays of pad button names) for the naming screen.
  * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
   const readMem = (a, l) => backend.readMem(a, l);
   const res = emptyRoute();
-  const mesh = readWalkmesh(readMem);
+  let mesh = readWalkmesh(readMem);
   const cd = readControlDirection(readMem);
   const me0 = readPlayer(readMem);
   if (mesh.error || cd === null || !me0 || me0.posI >= mesh.count) {
@@ -101,7 +121,7 @@ export function runRoute(backend, step, frame) {
     return res;
   }
   res.locked = lockedCount(mesh);
-  const goal = routeGoal(mesh, readMem, step.to);
+  let goal = routeGoal(mesh, readMem, step.to);
   if (goal.error || goal.tris.size === 0) {
     res.outcome = ROUTE_OUTCOME.noGoal;
     return res;
@@ -119,6 +139,7 @@ export function runRoute(backend, step, frame) {
   const patience = step.patience ?? ROUTE_STUCK_FRAMES;
   const detours = step.detour ?? 0;
   const nudge = step.nudge ?? 0;
+  const scene = step.scene ?? 0;
   let nudged = false;
   const codes = [];
   // c: a direction code, or -1 for none; circle: Interact held too. Legs
@@ -137,12 +158,45 @@ export function runRoute(backend, step, frame) {
       res.outcome = ROUTE_OUTCOME.reached;
       break;
     }
-    if (readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) {
+    if (scene === 0 && readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) {
       res.outcome = ROUTE_OUTCOME.left;
       break;
     }
     if (codes.length >= step.timeout) {
       res.outcome = ROUTE_OUTCOME.timeout;
+      break;
+    }
+    if (scene > 0 && inScene(readMem)) {
+      res.scenes += 1;
+      const pressButtons = (buttons) => {
+        frame(padMask(buttons));
+        codes.push(-1);
+      };
+      driveScene(readMem, Math.min(scene, step.timeout - codes.length), pressButtons, step.naming ?? [], res, () => codes.length);
+      if (goalReached(readMem, goal, startField)) continue;
+      if (readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) continue; // still out: the timeout or the next drive ends it
+      // A menu or a scene may have reloaded the field: read the walkmesh again and re-plan.
+      const again = readWalkmesh(readMem);
+      const here = readPlayer(readMem);
+      if (again.error || !here || here.posI >= again.count) {
+        res.outcome = ROUTE_OUTCOME.noMesh;
+        break;
+      }
+      const g = routeGoal(again, readMem, step.to);
+      if (g.error || g.tris.size === 0) {
+        res.outcome = ROUTE_OUTCOME.noGoal;
+        break;
+      }
+      mesh = again;
+      goal = g;
+      path = findPath(mesh, here.posI, goal.tris, true) ?? findPath(mesh, here.posI, goal.tris, false) ?? path;
+      still = 0;
+      last = null;
+      nudged = false;
+      continue;
+    }
+    if (readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) {
+      res.outcome = ROUTE_OUTCOME.left;
       break;
     }
     const me = readPlayer(readMem);
@@ -237,6 +291,66 @@ function nearestModel(readMem, me) {
     }
   }
   return best;
+}
+
+/** True when a scene holds the player: a message window is open, or the game is out of field mode. */
+function inScene(readMem) {
+  return openWindow(readMem) !== 0 || readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode;
+}
+
+/**
+ * A scene drive (budget 4), for at most `limit` frames: no direction held;
+ * Interact pressed whenever a window waits for Circle; on the naming screen
+ * the `naming` press groups in turn; out of field mode otherwise, nothing.
+ * Ends once every window has been closed in field mode for SCENE_QUIET
+ * frames. Fills res.wmask, res.named, res.nleft, res.smode and res.evt;
+ * at() gives the route frame count so far.
+ */
+function driveScene(readMem, limit, pressButtons, naming, res, at) {
+  let closed = 0;
+  let hold = 0;
+  let rest = 0;
+  let nameN = 0;
+  for (let m = 0; m < limit; m++) {
+    if (namingScreen(readMem)) {
+      if (!res.named) res.named = at() + 1;
+      const group = naming.length ? naming[Math.floor(nameN / NAME_EVERY) % naming.length] : [];
+      pressButtons(nameN % NAME_EVERY < NAME_HOLD ? group : []);
+      nameN += 1;
+      closed = 0;
+      continue;
+    }
+    const gs = readS16(readMem, ROUTE_WATCH.gameState);
+    if (gs !== ROUTE_WATCH.fieldMode) {
+      if (!res.smode) {
+        res.smode = gs ?? 0;
+        res.evt = readEventCmd(readMem) ?? 0;
+      }
+      pressButtons([]);
+      closed = 0;
+      continue;
+    }
+    if (res.named && !res.nleft) res.nleft = Math.max(nameN, 1);
+    let open = false;
+    ROUTE_WATCH.windows.forEach((a, i) => {
+      const v = readS16(readMem, a);
+      if (v !== null && v !== 0) {
+        open = true;
+        res.wmask |= 1 << i;
+      }
+    });
+    closed = open ? 0 : closed + 1;
+    if (closed >= SCENE_QUIET) return;
+    if (hold === 0 && rest === 0 && windowWaiting(readMem)) hold = ROUTE_TALK_HOLD;
+    if (hold > 0) {
+      pressButtons([ROUTE_TALK_BUTTON]);
+      hold -= 1;
+      if (hold === 0) rest = ROUTE_TALK_EVERY - ROUTE_TALK_HOLD;
+    } else {
+      pressButtons([]);
+      if (rest > 0) rest -= 1;
+    }
+  }
 }
 
 /** A nudge: hold direction `code` and tap Interact for up to `limit` frames; true when a window opens. */

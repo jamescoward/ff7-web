@@ -12,6 +12,10 @@
 //   --baselines DIR    baseline directory (default harness/baselines)
 //   --deadline-s N     stop starting scenarios after N seconds (default 1140,
 //                      under the sandbox's 1200 s limit); the rest report error
+//   --only A,B,...     run only the tier 2 scenarios with these names. The
+//                      private eval passes its shard's list (#269), which
+//                      keeps every snapshot chain whole; names not found are
+//                      ignored (the validator counts them missing)
 //
 // It runs every scenario file with "tier": 2 and writes OUT/results.json in
 // the #34 format (harness/schema/tier2-result.schema.json): per scenario,
@@ -103,7 +107,7 @@ export function validMetricValue(v) {
  * if none). Files the trusted expect builder would refuse are skipped (the
  * eval never runs with them).
  */
-export function findTier2Scenarios(dir) {
+export function findTier2Scenarios(dir, only = null) {
   let names;
   try {
     names = readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
@@ -123,6 +127,7 @@ export function findTier2Scenarios(dir) {
     }
     if (doc === null || typeof doc !== 'object' || Array.isArray(doc) || doc.tier !== 2) continue;
     if (typeof doc.name !== 'string' || !NAME_RE.test(doc.name) || `${doc.name}.json` !== file) continue;
+    if (only && !only.has(doc.name)) continue;
     const metrics = Array.isArray(doc.metrics) ? doc.metrics.filter((k) => typeof k === 'string' && METRIC_RE.test(k)) : [];
     const f2 = doc.format === 2 && doc.boot !== null && typeof doc.boot === 'object';
     const nameOf = (v) => (typeof v === 'string' && NAME_RE.test(v) ? v : null);
@@ -228,8 +233,8 @@ function snapshotFor(name, { disc, fixtures, timeout }) {
 }
 
 /** Run every tier 2 scenario; returns the entries written to results.json. */
-export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, baselines, deadlineS = DEFAULT_DEADLINE_S }) {
-  const list = findTier2Scenarios(scenarios);
+export function runAll({ disc, out, scenarios = DEFAULT_SCENARIOS, fixtures, baselines, deadlineS = DEFAULT_DEADLINE_S, only = null }) {
+  const list = findTier2Scenarios(scenarios, only);
   const entries = [];
   const deadline = Date.now() + deadlineS * 1000;
   const snapshots = new Map(); // boot point -> snapshot, or null when it could not be made
@@ -360,7 +365,7 @@ async function makeOne(name, { disc, fixtures }) {
 }
 
 async function main(argv) {
-  const usage = 'usage: node runner/tier2.js --disc PATH --out DIR [--scenarios DIR] [--fixtures DIR] [--baselines DIR] [--deadline-s N]';
+  const usage = 'usage: node runner/tier2.js --disc PATH --out DIR [--scenarios DIR] [--fixtures DIR] [--baselines DIR] [--deadline-s N] [--only A,B,...]';
   let values;
   try {
     ({ values } = parseArgs({
@@ -379,6 +384,7 @@ async function main(argv) {
         fixtures: { type: 'string' },
         baselines: { type: 'string' },
         'deadline-s': { type: 'string' },
+        only: { type: 'string' },
       },
     }));
   } catch (e) {
@@ -398,8 +404,17 @@ async function main(argv) {
     process.stderr.write(`${usage}\n`);
     return 2;
   }
+  let only = null;
+  if (values.only !== undefined) {
+    const names = values.only.split(',');
+    if (!names.every((n) => NAME_RE.test(n))) {
+      process.stderr.write(`${usage}\n`);
+      return 2;
+    }
+    only = new Set(names);
+  }
   try {
-    const entries = runAll({ ...values, deadlineS });
+    const entries = runAll({ ...values, deadlineS, only });
     if (!entries.length) process.stderr.write('no tier 2 scenarios\n');
     return 0;
   } catch (e) {

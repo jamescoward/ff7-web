@@ -13,14 +13,19 @@
 #   only, size caps, execute bits cleared; nothing from it runs on the
 #   host). Re-uploads the checked tree as `tier2-checked`, with its digest.
 #   The untrusted archive is only ever unpacked here.
-# - eval: environment `tier2-private` (deployment branches: main only; it
-#   holds the read-only R2 token). Downloads the checked tree, which trusted
-#   code packed, and requires the same digest. Reads the tier 2 scenario
-#   names, fetches the disc only if there is a scenario to run, runs the
-#   build in the sandbox (#33), validates the output (#34), and posts the
-#   `tier2` check run. The log holds only the summary. The disc is deleted
-#   at the end, even on failure; it never goes into the Actions cache or
-#   artifacts.
+# - start: no secrets. Opens the in-progress `tier2` check run.
+# - eval: one job per shard (#269; the matrix matches SHARDS in lib.js), in
+#   environment `tier2-private` (deployment branches: main only; it holds
+#   the read-only R2 token). Downloads the checked tree, which trusted code
+#   packed, and requires the same digest. Reads its shard's tier 2 scenario
+#   names (a snapshot chain stays in one shard), fetches the disc only if
+#   there is a scenario to run, runs the build in the sandbox (#33) on those
+#   scenarios only, and validates the output (#34). Each shard gets the full
+#   sandbox time limit. The log holds only the summary, which goes on as the
+#   job output summary_<shard>. The disc is deleted at the end, even on
+#   failure; it never goes into the Actions cache or artifacts.
+# - finish: no secrets. Re-checks and merges the shards' summaries, and
+#   completes the `tier2` check run with the merged summary.
 #
 # workflow_dispatch re-runs the check for an open PR (input: its number),
 # for example after a fix to this side merges. It only works from main: the
@@ -122,16 +127,16 @@ jobs:
         if: always()
         run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"
 
-  eval:
-    needs: [gate, inspect]
-    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
+  start:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    environment: tier2-private
+    timeout-minutes: 5
     permissions:
       contents: read
-      actions: read
       checks: write
+    outputs:
+      check_id: ${{ steps.check.outputs.check_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -146,6 +151,33 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: node harness/private-eval/eval/tier2.js check-start --sha "$HEAD_SHA"
+
+  eval:
+    needs: [gate, inspect]
+    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: tier2-private
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      summary_0: ${{ steps.summary.outputs.summary_0 }}
+      summary_1: ${{ steps.summary.outputs.summary_1 }}
+    env:
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
       - name: Prepare empty directories
         run: |
           echo "T2=$RUNNER_TEMP/tier2" >> "$GITHUB_ENV"
@@ -164,7 +196,7 @@ jobs:
         if: needs.inspect.result == 'success'
         env:
           DIGEST: ${{ needs.inspect.outputs.digest }}
-        run: node harness/private-eval/eval/tier2.js check-work --root "$T2" --digest "$DIGEST"
+        run: node harness/private-eval/eval/tier2.js check-work --root "$T2" --digest "$DIGEST" --shard "$SHARD" --shards 2
       - name: Trusted checkout unchanged
         id: clean
         if: steps.work.outcome == 'success'
@@ -187,13 +219,44 @@ jobs:
       - name: Run in the sandbox and validate
         if: always() && steps.work.outcome == 'success' && steps.clean.outcome == 'success'
         run: node harness/private-eval/eval/tier2.js evaluate --root "$T2"
+      - name: Pass on the summary
+        id: summary
+        if: always()
+        run: node harness/private-eval/eval/tier2.js output-summary --root "$RUNNER_TEMP/tier2" --shard "$SHARD"
+      - name: Delete the disc and the build
+        if: always()
+        run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"
+
+  finish:
+    needs: [gate, start, eval]
+    if: always() && needs.start.outputs.check_id != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Prepare empty directories
+        run: node harness/private-eval/eval/tier2.js prepare --root "$RUNNER_TEMP/tier2"
+      - name: Merge the shards' summaries
+        env:
+          SUMMARY_0: ${{ needs.eval.outputs.summary_0 }}
+          SUMMARY_1: ${{ needs.eval.outputs.summary_1 }}
+        run: node harness/private-eval/eval/tier2.js merge --root "$RUNNER_TEMP/tier2" --shards 2
       - name: Finish the tier2 check
-        if: always() && steps.check.outputs.check_id != ''
+        if: always()
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          CHECK_ID: ${{ steps.check.outputs.check_id }}
+          CHECK_ID: ${{ needs.start.outputs.check_id }}
         run: node harness/private-eval/eval/tier2.js check-finish --id "$CHECK_ID" --root "$RUNNER_TEMP/tier2"
-      - name: Delete the disc and the build
+      - name: Delete the summary
         if: always()
         run: node harness/private-eval/eval/tier2.js cleanup --root "$RUNNER_TEMP/tier2"
 

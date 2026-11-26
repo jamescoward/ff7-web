@@ -23,9 +23,10 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
-  ARTIFACT_NAME, buildExpect, checkRunOutput, checkWork, cleanup, evaluate, gateDispatch, gateWorkflowRun,
-  layout, MAX_ARTIFACT_BYTES, MAX_WORK_BYTES, MAX_WORK_DEPTH, makeSummary, permissionAllows, pickArtifact,
-  pickBuildRun, prepare, SANDBOX_COMMAND, Tier2Error,
+  ARTIFACT_NAME, buildExpect, chainLinks, checkRunOutput, checkShardSummary, checkWork, cleanup, evaluate,
+  gateDispatch, gateWorkflowRun, layout, MAX_ARTIFACT_BYTES, MAX_WORK_BYTES, MAX_WORK_DEPTH, makeSummary,
+  mergeSummaries, permissionAllows, pickArtifact, pickBuildRun, prepare, SANDBOX_COMMAND, sandboxCommand, SHARDS,
+  shardOf, Tier2Error,
 } from '../lib.js';
 import { prepareOutput } from '../../sandbox/sandbox.js';
 import { MAX_SCENARIOS } from '../../validate/validate.js';
@@ -560,6 +561,177 @@ dockerTest('cleanup: releases a mounted output directory, even read-only', () =>
   assert.equal(asRoot('mount', ['-o', 'remount,ro', L.out]).status, 0);
   assert.deepEqual(cleanup(L.root), { disc: 'removed', out: 'removed', root: 'removed' });
   assert.ok(!readFileSync('/proc/self/mounts', 'utf8').includes(L.out));
+});
+
+// ---------------------------------------------------------------- shards (#269)
+
+test('shards: chainLinks reads the snapshot a scenario keeps and the one it boots from', () => {
+  assert.deepEqual(chainLinks({ format: 2, boot: { from: 'snap-a' }, snapshot: 'snap-b' }), { after: 'snap-a', keeps: 'snap-b' });
+  // A boot with a disc or fixture source starts from a boot point, not a kept snapshot.
+  assert.deepEqual(chainLinks({ format: 2, boot: { disc: 1, from: 'title' } }), { after: null, keeps: null });
+  assert.deepEqual(chainLinks({ format: 2, boot: { fixture: 'x', from: 'y' }, snapshot: 'k' }), { after: null, keeps: 'k' });
+  assert.deepEqual(chainLinks({ format: 1, boot: { from: 'a' }, snapshot: 'b' }), { after: null, keeps: null });
+  assert.deepEqual(chainLinks({ format: 2, boot: { from: 7 }, snapshot: 3 }), { after: null, keeps: null });
+});
+
+test('shards: a chain stays together, groups are balanced by size, and the split is deterministic', () => {
+  const links = [
+    { name: 'a-root', after: null, keeps: 'k1' },
+    { name: 'a-mid', after: 'k1', keeps: 'k2' },
+    { name: 'a-end', after: 'k2', keeps: null },
+    { name: 'a-side', after: 'k1', keeps: null },
+    { name: 'b', after: null, keeps: null },
+    { name: 'c', after: null, keeps: null },
+    { name: 'd', after: 'nobody-keeps-this', keeps: null },
+  ];
+  const out = shardOf(links, 2);
+  assert.deepEqual(out, [['a-end', 'a-mid', 'a-root', 'a-side'], ['b', 'c', 'd']]);
+  assert.deepEqual(shardOf([...links].reverse(), 2), out, 'input order does not matter');
+  assert.deepEqual(shardOf(links, 1), [links.map((l) => l.name).sort()]);
+  // Two scenarios keeping the same name are tied to everything that boots from it.
+  const dup = shardOf([
+    { name: 'k-one', after: null, keeps: 'k' }, { name: 'k-two', after: null, keeps: 'k' }, { name: 'user', after: 'k', keeps: null },
+    { name: 'x', after: null, keeps: null }, { name: 'y', after: null, keeps: null }, { name: 'z', after: null, keeps: null },
+  ], 2);
+  assert.deepEqual(dup, [['k-one', 'k-two', 'user'], ['x', 'y', 'z']]);
+});
+
+test('shards: buildExpect gives each shard its own names; together they are the whole run', () => {
+  const L = jobWith((w) => {
+    put(w, 'harness/scenarios/chain-a.json', scenario('chain-a', { format: 2, boot: { fixture: 'x' }, snapshot: 'k' }));
+    put(w, 'harness/scenarios/chain-b.json', scenario('chain-b', { format: 2, boot: { from: 'k' }, metrics: ['m'] }));
+    put(w, 'harness/scenarios/lone-c.json', scenario('lone-c'));
+    put(w, 'harness/scenarios/lone-d.json', scenario('lone-d'));
+    put(w, 'harness/scenarios/lone-e.json', scenario('lone-e'));
+    put(w, 'runner/tier2.js', '');
+  });
+  const whole = buildExpect(L.work);
+  const parts = [0, 1].map((shard) => buildExpect(L.work, { shard, shards: 2 }));
+  // The chain (2) goes first, then each lone scenario to the smaller shard (ties: the lower index).
+  assert.deepEqual(parts[0], { format: 1, scenarios: { 'chain-a': [], 'chain-b': ['m'], 'lone-e': [] } });
+  assert.deepEqual(parts[1], { format: 1, scenarios: { 'lone-c': [], 'lone-d': [] } });
+  assert.deepEqual({ ...parts[0].scenarios, ...parts[1].scenarios }, whole.scenarios);
+  for (const bad of [{ shard: 2, shards: 2 }, { shard: -1, shards: 2 }, { shard: 0, shards: 0 }, { shard: 0.5, shards: 2 }]) {
+    assert.throws(() => buildExpect(L.work, bad), (e) => e.code === 'internal', JSON.stringify(bad));
+  }
+});
+
+test('shards: the sandbox command is the contract plus the shard\'s names', () => {
+  assert.deepEqual(sandboxCommand({ format: 1, scenarios: { 'b-two': [], 'a-one': [] } }), [...SANDBOX_COMMAND, '--only', 'a-one,b-two']);
+  assert.equal(SHARDS, 2);
+});
+
+const shardPass = (names) => makeSummary({
+  result: 'pass',
+  validator: {
+    format: 1, ok: true, output: 'accepted', reason: null, limits_hit: [],
+    counts: { pass: names.length, fail: 0, error: 0, missing: 0 },
+    scenarios: names.map((name) => ({ name, status: 'pass', metrics: { frames: 1 } })),
+  },
+});
+
+test('merge: two passing shards make one passing summary, scenarios sorted, counts added', () => {
+  const m = mergeSummaries([shardPass(['b', 'd']), shardPass(['a', 'c'])]);
+  assert.equal(m.result, 'pass');
+  assert.equal(m.ok, true);
+  assert.deepEqual(m.validator.counts, { pass: 4, fail: 0, error: 0, missing: 0 });
+  assert.deepEqual(m.validator.scenarios.map((s) => s.name), ['a', 'b', 'c', 'd']);
+  assert.equal(checkRunOutput(m).conclusion, 'success');
+});
+
+test('merge: a failed, errored, missing or junk shard turns the merge red', () => {
+  const failing = shardPass(['a']);
+  failing.result = 'fail';
+  failing.ok = false;
+  failing.validator.ok = false;
+  failing.validator.counts = { pass: 0, fail: 0, error: 1, missing: 0 };
+  failing.validator.scenarios[0].status = 'error';
+  const f = mergeSummaries([shardPass(['b']), failing]);
+  assert.equal(f.result, 'fail');
+  assert.deepEqual(f.validator.counts, { pass: 1, fail: 0, error: 1, missing: 0 });
+  assert.equal(checkRunOutput(f).conclusion, 'failure');
+  const e = mergeSummaries([shardPass(['b']), makeSummary({ result: 'error', error: 'disc-missing' })]);
+  assert.equal(e.result, 'error');
+  assert.equal(e.error, 'disc-missing');
+  assert.deepEqual(e.validator.scenarios.map((s) => s.name), ['b'], 'the passing shard still shows');
+  assert.equal(mergeSummaries([shardPass(['b']), null]).error, 'internal');
+  assert.equal(checkRunOutput(mergeSummaries([shardPass(['b']), null])).conclusion, 'failure');
+  assert.deepEqual(mergeSummaries([makeSummary({ result: 'no-scenarios' }), makeSummary({ result: 'no-scenarios' })]), makeSummary({ result: 'no-scenarios' }));
+  assert.equal(mergeSummaries([shardPass(['a']), makeSummary({ result: 'no-scenarios' })]).result, 'pass');
+  const limits = shardPass(['a']);
+  limits.validator.limits_hit = ['time'];
+  assert.deepEqual(mergeSummaries([limits, shardPass(['b'])]).validator.limits_hit, ['time']);
+});
+
+test('merge: a shard summary carrying anything else is refused, so no text reaches the check', () => {
+  const junk = [
+    'text', 42, [], {},
+    { ...shardPass(['a']), result: 'leak' },
+    { ...shardPass(['a']), error: 'free text' },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, reason: 'free text' } },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, limits_hit: ['free text'] } },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, counts: { pass: 'x', fail: 0, error: 0, missing: 0 } } },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, scenarios: [{ name: 'Leaked Text', status: 'pass' }] } },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, scenarios: [{ name: 'a', status: 'pass', metrics: { k: 'text' } }] } },
+    { ...shardPass(['a']), validator: { ...shardPass(['a']).validator, scenarios: [{ name: 'a', status: 'pass', metrics: { 'Bad Key': 1 } }] } },
+    makeSummary({ result: 'pass' }),
+  ];
+  for (const j of junk) {
+    const c = checkShardSummary(j);
+    assert.deepEqual(c, makeSummary({ result: 'error', error: 'internal' }), JSON.stringify(j));
+  }
+  // Extra fields are dropped, not passed on.
+  const extra = shardPass(['a']);
+  extra.note = 'free text';
+  extra.validator.note = 'free text';
+  extra.validator.scenarios[0].note = 'free text';
+  assert.ok(!JSON.stringify(checkShardSummary(extra)).includes('free text'));
+  assert.deepEqual(checkShardSummary(shardPass(['a'])), shardPass(['a']));
+});
+
+test('output-summary and merge CLI: a shard summary goes out as one line and comes back merged', async () => {
+  const roots = [0, 1].map(() => prepare(scratch()));
+  writeFileSync(roots[0].summary, JSON.stringify(shardPass(['a'])));
+  writeFileSync(roots[1].summary, JSON.stringify(shardPass(['b'])));
+  const outs = [];
+  for (const [i, L] of roots.entries()) {
+    const r = await runCli(['output-summary', '--root', L.root, '--shard', String(i)], {});
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(!r.outputs[`summary_${i}`].includes('\n'));
+    outs.push(r.outputs[`summary_${i}`]);
+  }
+  const M = prepare(scratch());
+  const m = await runCli(['merge', '--root', M.root, '--shards', '2'], { SUMMARY_0: outs[0], SUMMARY_1: outs[1] });
+  assert.equal(m.code, 0, m.stderr);
+  const merged = JSON.parse(readFileSync(M.summary, 'utf8'));
+  assert.equal(merged.result, 'pass');
+  assert.deepEqual(merged.validator.scenarios.map((s) => s.name), ['a', 'b']);
+  // A shard whose job never set its output is an error, not a pass.
+  const N = prepare(scratch());
+  await runCli(['merge', '--root', N.root, '--shards', '2'], { SUMMARY_0: outs[0], SUMMARY_1: '' });
+  assert.equal(JSON.parse(readFileSync(N.summary, 'utf8')).result, 'error');
+  // A shard with no summary file still sends an error summary.
+  const E = prepare(scratch());
+  const r = await runCli(['output-summary', '--root', E.root, '--shard', '1'], {});
+  assert.equal(JSON.parse(r.outputs.summary_1).result, 'error');
+  for (const bad of [['output-summary', '--root', E.root, '--shard', '2'], ['merge', '--root', E.root, '--shards', '3']]) {
+    assert.equal((await runCli(bad, {})).code, 1, bad.join(' '));
+  }
+  for (const L of [...roots, M, N, E]) cleanup(L.root);
+});
+
+test('check-work CLI: --shard writes only that shard\'s names', async () => {
+  const L = jobWith((w) => {
+    base(w);
+    for (const name of ['p', 'q', 'r', 's']) put(w, `harness/scenarios/${name}.json`, scenario(name));
+  });
+  const r = await runCli(['check-work', '--root', L.root, '--shard', '1', '--shards', '2'], {});
+  assert.equal(r.code, 0, r.stdout);
+  assert.equal(r.outputs.scenarios, '2');
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(L.expect, 'utf8')).scenarios), ['q', 's']);
+  const bad = await runCli(['check-work', '--root', jobWith(base).root, '--shard', '2', '--shards', '2'], {});
+  assert.equal(bad.code, 1);
+  cleanup(L.root);
 });
 
 // ---------------------------------------------------------------- end to end (sandbox + validator)

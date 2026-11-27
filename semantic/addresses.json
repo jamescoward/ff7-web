@@ -1,0 +1,1142 @@
+{
+  "_about": "Generated from semantic/addresses.js by tools/semantic-json/export.js (#290); do not edit. See addresses.js for the field meanings and provenance rules.",
+  "_leftOut": [
+    "makeTable",
+    "validateTable"
+  ],
+  "ADDRESS_TABLE": {
+    "exe": "a95e8b16b97071203b953bb81a33980509262f30",
+    "entries": [
+      {
+        "name": "gameState",
+        "address": 2148124000,
+        "type": "s16",
+        "meaning": "current game mode (g_GameState): field = 1, battle = 2, world map = 3, menu = 5, motorcycle minigame = 6 (confirmed); the other minigames (7-11, 14) are unlabelled. Reads field during a movie; reads 0 on the title",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt: g_GameState; values: notes/36-disc-boot.md. Tier 2 (#76, notes/76-confirm-mode.md): 1 at reactor-entrance, after closing the menu and after the first battle; 5 with the menu open; 2 in the first guard battle; 1 during the opening movie; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88). Tier 2 (#80, notes/80-boot-catalogue.md): 3 for 690 frames after a generated save loads into the world map outside Kalm and outside Midgar; 6 for 600 frames after one loads into the motorcycle minigame, while its track position advances",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-1-field.json",
+        "values": {
+          "1": "field",
+          "2": "battle",
+          "3": "world",
+          "5": "menu",
+          "6": "minigame"
+        },
+        "confirmedValues": {
+          "1": "harness/scenarios/reactor-mode-1-field.json",
+          "2": "harness/scenarios/reactor-mode-4-battle.json",
+          "3": "harness/scenarios/save-boot-7-world-kalm.json",
+          "5": "harness/scenarios/reactor-mode-2-menu-open.json",
+          "6": "harness/scenarios/save-boot-9-highway.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "prevGameState",
+        "address": 2148099564,
+        "type": "s16",
+        "meaning": "the previous game mode (g_PrevGameState), same values as gameState, plus none = 0 before the first mode change of a new game",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt: g_PrevGameState; notes/36-disc-boot.md. Tier 2 (#76): 0 at reactor-entrance, field 1 in the menu and in battle, menu 5 after closing the menu, battle 2 after the battle; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88). Tier 2 (#107): 0 at reactor-entrance is a check, not only a metric",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-3-menu-close.json",
+        "values": {
+          "0": "none",
+          "1": "field",
+          "2": "battle",
+          "3": "world",
+          "5": "menu",
+          "6": "minigame"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/reactor-mode-1-field.json",
+          "1": "harness/scenarios/reactor-mode-2-menu-open.json",
+          "2": "harness/scenarios/reactor-mode-5-battle-end.json",
+          "5": "harness/scenarios/reactor-mode-3-menu-close.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "movieFrame",
+        "address": 2147948352,
+        "type": "u32",
+        "meaning": "frame number of the playing movie (Stframe_no, the streaming library): it advances (15 a second) while a movie plays and holds its last value afterwards (1790 after the opening). It can read 0 on single frames during a movie, so judge over a window: a movie is playing when gameState is field and this value advances",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt: Stframe_no. Tier 2 (#76): 0 until the opening movie starts, 150 more after 10 s, 1790 at its end and unchanged at reactor-entrance; one 0 read mid-movie (attempt 1). The first candidate, g_MovieLock (0x800716CC), read 0 throughout the opening; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/movie-2-playing.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldId",
+        "address": 2148114524,
+        "type": "s16",
+        "meaning": "current location (field ID, g_FieldCurrentMap); documented IDs 0x0000 to 0x0312 (ff7-flat-wiki Field_ID). It changes as soon as the player walks through an exit, before the new field has loaded (see fieldLoading)",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt and include/game.h: g_FieldCurrentMap. Tier 2 (#77, notes/77-field-position.md): md1stin (0x74) at reactor-entrance, md1_1 (0x75) after walking up-left off it, as the wiki documents; the savemap copy (0x8009C6E4 + 0x0B96) reads the same at md1stin. chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-field-1-id.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "playerModel",
+        "address": 2148099552,
+        "type": "s16",
+        "meaning": "field model index of the player (g_PlayerModelId): the element of fieldX/fieldY that is the player. Only 0 is confirmed (md1stin); another value is a hypothesis until a Tier 2 scenario sees it",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt: g_PlayerModelId. Tier 2: 0 at md1stin with model 0 the one that moves with the pad (#77, reactor-field-2-still; #38, save-boot-1-load), and 0 at nmkin_1 with model 0 moving under the pad and model 1 still (#99, save-boot-3-player-model-nmkin-1). #99 found no reachable state where it is not 0: Cloud or Barret leading, in md1stin, md1_1, md1_2, nmkin_1, md8_1, mds7st1 and mds7 (notes/99-player-model.md); chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-field-2-still.json",
+        "values": {
+          "0": "model 0"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/save-boot-3-player-model-nmkin-1.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldX",
+        "address": 2147962544,
+        "type": "s32",
+        "stride": 132,
+        "count": 16,
+        "meaning": "field X position of each field model (g_FieldEntity[i].PosX, raw units); element playerModel is the player. At md1stin (model 0) screen right raises it and left lowers it",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt (g_FieldEntity at 0x80074EA4; g_FieldModelAnimStatus follows 16 elements on) and include/game.h (FieldEntity, size 0x84, PosX at +0x0C). Tier 2 (#77), element 0: unchanged for 120 frames without input; +1 sign walking right and up, -1 walking left and down, in two runs; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-field-3-walk-right.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldY",
+        "address": 2147962548,
+        "type": "s32",
+        "stride": 132,
+        "count": 16,
+        "meaning": "field Y position of each field model (g_FieldEntity[i].PosY, raw units); element playerModel is the player. At md1stin (model 0) screen up raises it and down lowers it",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be include/game.h (FieldEntity, size 0x84, PosY at +0x10). Tier 2 (#77), element 0: unchanged for 120 frames without input; +1 sign walking up, -1 walking down, in two runs; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-field-5-walk-up.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldLoading",
+        "address": 2148099560,
+        "type": "s16",
+        "meaning": "field load state (g_IsFieldLoading): 2 in a settled field; another value (1 was seen) while a field loads. The field ID changes first and the load starts later (114 frames later at md1stin -> md1_1), so 2 alone does not mean loaded: a field is loaded when, after the field ID changed, this has left 2 and read 2 again (gameState field)",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt: g_IsFieldLoading. Tier 2 (#77, notes/77-field-position.md): 2 at md1stin; after walking off to md1_1 it left 2 114 frames after the ID changed and read 2 again 66 frames later, in two runs; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-next-2-load-sequence.json",
+        "values": {
+          "2": "settled"
+        },
+        "confirmedValues": {
+          "2": "harness/scenarios/reactor-next-2-load-sequence.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "menuCursor",
+        "address": 2148114643,
+        "type": "s8",
+        "meaning": "field main-menu cursor index (0 = the first item; the row of g_PartyMenuTables[0]). Only the main menu is checked; sub-menu cursors (Materia, Equip) are elsewhere",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt (g_PartyMenuTables at 0x8009A0C8, three tables) and include/game.h (MenuTable, size 0x12, row at +0x0B). Tier 2 (#78, notes/78-menu-party.md): 0 with the menu just open, Down 1, Down 2, Up 1, Up 0; the rows of tables 1 and 2 stay 0; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-2d-cursor-sequence.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyPick",
+        "address": 2148114661,
+        "type": "s8",
+        "meaning": "main-menu party pick: the party slot (0-2) highlighted after Circle on a main-menu row that asks for a member (Equip), and the member whose Equip screen then opens (the row of g_PartyMenuTables[1]). Only the party pick and the Equip screen are checked; elsewhere it may hold a stale value",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_PartyMenuTables at 0x8009A0C8) and include/game.h (MenuTable, size 0x12, row at +0x0B): table 1's row. Tier 2 (#215, notes/215-party-pick.md): from a generated save with party Cloud, Barret, Tifa, after the planned move to Equip and Circle, Down 0, 1 or 2 times reads 0, 1 or 2 (save-boot-16a to 16d); Circle then opens the Equip screen (menuOverlay 4) for that slot's member, and Circle, Circle changes only that member's weapon; it still reads the slot on the Equip screen; table 2's row stays 0; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-16c-party-pick-slot1.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partySlot0",
+        "address": 2148125660,
+        "type": "u8",
+        "meaning": "character ID in party slot 0 (Savemap partyID[0]: 0x00 Cloud, 0x01 Barret, ... 0x0B; 0xFF = empty). The game uses this copy live (field scripts and the menu read it)",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); notes/32-save-format.md savemap layout (ff7-mods flat wiki): savemap +0x04F8. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88).",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4a-party-slots.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partySlot1",
+        "address": 2148125661,
+        "type": "u8",
+        "meaning": "character ID in party slot 1 (Savemap partyID[1]: 0x00 Cloud, 0x01 Barret, ... 0x0B; 0xFF = empty). The game uses this copy live (field scripts and the menu read it)",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); notes/32-save-format.md savemap layout (ff7-mods flat wiki): savemap +0x04F9. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88). Tier 2 (#101): Barret (0x01) from a generated save with party Cloud, Barret, empty, in the field menu and in a random battle in md1_1",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-4-party-barret-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partySlot2",
+        "address": 2148125662,
+        "type": "u8",
+        "meaning": "character ID in party slot 2 (Savemap partyID[2]: 0x00 Cloud, 0x01 Barret, ... 0x0B; 0xFF = empty). The game uses this copy live (field scripts and the menu read it)",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be include/game.h (SaveWork partyID at +0x4F8; Savemap at 0x8009C6E4); notes/32-save-format.md savemap layout (ff7-mods flat wiki): savemap +0x04FA. Tier 2 (#78): Cloud (0x00), empty, empty in the field menu at reactor-entrance and in the first guard battle (Cloud is alone there); chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88). Tier 2 (#101): Tifa (0x02) from a generated save with party Cloud, Barret, Tifa, in a random battle in md1_1",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-6-party-tifa-battle.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyHp0",
+        "address": 2148128860,
+        "type": "s16",
+        "meaning": "current HP of the character in party slot 0 (g_ActiveCharacters[0].hp; the array is indexed by party slot). Meaningless for an empty slot: check partySlot0",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x10 current HP). Tier 2 (#78): slot 0 (Cloud) in 1..9999 in the field menu and in the first guard battle, and it falls while the guards attack with max HP unchanged; chain of in-memory snapshots from reactor-entrance (#74); determinism = reruns from the same snapshot, not chain vs scratch (#88). The byte at +0x000 is not the character ID: it read 0 for Barret and Tifa (#101)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4c-party-hp-damage.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyHp1",
+        "address": 2148129948,
+        "type": "s16",
+        "meaning": "current HP of the character in party slot 1 (g_ActiveCharacters[1].hp; the array is indexed by party slot). Meaningless for an empty slot: check partySlot1",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x10 current HP). Tier 2 (#101): slot 1 (Barret, generated save) in 1..9999 in the field menu and in a random battle in md1_1, and it falls over 2400 frames of that battle with max HP (+0x12) unchanged; a rerun matches. The byte at +0x000 is not the character ID: it read 0 for Barret and Tifa (#101)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-5-party-barret-battle.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyHp2",
+        "address": 2148131036,
+        "type": "s16",
+        "meaning": "current HP of the character in party slot 2 (g_ActiveCharacters[2].hp; the array is indexed by party slot). Meaningless for an empty slot: check partySlot2",
+        "source": "Xeeynamo/ff7-decomp@9411173034bde2ae4c9b0312167e79c3645ca1be config/symbols.main.us.txt (g_ActiveCharacters at 0x8009D84C), include/game.h (ActiveCharacterData, size 0x440, hp at +0x10) and src/menu/savemenu.c (reads g_ActiveCharacters[i] for party slot i); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x10 current HP). Tier 2 (#101): slot 2 (Tifa, generated save with party Cloud, Barret, Tifa) in 1..9999 in a random battle in md1_1, and it falls over 3000 frames of that battle with max HP (+0x12) unchanged; a rerun matches. The byte at +0x000 is not the character ID: it read 0 for Barret and Tifa (#101)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-6-party-tifa-battle.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxHp0",
+        "address": 2148128862,
+        "type": "s16",
+        "meaning": "max HP (baseHp: base HP plus materia; what the menu shows as the maximum) of the character in party slot 0 (g_ActiveCharacters[0] + 0x012). Meaningless for an empty slot: check partySlot0",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10a-party-stats-menu-slot0.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMp0",
+        "address": 2148128864,
+        "type": "s16",
+        "meaning": "current MP of the character in party slot 0 (g_ActiveCharacters[0] + 0x014). Meaningless for an empty slot: check partySlot0",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches. MP also holds in a random battle (save-boot-11a)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10a-party-stats-menu-slot0.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxMp0",
+        "address": 2148128866,
+        "type": "s16",
+        "meaning": "max MP (baseMp: base MP plus materia) of the character in party slot 0 (g_ActiveCharacters[0] + 0x016). Meaningless for an empty slot: check partySlot0",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10a-party-stats-menu-slot0.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxHp1",
+        "address": 2148129950,
+        "type": "s16",
+        "meaning": "max HP (baseHp: base HP plus materia; what the menu shows as the maximum) of the character in party slot 1 (g_ActiveCharacters[1] + 0x012). Meaningless for an empty slot: check partySlot1",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10b-party-stats-menu-slot1.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMp1",
+        "address": 2148129952,
+        "type": "s16",
+        "meaning": "current MP of the character in party slot 1 (g_ActiveCharacters[1] + 0x014). Meaningless for an empty slot: check partySlot1",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches. MP also holds in a random battle (save-boot-11a)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10b-party-stats-menu-slot1.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxMp1",
+        "address": 2148129954,
+        "type": "s16",
+        "meaning": "max MP (baseMp: base MP plus materia) of the character in party slot 1 (g_ActiveCharacters[1] + 0x016). Meaningless for an empty slot: check partySlot1",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10b-party-stats-menu-slot1.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxHp2",
+        "address": 2148131038,
+        "type": "s16",
+        "meaning": "max HP (baseHp: base HP plus materia; what the menu shows as the maximum) of the character in party slot 2 (g_ActiveCharacters[2] + 0x012). Meaningless for an empty slot: check partySlot2",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10c-party-stats-menu-slot2.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMp2",
+        "address": 2148131040,
+        "type": "s16",
+        "meaning": "current MP of the character in party slot 2 (g_ActiveCharacters[2] + 0x014). Meaningless for an empty slot: check partySlot2",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches. MP also holds in a random battle (save-boot-11a)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10c-party-stats-menu-slot2.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyMaxMp2",
+        "address": 2148131042,
+        "type": "s16",
+        "meaning": "max MP (baseMp: base MP plus materia) of the character in party slot 2 (g_ActiveCharacters[2] + 0x016). Meaningless for an empty slot: check partySlot2",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (ActiveCharacterData, size 0x440) and src/main/1F6B4.c, src/main/17238.c (the load sets hp/mp from the record's current values and the maximums from its base values plus materia, at least 10, and writes them back to the record's hp_max/mp_max); ff7-flat-wiki Battle_Mechanics \"Active Character Data\" (+0x12 Max HP, +0x14 Current MP, +0x16 Max MP). Tier 2 (#130): equals the author-chosen value in the field menu after loading harness/saves/disc1-md1stin-stats.json (party Cloud, Barret, Tifa, materia slots empty); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10c-party-stats-menu-slot2.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyLimit0",
+        "address": 2148490856,
+        "type": "u16",
+        "meaning": "limit gauge of party slot 0 in battle (g_BattleWork.party[0].limitBar, 0-255; 255 = limit break ready). Only meaningful in battle; outside it read characterLimit",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): 91 frames into a random battle it holds each slot's author-chosen limit bar (Cloud 100, Barret 50, Tifa 200; save-boot-11a); slot 0 rises over 1800 frames of the first guard battle while Cloud takes damage (reactor-mode-4e); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4e-limit-damage.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyLimit1",
+        "address": 2148490908,
+        "type": "u16",
+        "meaning": "limit gauge of party slot 1 in battle (g_BattleWork.party[1].limitBar, 0-255; 255 = limit break ready). Only meaningful in battle; outside it read characterLimit",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): 91 frames into a random battle it holds each slot's author-chosen limit bar (Cloud 100, Barret 50, Tifa 200; save-boot-11a); slot 0 rises over 1800 frames of the first guard battle while Cloud takes damage (reactor-mode-4e); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11a-stats-battle-limit.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyLimit2",
+        "address": 2148490960,
+        "type": "u16",
+        "meaning": "limit gauge of party slot 2 in battle (g_BattleWork.party[2].limitBar, 0-255; 255 = limit break ready). Only meaningful in battle; outside it read characterLimit",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): 91 frames into a random battle it holds each slot's author-chosen limit bar (Cloud 100, Barret 50, Tifa 200; save-boot-11a); slot 0 rises over 1800 frames of the first guard battle while Cloud takes damage (reactor-mode-4e); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11a-stats-battle-limit.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyAtb0",
+        "address": 2148490172,
+        "type": "u16",
+        "meaning": "ATB gauge of party slot 0 in battle (g_BattleWork.turn[0].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): in the first guard battle it reads lower after Cloud takes Attack than before, and higher 90 frames later (reactor-mode-4d); g_ActiveCharacters[0].atbTimer (+0x18) moves the same way; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4d-atb-command.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyAtb1",
+        "address": 2148490240,
+        "type": "u16",
+        "meaning": "ATB gauge of party slot 1 in battle (g_BattleWork.turn[1].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): in a random battle with party Cloud, Barret, Tifa it rises over the 240 frames after battle init (save-boot-11b), as g_ActiveCharacters[1].atbTimer (+0x18) does; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11b-stats-battle-atb-slots.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "partyAtb2",
+        "address": 2148490308,
+        "type": "u16",
+        "meaning": "ATB gauge of party slot 2 in battle (g_BattleWork.turn[2].atbGauge: 0 empty, 0xFFFF full; it fills over time and empties when a command is taken). Only meaningful in battle",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 src/battle/battle.h (BattleWork: turn[10] of BattleTurnWork, 0x44 bytes, then party[3] of BattlePartyWork, 0x34 bytes, at +0x2A8), src/battle/batini.c (battle start: atbGauge 0, limitBar = the record's limit bar), src/battle/battle.c (damage raises limitBar, at most 255), src/battle/batres.c (written back to the record when the battle ends); g_BattleWork in config/symbols.battle.txt (0x800F5BB8; config/sym_export_battle.us.txt says 0x800f5bbc). Tier 2 (#130): in a random battle with party Cloud, Barret, Tifa it rises over the 240 frames after battle init (save-boot-11b), as g_ActiveCharacters[2].atbTimer (+0x18) does; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11b-stats-battle-atb-slots.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterLimit",
+        "address": 2148124487,
+        "type": "u8",
+        "stride": 132,
+        "count": 9,
+        "meaning": "limit bar kept in each character record (0-255; 255 = limit break ready), indexed by record (0 Cloud, 1 Barret, 2 Tifa, 3 Aeris, 4 Red XIII, 5 Yuffie, 6 Cait Sith, 7 Vincent, 8 Cid). The battle works on its own copy (partyLimit) and writes it back here when it ends",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SavePartyMember.limit_charge at +0x0F; Savemap.party at +0x54); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Character Record\" +0x0F current limit bar. Tier 2 (#130): records 0, 1 and 2 hold the author-chosen limit bars after loading harness/saves/disc1-md1stin-stats.json (save-boot-10a/b/c); record 0 is unchanged during the first guard battle while the battle's copy rises (reactor-mode-4e)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-10a-party-stats-menu-slot0.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogState",
+        "address": 2148020896,
+        "type": "s16",
+        "meaning": "state of message window 0 (g_WindowData[0].state): 0 = closed; 1-14 open (2 typing, 6 text done and waiting for Circle, 7 closing; see WINDOW_STATES). dialogOpen = not 0; dialogWaiting = one of WINDOW_WAITING_STATES",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Tier 2 (#108, notes/108-dialogue-state.md): after a generated save loads into the world map outside Kalm (disc1-wm1-kalm), window 0 reads 0 on entry, opens 475 frames later, reads open but not 6 for 110 frames while its text types, then 6 (save-boot-12b); after one Circle press (held 4 frames) it leaves 6 and, with no further input, reads 0 (save-boot-12c); reruns match. #140 saw 6 there after 600 frames (save-boot-7h-world-kalm-window). Only 0 and 6 are confirmed values; the typing and closing values were not read individually",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-12b-dialog-world-open.json",
+        "values": {
+          "0": "closed",
+          "1": "show",
+          "2": "typing",
+          "3": "pause",
+          "4": "wait row",
+          "5": "unk5",
+          "6": "done",
+          "7": "closing",
+          "8": "scroll row",
+          "9": "init next",
+          "10": "unkA",
+          "11": "pause scroll until ok",
+          "12": "scroll while ok",
+          "13": "pause until ok",
+          "14": "wait next window"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/save-boot-12c-dialog-world-circle.json",
+          "6": "harness/scenarios/save-boot-12b-dialog-world-open.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogPointer",
+        "address": 2148020878,
+        "type": "u8",
+        "meaning": "pointerEnabled of message window 0: 1 while a choice window (the field script opcode ask) waits in state 6 for a pick; 0 for a plain message. It blinks while a window closes, so read it only in state 6",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Tier 2 (#108): 0 in the plain message window of save-boot-12b (state 6). No choice window has been reached yet (#168)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogPointerY",
+        "address": 2148020890,
+        "type": "s16",
+        "meaning": "pointerY of message window 0: the chosen line * 16 + 6 while a choice waits (the line counts from the window's first line, so the first option is often line 1 under a question)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Not seen in Tier 2 yet: no choice window has been reached (#168)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogState1",
+        "address": 2148020944,
+        "type": "s16",
+        "meaning": "state of message window 1 (g_WindowData[1].state), with the same values as dialogState (window 0)",
+        "values": {
+          "0": "closed",
+          "1": "show",
+          "2": "typing",
+          "3": "pause",
+          "4": "wait row",
+          "5": "unk5",
+          "6": "done",
+          "7": "closing",
+          "8": "scroll row",
+          "9": "init next",
+          "10": "unkA",
+          "11": "pause scroll until ok",
+          "12": "scroll while ok",
+          "13": "pause until ok",
+          "14": "wait next window"
+        },
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Tier 2 (#224, notes/224-window1-state.md): in mds7st1 (disc1-mds7st1), after Down 300 frames and one Circle press, it reads 6 28 frames later with window 0 at 0 and pointerEnabled 0, a plain message (save-boot-19a); one more Circle takes it out of 6 and it reads 0 three frames after (save-boot-19b); reruns match. With the walk alone and no Circle it stays 0, so the Circle talk opens it. Only 0 and 6 are confirmed values",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-19a-window1-open.json",
+        "confirmedValues": {
+          "0": "harness/scenarios/save-boot-19b-window1-circle.json",
+          "6": "harness/scenarios/save-boot-19a-window1-open.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogState2",
+        "address": 2148020992,
+        "type": "s16",
+        "meaning": "state of message window 2 (g_WindowData[2].state), with the same values as dialogState (window 0)",
+        "values": {
+          "0": "closed",
+          "1": "show",
+          "2": "typing",
+          "3": "pause",
+          "4": "wait row",
+          "5": "unk5",
+          "6": "done",
+          "7": "closing",
+          "8": "scroll row",
+          "9": "init next",
+          "10": "unkA",
+          "11": "pause scroll until ok",
+          "12": "scroll while ok",
+          "13": "pause until ok",
+          "14": "wait next window"
+        },
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Not seen open in Tier 2 (#168 and #224 read 0 in every diagnostic)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "dialogState3",
+        "address": 2148021040,
+        "type": "s16",
+        "meaning": "state of message window 3 (g_WindowData[3].state), with the same values as dialogState (window 0)",
+        "values": {
+          "0": "closed",
+          "1": "show",
+          "2": "typing",
+          "3": "pause",
+          "4": "wait row",
+          "5": "unk5",
+          "6": "done",
+          "7": "closing",
+          "8": "scroll row",
+          "9": "init next",
+          "10": "unkA",
+          "11": "pause scroll until ok",
+          "12": "scroll while ok",
+          "13": "pause until ok",
+          "14": "wait next window"
+        },
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.main.us.txt (g_WindowData, size 0xC0), include/game.h (WindowData: pointerEnabled +0x1A, pointerY +0x26, state +0x2C; enum WindowState) and src/field/field_dialog.c (FieldDialogMessageUpdateStates, FieldDialogAskUpdateStates). Not seen open in Tier 2 (#168 and #224 read 0 in every diagnostic)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMenuWidget",
+        "address": 2148481174,
+        "type": "s16",
+        "meaning": "battle menu widget taking input (g_BattleMenuModalWidgetId): -1 none (no command menu open), 1 the command menu, 0 target selection; other values are sub-menus (magic, item, ...) and stay unlabelled",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B). Tier 2 (#110, notes/110-battle-input.md): in the first guard battle it reads 1 once Cloud's ATB gauge fills (60 frames after the \"battle\" snapshot), 0 one frame after Circle on Attack (reactor-mode-4f), and -1 one frame after a second Circle takes Attack, still -1 10 frames later (reactor-mode-4h); in a random battle with party Cloud, Barret, Tifa it reads 1, 0, -1 and 1 again for the next member (save-boot-11c); reruns match. Tier 2 (#253, notes/253-battle-lists.md): Circle on the Magic command makes it read 6 while the Magic list is open (save-boot-29a), Circle on the Item command 5 while the Item list is open (save-boot-29c attempt 1, 29d)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+        "values": {
+          "0": "target",
+          "1": "command",
+          "5": "item",
+          "6": "magic",
+          "-1": "none"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+          "1": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+          "5": "harness/scenarios/save-boot-29d-battle-item-use.json",
+          "6": "harness/scenarios/save-boot-29a-battle-magic-cursor.json",
+          "-1": "harness/scenarios/reactor-mode-4h-battle-command-taken.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleActor",
+        "address": 2148481184,
+        "type": "u8",
+        "meaning": "party slot (0-2) whose battle command menu is shown (g_BattleMenuPartySlot). Meaningful only while battleMenuWidget is not -1",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B). Tier 2 (#110): 0 when Cloud's menu opens in the first guard battle (Cloud alone; reactor-mode-4f); with party Cloud, Barret, Tifa in a random battle, 30 frames after the first menu opens it reads more than it does 30 frames after the next menu opens (Attack taken in between), and then it reads 1 (save-boot-11c). #171 reads it directly: 2 30 frames after the first menu opens (save-boot-11d) and 1 30 frames after the next one (save-boot-11e); reruns match",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleCommandRow0",
+        "address": 2148503743,
+        "type": "u8",
+        "meaning": "command menu cursor row of party slot 0 (D_800F90B4[0].table00.row; 4 rows per column, 0 = the top row, Attack; a row with no command is skipped, so without materia Down goes from 0 to 3; the column is the byte before)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B). Tier 2 (#110): reads 0 when Cloud's menu opens in the first guard battle, 1 one frame after Down and 0 one frame after Up (reactor-mode-4f); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleCommandRow1",
+        "address": 2148504319,
+        "type": "u8",
+        "meaning": "command menu cursor row of party slot 1 (D_800F90B4[1].table00.row; 4 rows per column, 0 = the top row, Attack; a row with no command is skipped, so without materia Down goes from 0 to 3; the column is the byte before)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B) (slot 1 at + 1 * 0x240). Tier 2 (#171, notes/171-battle-rows.md): with party Cloud, Barret, Tifa and no materia (stats-battle), 30 frames after slot 1's command menu opens (the next menu, after Tifa takes Attack) it reads 0, one Down press makes it 3 (Attack to Item: without materia there is no Magic or Summon row, and the cursor skips them) and Up makes it 0 again, while the other slots' rows stay 0; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11e-battle-command-row-slot1.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleCommandRow2",
+        "address": 2148504895,
+        "type": "u8",
+        "meaning": "command menu cursor row of party slot 2 (D_800F90B4[2].table00.row; 4 rows per column, 0 = the top row, Attack; a row with no command is skipped, so without materia Down goes from 0 to 3; the column is the byte before)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B) (slot 2 at + 2 * 0x240). Tier 2 (#171, notes/171-battle-rows.md): with party Cloud, Barret, Tifa and no materia (stats-battle), 30 frames after slot 2's command menu opens (the first menu) it reads 0, one Down press makes it 3 (Attack to Item: without materia there is no Magic or Summon row, and the cursor skips them) and Up makes it 0 again, while the other slots' rows stay 0; a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-11d-battle-command-rows.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicColumn0",
+        "address": 2148503778,
+        "type": "s8",
+        "meaning": "Magic list cursor column (0-2) of party slot 0 (D_800F90B4[0].table24.column). The entry under the cursor is (battleMagicOffset + battleMagicRow) × 3 + battleMagicColumn = the enabledMagic slot. Meaningful only while battleMenuWidget reads 6",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). Tier 2 (#253, notes/253-battle-lists.md): Cloud alone with two magic materia (lists-battle); the Magic list opens at column 0, row 0, offset 0; Right, Right read column 1, 2; Left, Left 0; Down, Down row 1, 2; a third Down offset 1 with the row still 2; Up row 1; Up row 0; Up offset 0 (save-boot-29a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29a-battle-magic-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicRow0",
+        "address": 2148503779,
+        "type": "s8",
+        "meaning": "Magic list cursor row on the page (0-2) of party slot 0 (table24.row; 3 rows a page)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). Tier 2 (#253, notes/253-battle-lists.md): Cloud alone with two magic materia (lists-battle); the Magic list opens at column 0, row 0, offset 0; Right, Right read column 1, 2; Left, Left 0; Down, Down row 1, 2; a third Down offset 1 with the row still 2; Up row 1; Up row 0; Up offset 0 (save-boot-29a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29a-battle-magic-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicOffset0",
+        "address": 2148503770,
+        "type": "s16",
+        "meaning": "Magic list scroll of party slot 0: the list row on the top visible row (table24.rowOffset)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). Tier 2 (#253, notes/253-battle-lists.md): Cloud alone with two magic materia (lists-battle); the Magic list opens at column 0, row 0, offset 0; Right, Right read column 1, 2; Left, Left 0; Down, Down row 1, 2; a third Down offset 1 with the row still 2; Up row 1; Up row 0; Up offset 0 (save-boot-29a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29a-battle-magic-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemRow0",
+        "address": 2148503761,
+        "type": "s8",
+        "meaning": "Item list cursor row on the page (0-2) of party slot 0 (D_800F90B4[0].widget.cursorRow). The entry under the cursor is battleItemScroll + battleItemRow = the inventory slot. Meaningful only while battleMenuWidget reads 5",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). Tier 2 (#253, notes/253-battle-lists.md): the Item list opens at row 0, scroll 0; Down, Down read row 1, 2; a third Down scroll 1 with the row still 2 (save-boot-29c attempt 1; save-boot-29d attempt 3), and Circle, Circle there uses inventory slot 3 (its battle count 9 to 8, slots 0-2 unchanged); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29d-battle-item-use.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemScroll0",
+        "address": 2148503752,
+        "type": "s16",
+        "meaning": "Item list scroll of party slot 0: the entry on the top visible row (widget.scroll)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). Tier 2 (#253, notes/253-battle-lists.md): the Item list opens at row 0, scroll 0; Down, Down read row 1, 2; a third Down scroll 1 with the row still 2 (save-boot-29c attempt 1; save-boot-29d attempt 3), and Circle, Circle there uses inventory slot 3 (its battle count 9 to 8, slots 0-2 unchanged); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29d-battle-item-use.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicId0",
+        "address": 2148129108,
+        "type": "u8",
+        "stride": 8,
+        "count": 54,
+        "meaning": "the spell id at each Magic list entry of party slot 0 (g_ActiveCharacters[0].enabledMagic[n].id; slots follow attack ids; 0xFF = none)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable); include/game.h (ActiveCharacterData +0x108, MagicRecord 8 bytes). Tier 2 (#253): with materia 53 at AP 40000 (lists-battle) entries 0, 1, 2 read 0, 1, 2 and entry 3 reads 0xFF; Circle on entry 3 does nothing (attempt 1), and Circle, Circle on entry 0 casts spell 0: MP falls and HP rises (save-boot-29b, two runs)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29b-battle-magic-cast.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicColumn1",
+        "address": 2148504354,
+        "type": "s8",
+        "meaning": "Magic list cursor column (0-2) of party slot 1 (D_800F90B4[1].table24.column). The entry under the cursor is (battleMagicOffset + battleMagicRow) × 3 + battleMagicColumn = the enabledMagic slot. Meaningful only while battleMenuWidget reads 6",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 1 at + 1 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicRow1",
+        "address": 2148504355,
+        "type": "s8",
+        "meaning": "Magic list cursor row on the page (0-2) of party slot 1 (table24.row; 3 rows a page)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 1 at + 1 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicOffset1",
+        "address": 2148504346,
+        "type": "s16",
+        "meaning": "Magic list scroll of party slot 1: the list row on the top visible row (table24.rowOffset)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 1 at + 1 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemRow1",
+        "address": 2148504337,
+        "type": "s8",
+        "meaning": "Item list cursor row on the page (0-2) of party slot 1 (D_800F90B4[1].widget.cursorRow). The entry under the cursor is battleItemScroll + battleItemRow = the inventory slot. Meaningful only while battleMenuWidget reads 5",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 1 at + 1 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemScroll1",
+        "address": 2148504328,
+        "type": "s16",
+        "meaning": "Item list scroll of party slot 1: the entry on the top visible row (widget.scroll)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 1 at + 1 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicId1",
+        "address": 2148130196,
+        "type": "u8",
+        "stride": 8,
+        "count": 54,
+        "meaning": "the spell id at each Magic list entry of party slot 1 (g_ActiveCharacters[1].enabledMagic[n].id; slots follow attack ids; 0xFF = none)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable); include/game.h (ActiveCharacterData +0x108, MagicRecord 8 bytes). Not read",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicColumn2",
+        "address": 2148504930,
+        "type": "s8",
+        "meaning": "Magic list cursor column (0-2) of party slot 2 (D_800F90B4[2].table24.column). The entry under the cursor is (battleMagicOffset + battleMagicRow) × 3 + battleMagicColumn = the enabledMagic slot. Meaningful only while battleMenuWidget reads 6",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 2 at + 2 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicRow2",
+        "address": 2148504931,
+        "type": "s8",
+        "meaning": "Magic list cursor row on the page (0-2) of party slot 2 (table24.row; 3 rows a page)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 2 at + 2 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicOffset2",
+        "address": 2148504922,
+        "type": "s16",
+        "meaning": "Magic list scroll of party slot 2: the list row on the top visible row (table24.rowOffset)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 2 at + 2 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemRow2",
+        "address": 2148504913,
+        "type": "s8",
+        "meaning": "Item list cursor row on the page (0-2) of party slot 2 (D_800F90B4[2].widget.cursorRow). The entry under the cursor is battleItemScroll + battleItemRow = the inventory slot. Meaningful only while battleMenuWidget reads 5",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 2 at + 2 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemScroll2",
+        "address": 2148504904,
+        "type": "s16",
+        "meaning": "Item list scroll of party slot 2: the entry on the top visible row (widget.scroll)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable). slot 2 at + 2 * 0x240, as slot 0 (#253 confirmed slot 0 only)",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleMagicId2",
+        "address": 2148131284,
+        "type": "u8",
+        "stride": 8,
+        "count": 54,
+        "meaning": "the spell id at each Magic list entry of party slot 2 (g_ActiveCharacters[2].enabledMagic[n].id; slots follow attack ids; 0xFF = none)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable); include/game.h (ActiveCharacterData +0x108, MagicRecord 8 bytes). Not read",
+        "status": "hypothesis",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleItemCount",
+        "address": 2148954554,
+        "type": "u8",
+        "stride": 6,
+        "count": 320,
+        "meaning": "battle copy of each inventory slot's count (g_BattleItemList[n].count; entry n = inventory slot n; 0 = empty). Counts go back to the savemap when the battle ends",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/battle/battle3.c (BattleMenuWidgetSubReset: table24 3 columns, 3 rows a page, 0x12 rows; BattleMenuWidgetInit: the widget at +0x12, 3 rows a page), src/battle/battle_private.h (BattleMenuSlot, BattleMenuWidget), include/game.h (MenuTable); config/symbols.battle.txt (g_BattleItemList 0x801671B8), src/battle/battle.h (BattleItemEntry, 6 bytes, count at +2), src/battle/batini.c (BattleInitItemList copies inventory slot i to entry i). Tier 2 (#253): from the author-chosen inventory of lists-battle, entries 0-2 read 3, 2, 5; using Item list index 2 makes entry 2 read 4 on the first frame checked, entries 0 and 1 unchanged (save-boot-29d); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-29d-battle-item-use.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "battleTarget",
+        "address": 2148481193,
+        "type": "u8",
+        "meaning": "target cursor during target selection: the battle unit index the cursor is on (the decomp numbers the party 0-2 and the enemies from 4; which value is which unit is not checked)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 config/symbols.battle.txt (g_BattleMenuModalWidgetId 0x800F3896, g_BattleMenuPartySlot 0x800F38A0), src/battle/battle3.c (BattleMenuInit, BattleMenuUpdate, BattleMenuWidgetCommandReset, BattleMenuFindTargetCharacterIndex), src/battle/battle_private.h (BattleMenuSlot D_800F90B4[], 0x240 bytes per party slot), include/game.h (MenuTable: row at +0x0B): D_800F38A9 (the targeting draw and the Circle check use bit D_800F38A9 of the target mask). Tier 2 (#110): in target selection in the first guard battle (two guards) it reads lower after Right than before (reactor-mode-4f; D_800F38A7 moved the same way); Down changed neither byte (attempt 1 diagnostic, removed). Only the direction was read, not which unit each value is",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-mode-4f-battle-command-right.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "inventorySlot",
+        "address": 2148125664,
+        "type": "u16",
+        "stride": 2,
+        "count": 320,
+        "meaning": "item inventory slot (Savemap inventory[i]): quantity << 9 | item index (0-127 items, 128-255 weapons, 256-287 armor, 288-319 accessories); 0xFFFF = empty. semantic/inventory.js decodeItem",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): slots 0, 1, 2 and 319 hold the author-chosen words of harness/saves/disc1-md1stin-inventory.json in the field menu after the load (save-boot-13a-inventory-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13a-inventory-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "materiaSlot",
+        "address": 2148126304,
+        "type": "u32",
+        "stride": 4,
+        "count": 200,
+        "meaning": "materia inventory slot (Savemap materia[i]): AP << 8 | materia ID; ID 0xFF = empty. semantic/inventory.js decodeMateria",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): slots 0, 1 and 199 hold the author-chosen words in the field menu after the load (save-boot-13a-inventory-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13a-inventory-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterWeapon",
+        "address": 2148124500,
+        "type": "u8",
+        "stride": 132,
+        "count": 9,
+        "meaning": "equipped weapon (0-127: weapon item index - 128) in each character record, indexed by record (0 Cloud ... 8 Cid)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): records 0 and 1 hold the author-chosen values in the field menu after the load (save-boot-13b-equipment-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13b-equipment-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterArmor",
+        "address": 2148124501,
+        "type": "u8",
+        "stride": 132,
+        "count": 9,
+        "meaning": "equipped armor (0-31: armor item index - 256) in each character record, indexed by record (0 Cloud ... 8 Cid)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): records 0 and 1 hold the author-chosen values in the field menu after the load (save-boot-13b-equipment-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13b-equipment-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterAccessory",
+        "address": 2148124502,
+        "type": "u8",
+        "stride": 132,
+        "count": 9,
+        "meaning": "equipped accessory (0-31: accessory item index - 288; 0xFF = none) in each character record, indexed by record (0 Cloud ... 8 Cid)",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): records 0 and 1 hold the author-chosen values in the field menu after the load (save-boot-13b-equipment-menu; record 1 holds 0xFF, none); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13b-equipment-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterWeaponMateria",
+        "address": 2148124536,
+        "type": "u32",
+        "stride": 132,
+        "count": 9,
+        "meaning": "first of the 8 weapon materia slots of each character record (u32 each, consecutive; AP << 8 | ID, ID 0xFF = empty), indexed by record",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): record 0's weapon slots 0 and 1 hold the author-chosen words in the field menu after the load (save-boot-13b-equipment-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13b-equipment-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "characterArmorMateria",
+        "address": 2148124568,
+        "type": "u32",
+        "stride": 132,
+        "count": 9,
+        "meaning": "first of the 8 armor materia slots of each character record (u32 each, consecutive; AP << 8 | ID, ID 0xFF = empty), indexed by record",
+        "source": "Xeeynamo/ff7-decomp@d4db3de3c3aaf61269e048cf3f6a458996290de0 include/game.h (SaveWork: inventory u16[320] at +0x4FC, materia s32[200] at +0x77C; SavePartyMember: weapon, armor, accessory at +0x1C-0x1E, materia_weapon[8] at +0x40, materia_armor[8] at +0x60); notes/32-save-format.md savemap layout (ff7-mods flat wiki): \"Party Item stock\", \"Party Materia stock\", \"Character Record\", \"Save Item List\", \"Save Materia List\". Tier 2 (#117): record 0's armor slots 0 and 1 hold the author-chosen words in the field menu after the load (save-boot-13b-equipment-menu); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-13b-equipment-menu.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "itemMenuScreen",
+        "address": 2149400136,
+        "type": "s32",
+        "meaning": "Item screen page (g_ItemMenuCurrentScreen): 0 the Use/Arrange/Key Items tabs, 1 the item list (where opening Item starts), 2 an item chosen and a party member being picked, 3 key items, 4 and 5 arrange. Overlay variable: meaningless unless the Item screen is open",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B). Tier 2 (#135): 1 after Item is chosen from the main menu (menu overlay id D_80062DD4 reads 1, overlays are read to 0x801D0000; save-boot-14a, 14c), 2 after Circle on a usable item (save-boot-14b), 0 (the tabs) after Cross on the list (save-boot-14d). Circle pressed 30 frames after the field menu opens is ignored; 60 frames works",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-14a-item-screen-open.json",
+        "values": {
+          "0": "tabs",
+          "1": "list",
+          "2": "target",
+          "3": "keyItems",
+          "4": "arrange",
+          "5": "arrangeCustom"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/save-boot-14d-item-screen-cross.json",
+          "1": "harness/scenarios/save-boot-14a-item-screen-open.json",
+          "2": "harness/scenarios/save-boot-14b-item-use-plan.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "itemListRow",
+        "address": 2149400057,
+        "type": "s8",
+        "meaning": "Item screen list cursor, the row on the visible page (g_ItemMenuWidgets[1].row; 10 rows a page). The inventory slot under the cursor is itemListRow + itemListOffset",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B): g_ItemMenuWidgets at 0x801D3DDC, entry 1 at +0x12. Tier 2 (#135): 0 when the list opens (save-boot-14a, 14c); two planned Downs read 1 then 2, and Circle then uses inventory slot 2 (save-boot-14b)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-14b-item-use-plan.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "itemListOffset",
+        "address": 2149400048,
+        "type": "s16",
+        "meaning": "Item screen list scroll: the inventory slot on the top visible row (g_ItemMenuWidgets[1].rowOffset)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B). Tier 2 (#135): 0 when the list opens (save-boot-14c). Scrolling is not checked",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-14c-item-screen-press.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "itemTargetSlot",
+        "address": 2149400075,
+        "type": "s8",
+        "meaning": "Item screen party cursor on the target page (itemMenuScreen 2): the party slot an item is used on (g_ItemMenuWidgets[2].row, 3 rows)",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.itemmenu.us.txt and src/menu/itemmenu.c (ITEMMENU_Init, ITEMMENU_Main); include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B): entry 2 at +0x24. Tier 2 (#135): 0 on the target page; one planned Down reads 1, and Circle then raises party slot 1's HP (save-boot-14b)",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-14b-item-use-plan.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "equipSlotCursor",
+        "address": 2149419691,
+        "type": "s8",
+        "meaning": "Equip screen slot cursor: 0 Weapon, 1 Armor, 2 Accessory (the row of the slot MenuTable at 0x801D8AA0). Overlay variable: meaningless unless menuOverlay names the Equip overlay",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#216): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-17a to 17c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B). Tier 2 (#216): 0 when the Equip screen opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17a, 18a); it stays 0 in the Weapon list and after a weapon is equipped (save-boot-18b); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-18a-equip-slot-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "equipListRow",
+        "address": 2149419709,
+        "type": "s8",
+        "meaning": "Equip screen list cursor, the row on the visible page (the row of the list MenuTable at 0x801D8AB2; 8 rows a page). The list entry under the cursor is equipListRow + equipListOffset. Meaningful only while the list is open; no page variable is read, so callers track it",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#216): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-17a to 17c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B). Tier 2 (#216): 0 when the Weapon list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-17b); seven Downs read 1 to 7, and it stays 7 while the list scrolls (save-boot-18b); 0 on the slot page (save-boot-18a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-18b-equip-list-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "equipListOffset",
+        "address": 2149419700,
+        "type": "s16",
+        "meaning": "Equip screen list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#216): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-17a to 17c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B). Tier 2 (#216): 0 when the Weapon list opens; with 12 entries, Downs 8 and 9 read 1 and 2 (save-boot-17c, 18b), and Circle then equips the entry at index 9 (row 7 + offset 2), weapon 10 from inventory slot 9 (save-boot-18b); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-18b-equip-list-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "materiaSlotColumn",
+        "address": 2149447084,
+        "type": "s8",
+        "meaning": "Materia screen slot cursor, the column: the materia slot index on the selected row (+0x0A of the slot MenuTable at 0x801DF5A2). Overlay variable: meaningless unless menuOverlay names the Materia overlay",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced). Tier 2 (#244): 0 when the Materia screen opens; Right, Left read 1, 0 (save-boot-24a, 25a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-25a-materia-slot-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "materiaSlotRow",
+        "address": 2149447085,
+        "type": "s8",
+        "meaning": "Materia screen slot cursor, the row: 0 weapon, 1 armor (the row of the slot MenuTable at 0x801DF5A2)",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced). Tier 2 (#244): 0 when the Materia screen opens; Down, Up read 1, 0 (save-boot-24a, 25a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-25a-materia-slot-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "materiaListRow",
+        "address": 2149447121,
+        "type": "s8",
+        "meaning": "Materia list cursor, the row on the visible page (the row of the list MenuTable at 0x801DF5C6; 10 rows a page). The list entry under the cursor is materiaListRow + materiaListOffset. Meaningful only while the list is open; no page variable is read, so callers track it",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced). Tier 2 (#244): 0 when the list opens; Down, Down, Up, Up read 1, 2, 1, 0 (save-boot-24b); nine Downs read 1 to 9, and it stays 9 while the list scrolls (save-boot-25b); 0 on the slot page (save-boot-25a); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-25b-materia-list-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "materiaListOffset",
+        "address": 2149447112,
+        "type": "s16",
+        "meaning": "Materia list scroll: the list entry on the top visible row (rowOffset of the list MenuTable)",
+        "source": "no source (EQIPMENU is not decompiled in Xeeynamo/ff7-decomp@33ce78c); found by track checks (#244): the only byte in the overlay area (0x801D0000 to the end of RAM) that followed the pad steps (save-boot-24a to 24c); layout as include/game.h MenuTable (size 0x12, rowOffset at +0x02, row at +0x0B; the column at +0x0A is observed, not sourced). Tier 2 (#244): 0 when the list opens; with 12 entries, Downs 10 and 11 read 1 and 2 (save-boot-24c, 25b), and Circle then takes the entry at index 11 (row 9 + offset 2), emptying inventory slot 11 (save-boot-25b); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-25b-materia-list-cursor.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "menuOverlay",
+        "address": 2147888596,
+        "type": "u32",
+        "meaning": "the menu overlay id last asked for (D_80062DD4, set by SysMenuLoadMenuFileById): 1 = the Item screen; 3 = the Materia screen; 4 = the Equip screen; 0 back on the main menu",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) src/main/1F6B4.c, src/main/ovl.c; the init table D_800493A8 has ITEMMENU_Init as entry 1. Tier 2 (#135): reads 1 one frame after Circle on the main menu's Item row (save-boot-14a, 14c) and still 1 on the Item screen's tab row after one Cross (14d); reads 0 after a second Cross returns to the main menu (14e) and after Circle on main-menu row 2 (14f), while itemMenuScreen holds stale or unrelated data (0, 0x43784343). Tier 2 (#121): one Circle on the Equip row (row 3) leaves it at 0, a party pick coming first (save-boot-15a); the next Circle, 60 frames later, makes it read 4 (YAMA_EQIPMENU_EQUIP in the decomp's enum YamadaOvl), and the Weapon slot and list then equip a spare weapon (15b, 15c). Tier 2 (#241): on the Materia row (row 2) the same Circle every 60 frames makes it read 3 (YAMA_EQIPMENU_MATERIA) at the second press (ovl_wait 61, save-boot-22a); Circle, Circle then moves inventory materia slot 0 into Cloud's weapon materia slot 0 (22b); a rerun matches",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-14e-item-screen-cross-twice.json",
+        "values": {
+          "0": "other",
+          "1": "item",
+          "3": "materia",
+          "4": "equip"
+        },
+        "confirmedValues": {
+          "0": "harness/scenarios/save-boot-14e-item-screen-cross-twice.json",
+          "1": "harness/scenarios/save-boot-14a-item-screen-open.json",
+          "3": "harness/scenarios/save-boot-22a-materia-screen-open.json",
+          "4": "harness/scenarios/save-boot-15b-equip-screen-open.json"
+        },
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldModelCount",
+        "address": 2148117532,
+        "type": "s16",
+        "meaning": "number of field models in the current field (g_FieldState.modelCount): elements 0 .. this - 1 of the field model arrays are in use (at most 16)",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe config/symbols.main.us.txt (g_FieldState 0x8009ABF4) and include/game.h (FieldState: modelCount at +0x28, pcModelId at +0x2A); src/field/field_entity.c loops over it for talk and collision. g_FieldModelCount (0x8009C6C4, u8) is a second candidate. Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle it reads 1..16, equals g_FieldModelCount, and g_PlayerModelId is below it (reactor-next-4-models); two runs agree",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-next-4-models.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldEventCmd",
+        "address": 2148117493,
+        "type": "u8",
+        "meaning": "the field's pending event command (g_FieldState.eventCmd, enum FieldEventCmd): with gameState menu (5), 6 = character name entry (eventCmdParam at +0x02 names the character), 7 = party select, 8 = shop, 9 = the main menu",
+        "source": "Xeeynamo/ff7-decomp@33ce78c (reference only, no code) config/symbols.main.us.txt (g_FieldState 0x8009ABF4), include/game.h (FieldState: renderBuffer at +0, eventCmd at +1, eventCmdParam at +2; enum FieldEventCmd: EVTCMD_CHAR_NAME_ENTRY = 6), src/main/110B8.c (GAMESTATE_MENU dispatches on eventCmd to HandleNameMenu) and src/main/1F6B4.c (HandleNameMenu loads YAMA_NAMEMENU with LoadMenuOvl, not SysMenuLoadMenuFileById). #120 budget 4 (PR #197, tier2-eval 45823175785) read 6 on md1_1's naming screen. #289 confirms it (PR #294, Tier 2 on e8b2a4e): touch-s2n-naming-confirm reaches the naming screen through the gate scene (named = 929: the route's naming check, gameState 5 with this byte 6, first held at route frame 928), confirms the default name with NAMING_ACTIONS.useDefault (nleft = 179 frames), and ends in md1_2 in field mode with the byte no longer 6. Only value 6 is checked; the others are the reference's",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/touch-s2n-naming-confirm.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldZ",
+        "address": 2147962552,
+        "type": "s32",
+        "stride": 132,
+        "count": 16,
+        "meaning": "field Z (height) position of each field model (g_FieldEntity[i].PosZ, raw units; >> 12 for field units)",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn): PosZ at +0x14. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05; at that point the player is 224..239 field units (PosZ >> 12) above model 7, inside the 256 limit (save-boot-21a, exact in floored field units). Only one height difference was measured",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-21a-talk-rule-talker.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldDir",
+        "address": 2147962588,
+        "type": "u8",
+        "stride": 132,
+        "count": 16,
+        "meaning": "facing of each field model (g_FieldEntity[i].Dir), in 1/256 turns: 64 more than the angle from +x towards +y (semantic/nearby.js directionTo)",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn): Dir at +0x38; FieldEntityDirByVec gives the convention. Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle, element 0 (the player) reads 32..96 after holding right for 30 frames, when PosX rises (#77): +x is 64, as the convention says. Only that direction was checked; two runs agree",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-next-4-models.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldSolidRange",
+        "address": 2147962640,
+        "type": "u16",
+        "stride": 132,
+        "count": 16,
+        "meaning": "collision radius of each field model (g_FieldEntity[i].SolidRange, field units); the player's is set from the field scale when the field loads, and gateways trigger within it",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn): SolidRange at +0x6C; FieldEntityInitPos sets the player's to 34 * scale >> 9, FieldEntityGatewayCheck compares the squared distance to a gateway line with it. Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle, element 0 (the player) reads 1..255 (reactor-next-4-models); the value itself was not read; two runs agree",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-next-4-models.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldTalkOff",
+        "address": 2147962623,
+        "type": "u8",
+        "stride": 132,
+        "count": 16,
+        "meaning": "non-zero when a field model can not be talked to (g_FieldEntity[i].TalkOff, set by the field script)",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn): TalkOff at +0x5B. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05. Only 0 was seen on a model that talks; that a non-zero value blocks a talk is the reference's claim, not measured",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-21a-talk-rule-talker.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldTalkRange",
+        "address": 2147962642,
+        "type": "u16",
+        "stride": 132,
+        "count": 16,
+        "meaning": "talk radius of each field model (g_FieldEntity[i].TalkRange, field units)",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe include/game.h (FieldEntity, size 0x84) and src/field/field_entity.c (FieldEntityCheckTalk: a Circle press talks to a model whose TalkOff is clear, within its TalkRange plus the player's SolidRange on the ground, within 256 in height, and faced within 64/256 of a turn): TalkRange at +0x6E. Tier 2 (#237, notes/237-talk-rule.md): in mds7st1 (disc1-mds7st1) after holding Down 300 frames, where Circle opens a message (#224's save-boot-19a), model 7 is the only model whose ground distance is below its TalkRange plus the player's SolidRange; its TalkOff reads 0; models 8 and 9 (TalkOff 0) are out of range, as models 4-6 were in #168, and models 1-3 have TalkOff set (#168); after half the walk no model is in range and Circle opens no window (save-boot-21c). Facing was not checked, and no address names the talker: the rule's prediction matches the game at one talk and one no-talk point. The distance, TalkOff and control readings agree over three runs; the exact height check (|dz| < 256) is newer and was first green on 9785d05",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/save-boot-21a-talk-rule-talker.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      },
+      {
+        "name": "fieldTriggers",
+        "address": 2147948228,
+        "type": "u32",
+        "meaning": "pointer to the current field's FieldTriggers (g_FieldTriggers), inside the field file loaded at 0x80115000; its gateways are FIELD_GATEWAYS. Only meaningful in a settled field",
+        "source": "Xeeynamo/ff7-decomp@2c9239a4da08f039b1dcd4a3c9c34fe3fe7287fe config/symbols.main.us.txt (g_FieldTriggers 0x800716C4), include/game.h (FieldTriggers, FieldGateway, LinePos), src/field/field_private.h (FieldDatHeader.triggers; field file at 0x80115000) and src/field/field_entity.c (FieldEntityGatewayCheck skips gateways whose fieldMapId is 0x7FFF). Tier 2 (#112, notes/112-field-interactables.md): at md1stin from after-battle it points into 0x80115000..0x80127FFF; gateway 0's fieldMapId (+0x38 + 0x12) is md1_1 (0x75), the field #77's up-left walk leads to, and gateway 1's is not; both ends of gateway 0's line (x1, y1, x2, y2 at +0x38 + 0, 2, 6, 8) are left of the player's PosX >> 12 and above its PosY >> 12, the side that walk leaves by (reactor-next-3-exit-side, signs only); two runs agree. The z values were not checked",
+        "status": "confirmed",
+        "scenario": "harness/scenarios/reactor-next-3-exit-side.json",
+        "exe": "a95e8b16b97071203b953bb81a33980509262f30"
+      }
+    ]
+  },
+  "BATTLE_WIDGETS": {
+    "0": "target",
+    "1": "command",
+    "5": "item",
+    "6": "magic",
+    "-1": "none"
+  },
+  "BATTLE_WIDGET_COMMAND": 1,
+  "BATTLE_WIDGET_ITEM": 5,
+  "BATTLE_WIDGET_MAGIC": 6,
+  "BATTLE_WIDGET_NONE": -1,
+  "BATTLE_WIDGET_TARGET": 0,
+  "BATTLE_WORK": 2148490168,
+  "CHARACTER_RECORDS": 2148124472,
+  "CHARACTER_RECORD_COUNT": 9,
+  "CHARACTER_RECORD_SIZE": 132,
+  "DIALOG_STATE_ENTRIES": [
+    "dialogState",
+    "dialogState1",
+    "dialogState2",
+    "dialogState3"
+  ],
+  "EXE_USA_SHA1": "a95e8b16b97071203b953bb81a33980509262f30",
+  "FIELD_GATEWAYS": {
+    "offset": 56,
+    "size": 24,
+    "count": 12,
+    "to": 18
+  },
+  "MENU_OVERLAY_EQUIP": 4,
+  "MENU_OVERLAY_ITEM": 1,
+  "MENU_OVERLAY_MATERIA": 3,
+  "RECORD_ARMOR_MATERIA_SLOTS": 8,
+  "RECORD_WEAPON_MATERIA_SLOTS": 8,
+  "SAVEMAP": 2148124388,
+  "TYPES": {
+    "u8": 1,
+    "s8": 1,
+    "u16": 2,
+    "s16": 2,
+    "u32": 4,
+    "s32": 4
+  },
+  "WINDOW_LINE_HEIGHT": 16,
+  "WINDOW_POINTER_Y0": 6,
+  "WINDOW_TXT_DONE": 6,
+  "WINDOW_WAITING_STATES": [
+    4,
+    6,
+    11,
+    13,
+    14
+  ]
+}

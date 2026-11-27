@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-13): **blocked.** All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
+Status (2026-11-27): **fourth budget in progress** (owner, 2026-11-26), attempt 1 of 3; see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -327,3 +327,25 @@ What could unblock it (each a new attempt budget, which needs the owner; rule 11
 - **A known ask from the owner's play memory** (a field, an NPC and a progress value), as #120's route hint did.
 
 The diagnostics (generator `runner/test/unit/choice-cursor-scenarios.js`, its test and the 28* scenarios) are not merged; their definitions are in `de91358`, `2b32561` and `6512c27` on branch `issue-168-choice-cursor-3`.
+
+## Fourth budget (owner, 2026-11-26): routed walks
+The third budget's blocker was that pad walks stall short of every talkable model. The route tooling from #120 (PR #282: walkmesh reader, format 2 `route` step with `talk`, `detour`, `patience`) steers along the walkmesh instead, so routed walks come first.
+
+Address note: window i's pointerEnabled is g_WindowData 0x80083274 + 0x30·i + 0x1A (window 1: 0x800832BE, as `save-boot-19a` reads it), and pointerY is + 0x26. The 0x800832BA in two issue comments was a 0x2C-stride slip in the comments.
+
+### Attempt 1 plan (one push, 2 scenarios; Tier 2 at 128 of 128)
+New route option `ask` (with `talk`): the talk phase checks, before each press on a waiting window, whether a window is in state 6 with pointerEnabled 1 (`askWindow`, `semantic/walkmesh.js`). `'note'` records the first such window as the `ask` report (index + 1) and presses on, which picks the pointed option; `'stop'` records it and ends the talk there, leaving the choice open for the acceptance steps. Tier 1: `route.test.js` (toy talker with a choice window).
+
+Probes (generator `runner/test/unit/choice-route-scenarios.js`), each chaining routes to its field's talkable models with `talk: 600, ask: 'note'`:
+
+| probe | save (field) | models, in order | metrics |
+|---|---|---|---|
+| `save-boot-32a-choice-route-mds7st1` | disc1-mds7st1 (144) | 5, 8, 4, 6 | t5 a5 t8 a8 t4 a4 t6 a6 |
+| `save-boot-32b-choice-route-nmkin1` | disc1-nmkin-1 (120) | 2, 3, 4, 5 | t2 a2 t3 a3 t4 a4 t5 a5 |
+
+t<k>: frames until a window opened in model k's talk (0: none). a<k>: the window that showed a choice (index + 1; 0: none). Model 7 in mds7st1 is #224's plain message; model 9 is the farthest and is left out.
+
+What decides attempt 2:
+- some a<k> > 0: an ask. Attempt 2 is the acceptance on that route: `ask: 'stop'`, then Down, Up, Circle, reading that window's pointerEnabled and pointerY (pointerY + 16, then back; the window closes), with a rerun.
+- t<k> > 0 and a<k> 0 everywhere: plain messages only. Try the remaining models (mds7st1 9, nmkin_1 6, md1_2 1-3, mds7 1).
+- t<k> 0 everywhere: no talk opened; add `outcome` reports to see whether the routes reach the models.

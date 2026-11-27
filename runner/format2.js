@@ -192,6 +192,7 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
       const r = s.route;
       if (r.talk !== undefined && r.to.model === undefined) throw new ScenarioError(`${w}.route: talk needs a model goal`);
       if (r.naming !== undefined && r.scene === undefined) throw new ScenarioError(`${w}.route: naming needs scene`);
+      if (r.ask !== undefined && r.talk === undefined) throw new ScenarioError(`${w}.route: ask needs talk`);
       return {
         kind: 'route',
         to: { ...r.to },
@@ -199,6 +200,7 @@ function loadScript(steps, memory, where, { allowUntil = true } = {}) {
         ...(r.patience !== undefined ? { patience: r.patience } : {}),
         ...(r.detour !== undefined ? { detour: r.detour } : {}),
         ...(r.talk !== undefined ? { talk: r.talk } : {}),
+        ...(r.ask !== undefined ? { ask: r.ask } : {}),
         ...(r.nudge !== undefined ? { nudge: r.nudge } : {}),
         ...(r.scene !== undefined ? { scene: r.scene } : {}),
         ...(r.naming !== undefined ? { naming: r.naming.map((g) => [...g]) } : {}),

@@ -323,6 +323,12 @@ export const ROUTE_WATCH = Object.freeze({
   modelCount: 0x8009ac1c,
   /** dialogState, dialogState1-3 (s16): message windows 0-3; 0 closed, 6 text done and waiting for Circle. */
   windows: Object.freeze([0x800832a0, 0x800832d0, 0x80083300, 0x80083330]),
+  /**
+   * #168: pointerEnabled (u8, g_WindowData[i] + 0x1A) of windows 0-3; 1 while
+   * a choice (field opcode ask) waits in state 6. Window 0's is the address
+   * table's dialogPointer; all four are hypotheses until #168 sees an ask.
+   */
+  pointers: Object.freeze([0x8008328e, 0x800832be, 0x800832ee, 0x8008331e]),
   windowWaiting: 6,
   /**
    * Every window state that waits for Circle and nothing else moves on
@@ -462,6 +468,19 @@ export function openWindow(readMem) {
 /** Whether any message window waits for Circle (one of ROUTE_WATCH.windowWaitingStates). */
 export function windowWaiting(readMem) {
   return ROUTE_WATCH.windows.some((a) => ROUTE_WATCH.windowWaitingStates.includes(readS16(readMem, a)));
+}
+
+/**
+ * #168: the first window (index + 1) that waits in state 6 with its pointer
+ * enabled, a choice waiting for a pick; 0 when none does.
+ */
+export function askWindow(readMem) {
+  for (let i = 0; i < ROUTE_WATCH.windows.length; i++) {
+    if (readS16(readMem, ROUTE_WATCH.windows[i]) !== ROUTE_WATCH.windowWaiting) continue;
+    const b = safeRead(readMem, ROUTE_WATCH.pointers[i], 1);
+    if (b && b[0] === 1) return i + 1;
+  }
+  return 0;
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   ROUTE_BUTTONS,
   ROUTE_TALK_BUTTON,
   ROUTE_WATCH,
+  askWindow,
   blockingModel,
   findPath,
   goalReached,
@@ -62,8 +63,10 @@ export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, l
  * Budget 4 attempt 2: wlast: the windows' states when the last scene drive
  * ended (windowStates: window i's state in bits 4i..4i+3; 0 no drive or all
  * closed); wpress: Interact presses the drives made on waiting windows.
+ * #168: ask: the first window (index + 1) the talk phase saw waiting in
+ * state 6 with its pointer enabled, a choice (0: none; needs step.ask).
  */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'wlast', 'wpress']);
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'wlast', 'wpress', 'ask']);
 /** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
@@ -88,7 +91,7 @@ export const NAME_HOLD = 4;
 export const NAME_EVERY = 30;
 
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0, wlast: 0, wpress: 0 });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0, wlast: 0, wpress: 0, ask: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
@@ -112,6 +115,11 @@ export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, fram
  *   every window has been closed in field mode for SCENE_QUIET frames. Then
  *   the walkmesh is read again and the route re-planned.
  * - naming: press groups (arrays of pad button names) for the naming screen.
+ * - ask (#168, with talk): 'note' records the first choice window the talk
+ *   phase sees (a window in state 6 with pointerEnabled 1) and presses on
+ *   through it, which picks the option under the pointer; 'stop' records it
+ *   and ends the talk phase there, leaving the choice open for the script's
+ *   next steps.
  * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
@@ -274,7 +282,7 @@ export function runRoute(backend, step, frame) {
     res.remain = rest ? rest.length : 0;
   }
   const talkable = res.outcome === ROUTE_OUTCOME.reached || res.outcome === ROUTE_OUTCOME.stuck;
-  if (step.talk && goal.kind === 'model' && talkable) talkPhase(readMem, goal, cd, step.talk, frame, res);
+  if (step.talk && goal.kind === 'model' && talkable) talkPhase(readMem, goal, cd, step.talk, frame, res, step.ask);
   return res;
 }
 
@@ -406,9 +414,10 @@ function pressThrough(readMem, limit, press) {
  * `limit` frames; then, with no direction held, press Interact whenever a
  * window waits for Circle, until every window has been closed for
  * ROUTE_TALK_CLOSED frames (or `limit` more frames pass). Fills res.talk,
- * res.talked and res.window.
+ * res.talked and res.window; with `ask` ('note' or 'stop'), also res.ask,
+ * and 'stop' ends the phase at the first choice without pressing on it.
  */
-function talkPhase(readMem, goal, cd, limit, frame, res) {
+function talkPhase(readMem, goal, cd, limit, frame, res, ask) {
   let n = 0;
   let code = -1;
   while (n < limit) {
@@ -436,6 +445,11 @@ function talkPhase(readMem, goal, cd, limit, frame, res) {
     if (closed >= ROUTE_TALK_CLOSED) {
       res.talked = Math.max(m, 1);
       return;
+    }
+    if (ask && hold === 0) {
+      const a = askWindow(readMem);
+      if (a && !res.ask) res.ask = a;
+      if (a && ask === 'stop') return;
     }
     if (hold === 0 && rest === 0 && windowWaiting(readMem)) hold = ROUTE_TALK_HOLD;
     if (hold > 0) {

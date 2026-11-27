@@ -27,6 +27,7 @@ import {
   locate,
   lockedCount,
   moveDirOf,
+  askWindow,
   openWindow,
   packLeg,
   padFor,
@@ -197,6 +198,7 @@ function toyBackend(tris, opts = {}) {
       pages -= 1;
       if (pages > 0) return;
       f.dv.setInt16(wa, 0, true);
+      f.ram[f.at(ROUTE_WATCH.pointers[talkWindow])] = 0;
       if (talker.clears) f.dv.setInt32(f.at(ENTITY.base + talker.clears * ENTITY.size + ENTITY.posX), 4000 * 4096, true);
       return;
     }
@@ -205,6 +207,8 @@ function toyBackend(tris, opts = {}) {
     const d = Math.hypot(f.dv.getInt32(f.at(e + ENTITY.posX), true) / 4096 - x, f.dv.getInt32(f.at(e + ENTITY.posY), true) / 4096 - y);
     if (d < f.dv.getUint16(f.at(e + ENTITY.talkRange), true) + 10) {
       f.dv.setInt16(wa, 6, true);
+      // talker.ask: the window is a choice, its pointer enabled while it waits (#168).
+      if (talker.ask) f.ram[f.at(ROUTE_WATCH.pointers[talkWindow])] = 1;
       pages = talker.pages;
     }
   };
@@ -268,6 +272,9 @@ describe('semantic/walkmesh.js', () => {
     assert.equal(at('fieldSolidRange').address, ENTITY.base + ENTITY.solidRange);
     assert.equal(at('fieldModelCount').address, ROUTE_WATCH.modelCount);
     assert.deepEqual([...ROUTE_WATCH.windows], ['dialogState', 'dialogState1', 'dialogState2', 'dialogState3'].map((n) => at(n).address));
+    assert.equal(ROUTE_WATCH.pointers[0], at('dialogPointer').address);
+    // pointerEnabled sits 0x2C - 0x1A = 0x12 bytes before each window's state.
+    ROUTE_WATCH.pointers.forEach((p, i) => assert.equal(p, ROUTE_WATCH.windows[i] - 0x12));
     assert.equal(ROUTE_TALK_BUTTON, FIELD_ACTIONS.find((a) => a.id === 'interact').button);
   });
 
@@ -408,6 +415,28 @@ describe('runner/route.js', () => {
     // Without the talk, model 2 stops Cloud short of the line.
     const b2 = toyBackend(corridor(5), opts);
     assert.equal(runRoute(b2, { to: { gateway: 0 }, timeout: 1000 }, frameOn(b2)).outcome, ROUTE_OUTCOME.stuck);
+  });
+
+  it('notes a choice window in the talk phase (ask), or stops on it', () => {
+    const opts = { control: 128, models: [{ x: 60, y: 6, talk: 16, solid: 4 }], talker: { model: 1, window: 1, pages: 2, ask: true } };
+    // note: records window 2 (index + 1) and presses on until it closes.
+    const b = toyBackend(corridor(5), opts);
+    const n = runRoute(b, { to: { model: 1 }, timeout: 1000, talk: 600, ask: 'note' }, frameOn(b));
+    assert.equal(n.ask, 2);
+    assert.ok(n.talked > 0, `talked ${n.talked}`);
+    assert.equal(openWindow(b.readMem), 0);
+    // stop: records it and leaves the choice open, unpressed.
+    const b2 = toyBackend(corridor(5), opts);
+    const s = runRoute(b2, { to: { model: 1 }, timeout: 1000, talk: 600, ask: 'stop' }, frameOn(b2));
+    assert.equal(s.ask, 2);
+    assert.equal(s.talked, 0);
+    assert.equal(askWindow(b2.readMem), 2);
+    // A plain message (pointer 0) is no ask; without the option nothing is recorded.
+    const b3 = toyBackend(corridor(5), { ...opts, talker: { ...opts.talker, ask: false } });
+    assert.equal(runRoute(b3, { to: { model: 1 }, timeout: 1000, talk: 600, ask: 'note' }, frameOn(b3)).ask, 0);
+    const b4 = toyBackend(corridor(5), opts);
+    assert.equal(runRoute(b4, { to: { model: 1 }, timeout: 1000, talk: 600 }, frameOn(b4)).ask, 0);
+    assert.throws(() => loadScenario2({ format: 2, name: 'route-load', boot: { fixture: 'pad-echo', from: 'pad-echo-ready' }, input: [{ route: { to: { model: 1 }, timeout: 10, ask: 'note' } }], assert: [], metrics: [] }, {}), /ask needs talk/);
   });
 
   it('reports no talk when no window opens, and talks only to model goals', () => {

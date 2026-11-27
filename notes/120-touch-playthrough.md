@@ -649,3 +649,16 @@ The other 126 scenarios are unchanged, including `touch-s2-md1-2`: named 929, nl
   - End checks: field mode, map_cur ≠ md1_2 (`left`), HP in 1..9999 (`hp_ok`) and rerun `match`.
   - Metrics: `out_g battles remain map_cur field left hp_ok match`.
 - It keeps no snapshot yet. Once `map_cur` shows where gateway 1 leads, the next push pins the end check to that field and keeps a snapshot for stretch 4.
+
+### Attempt 2 results (`5b459a1`; tier2-eval 46004064090): 126 pass, 1 fail (`touch-s3-md1-2-gw1`)
+| out_g | battles | remain | map_cur | field | left | hp_ok | match |
+|---|---|---|---|---|---|---|---|
+| **5 (no walkmesh)** | 1 | 21 | 118 | 1 | 0 | 1 | 1 |
+
+- **The battle was won with the panel's select / Confirm loop.** Back in field mode, Cloud's HP is above 0, and the rerun matched, so it is deterministic. All other scenarios are unchanged.
+- **Then the re-plan read no valid walkmesh** (outcome 5) at the same point, 21 triangles short. The drive ended after 90 field-mode frames with all windows closed. After a battle, though, md1_2 reloads: `reactor-mode-5` measured 588 still frames after the first battle. So the walkmesh or Cloud's triangle index was read mid-reload. This is a reading, not a measurement.
+
+### Attempt 3 (last of this budget): a drive is quiet only in a settled field
+- A scene drive counts a frame as quiet only when `fieldLoading` (`ROUTE_WATCH.fieldLoading` 0x800965E8, confirmed #77) reads 2, a settled field. It still needs 90 quiet frames before it ends and the route re-reads the walkmesh.
+- New unit test: a toy battle followed by a 400-frame reload, where the player can't move. The route waits it out in one drive and reaches the gateway. A mutation that drops the settle check fails this test.
+- The scenario is unchanged (`touch-s3-md1-2-gw1`). If `left` is 1, the next push pins the end field and keeps a snapshot. If not, the budget is spent and the blocker goes on #120.

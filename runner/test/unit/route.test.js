@@ -104,6 +104,7 @@ function fakeRam(tris, { blocked = [], control = 0, player = [16, 16], models = 
   w16(ROUTE_WATCH.playerModel, 0);
   w16(ROUTE_WATCH.fieldId, 0x75);
   w16(ROUTE_WATCH.gameState, ROUTE_WATCH.fieldMode);
+  w16(ROUTE_WATCH.fieldLoading, ROUTE_WATCH.fieldSettled);
   const setModel = (k, m) => {
     const e = ENTITY.base + k * ENTITY.size;
     dv.setInt32(at(e + ENTITY.posX), m.x * 4096, true);
@@ -184,14 +185,23 @@ function toyBackend(tris, opts = {}) {
     } else if (edge) startSeen = false; // Circle first types a letter: the name is not confirmed
     return true;
   };
-  // A battle (opts.battle: { atX, presses }, stretch 3): when the player
-  // reaches x >= atX, gameState goes to battle until `presses` Circle
-  // presses have been made, then back to field.
+  // A battle (opts.battle: { atX, presses, reload }, stretch 3): when the
+  // player reaches x >= atX, gameState goes to battle until `presses` Circle
+  // presses have been made, then back to field, which reloads for `reload`
+  // frames (fieldLoading not settled; the player cannot move).
   const bt = opts.battle;
   let battleState = 'idle';
   let battleLeft = 0;
+  let reloadLeft = 0;
   const battleFrame = (edge) => {
     if (!bt || battleState === 'done') return false;
+    if (battleState === 'reload') {
+      if (--reloadLeft <= 0) {
+        f.dv.setInt16(f.at(ROUTE_WATCH.fieldLoading), ROUTE_WATCH.fieldSettled, true);
+        battleState = 'done';
+      }
+      return true;
+    }
     if (battleState === 'idle') {
       if (pos()[0] < bt.atX) return false;
       f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.battleMode, true);
@@ -201,7 +211,11 @@ function toyBackend(tris, opts = {}) {
     }
     if (edge && --battleLeft <= 0) {
       f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.fieldMode, true);
-      battleState = 'done';
+      reloadLeft = bt.reload ?? 0;
+      if (reloadLeft > 0) {
+        f.dv.setInt16(f.at(ROUTE_WATCH.fieldLoading), 0, true);
+        battleState = 'reload';
+      } else battleState = 'done';
     }
     return true;
   };
@@ -539,6 +553,12 @@ describe('runner/route.js', () => {
     assert.deepEqual([r.smode, r.battles], [ROUTE_WATCH.battleMode, 1]);
     assert.ok(r.frames >= 4 * BATTLE_EVERY, `frames ${r.frames}: one press every ${BATTLE_EVERY} frames`);
     assert.equal(r.legs.reduce((n, l) => n + (l % 10000), 0), r.frames);
+    // After the battle the field reloads for 400 frames: the drive waits for it to settle (fieldLoading 2), then the route goes on.
+    const br = toyBackend(corridor(5), { ...opts, battle: { ...opts.battle, reload: 400 } });
+    const rr = runRoute(br, { to: { gateway: 0 }, timeout: 3000, scene: 2000, battle: [['circle']] }, frameOn(br));
+    assert.equal(rr.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(rr.scenes, 1, 'one drive covers the battle and the reload');
+    assert.ok(rr.frames >= r.frames + 400, `frames ${rr.frames} vs ${r.frames} without the reload`);
   });
 
   it('presses through every Circle-waiting window state, not only 6, and reports wlast and wpress (budget 4 attempt 2)', () => {

@@ -314,8 +314,8 @@ function inScene(readMem) {
  * Interact pressed whenever a window waits for Circle; on the naming screen
  * the `naming` press groups in turn; in battle the `battle` groups in turn;
  * out of field mode otherwise, nothing.
- * Ends once every window has been closed in field mode for SCENE_QUIET
- * frames. Fills res.wmask, res.named, res.nleft, res.smode, res.evt and
+ * Ends once every window has been closed in a settled field (fieldLoading
+ * 2) for SCENE_QUIET frames. Fills res.wmask, res.named, res.nleft, res.smode, res.evt and
  * res.battles;
  * at() gives the route frame count so far.
  */
@@ -371,7 +371,9 @@ function driveSceneFrames(readMem, limit, pressButtons, { naming, battle }, res,
         res.wmask |= 1 << i;
       }
     });
-    closed = open ? 0 : closed + 1;
+    // Stretch 3: after a battle the field reloads; the walkmesh is valid only once it has settled.
+    const settled = readS16(readMem, ROUTE_WATCH.fieldLoading) === ROUTE_WATCH.fieldSettled;
+    closed = open || !settled ? 0 : closed + 1;
     if (closed >= SCENE_QUIET) return;
     if (hold === 0 && rest === 0 && windowWaiting(readMem)) {
       hold = ROUTE_TALK_HOLD;

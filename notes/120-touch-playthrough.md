@@ -662,3 +662,18 @@ The other 126 scenarios are unchanged, including `touch-s2-md1-2`: named 929, nl
 - A scene drive counts a frame as quiet only when `fieldLoading` (`ROUTE_WATCH.fieldLoading` 0x800965E8, confirmed #77) reads 2, a settled field. It still needs 90 quiet frames before it ends and the route re-reads the walkmesh.
 - New unit test: a toy battle followed by a 400-frame reload, where the player can't move. The route waits it out in one drive and reaches the gateway. A mutation that drops the settle check fails this test.
 - The scenario is unchanged (`touch-s3-md1-2-gw1`). If `left` is 1, the next push pins the end field and keeps a snapshot. If not, the budget is spent and the blocker goes on #120.
+
+### Attempt 3 results (`a343de4`; tier2-eval 46005660156): 126 pass, 1 fail. Budget spent (3 of 3).
+| out_g | battles | remain | map_cur | field | left | hp_ok | match |
+|---|---|---|---|---|---|---|---|
+| 5 (no walkmesh) | 1 | 21 | 118 | 1 | 0 | 1 | 1 |
+
+- These are exactly attempt 2's numbers. So the settle check isn't the cause, or `fieldLoading` was already 2 when the drive ended.
+- What is known:
+  - The battle is won with the touch layer's actions, deterministically.
+  - md1_2 is still loaded (map_cur 118, field mode).
+  - The route's re-plan after the drive fails one of three checks in `runRoute`: `readWalkmesh(...).error`, `readPlayer(...)` null, or `posI >= mesh.count`. A single metric can't say which.
+- **Suggested next step (needs a new budget, so an owner decision):**
+  - A diagnostic report: which of the three checks failed, and the walkmesh's error code.
+  - Possibly the walkmesh or trigger pointer before and after the battle, compared as equal or unequal only.
+  - If the battle moves the field's data and the pointer stays stale, the fix would be to re-read the pointer after the battle. If Cloud's triangle index is invalid after a battle, wait until it is valid.

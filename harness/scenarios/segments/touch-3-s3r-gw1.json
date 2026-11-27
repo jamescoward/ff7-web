@@ -1,0 +1,37 @@
+{
+  "$schema": "../../schema/scenario.schema.json",
+  "name": "touch-3-s3r-gw1",
+  "description": "In md1_2 after it loads, wait 30 frames, then route to gateway 1 over the walkmesh with drag directions, at most 9000 frames, driving scenes (Interact, FIELD_ACTIONS, through every message window that waits for Circle); then wait 600 frames and read the field ID (map_cur, raw). Route reports: out_g (1 reached, 2 stuck, 3 timeout, 4 left field mode, 5 no walkmesh, 6 no goal, 7 no path), path (triangles), locked, scenes, smode (first gameState other than field seen in a drive, 0 none), remain (triangles left to the goal).",
+  "steps": [
+    {
+      "wait": {
+        "frames": 30
+      }
+    },
+    {
+      "route": {
+        "to": {
+          "gateway": 1
+        },
+        "timeout": 9000,
+        "patience": 120,
+        "detour": 6,
+        "nudge": 300,
+        "scene": 3000,
+        "report": {
+          "outcome": "out_g",
+          "path": "path",
+          "locked": "locked",
+          "scenes": "scenes",
+          "smode": "smode",
+          "remain": "remain"
+        }
+      }
+    },
+    {
+      "wait": {
+        "frames": 600
+      }
+    }
+  ]
+}

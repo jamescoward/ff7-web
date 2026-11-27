@@ -614,3 +614,16 @@ Stretch 1 (`touch-playthrough`) is unchanged.
 - End checks: md1_2, field mode, fieldEventCmd ≠ 6, HP > 0, `sameState: rerun`. Keeps `touch-md1-2` for stretch 3.
 - The budget-4 probes `touch-s2s-gw-c` and `touch-s2s-gw-sc` are dropped (branch-only; never on main).
 - **Tier 2 run 1** (`cf0f9c7`, tier2-eval 45942082354): shards 0 and 1 green (shard 0: 63 pass, 0 fail). `touch-s2-md1-2` passes: `out_g` 1 (reached), `named` 929, `nleft` 179, `md1_2` 1, `field` 1, `evt_off` 1, `match` 1 (rerun from `touch-md1-1` ends in the same state). Same `named`/`nleft` as budget 4 attempt 2 and `touch-s2n-naming-confirm`. Run 2 (this notes push) checks it repeats.
+
+## Stretch 3: md1_2 onwards (fresh 3-attempt budget, 2026-11-27)
+Boots from `touch-md1-2` (kept by `touch-s2-md1-2`). md1_2's layout is unknown. Agent research (#120, 2026-11-26) says that inside md1_2, Biggs and then Jessie open doors. That is a source claim, not a result.
+
+### Attempt 1 (route probes)
+- **Slot limit.** The validator takes at most 128 Tier 2 scenarios (`MAX_SCENARIOS`, `harness/private-eval/validate/validate.js`, protected), and main had 126. So there are two probes, not the planned four. A probe that reads gateways 0–5's `fieldMapId` was dropped. The field ID at the end of each route says where that gateway leads instead.
+- `touch-s3r-gw0` and `touch-s3r-gw1`: wait 30 frames, then a scene-driving `route` to gateway g with stretch 2's limits (timeout 9000, patience 120, detour 6, nudge 300, scene 3000), then wait 600 frames.
+- Metrics: `out_g path locked scenes smode remain map_cur field`.
+- What each result means:
+  - `out_g` 1 with `map_cur` ≠ 118: the gateway leads to that field. If it isn't md1_1 (117), it is the way forward.
+  - `out_g` 6: the gateway is unused (fieldMapId 0x7fff), or it has no walkable triangle.
+  - `smode` 2: a battle started during a drive. The route doesn't fight, so attempt 2 needs the battle panel's turns (as stretch 1).
+  - `out_g` 2 or 3, with `scenes` > 0: a scene or a closed door holds Cloud. The next step is a talk (`to: { model }`) to Biggs or Jessie.

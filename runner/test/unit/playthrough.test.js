@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { STRETCHES, STRETCH2_SEGMENT, playthrough2Scenario, playthroughScenario, stretch2, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { S3_BOOT, S3_ROUTE_GATEWAYS, stretch3Probes, STRETCHES, STRETCH2_SEGMENT, playthrough2Scenario, playthroughScenario, stretch2, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS, NAMING_ACTIONS } from '../../../semantic/controls.js';
 
@@ -151,6 +151,32 @@ describe('#120 stretch 2 (touch-s2-md1-2)', () => {
       const e = ADDRESS_TABLE.entries.find((x) => x.name === entry);
       assert.equal(Number(sc.memory[mem].addr), e.address, mem);
       assert.equal(e.status, 'confirmed', entry);
+    }
+  });
+});
+
+describe('#120 stretch 3 attempt 1 (md1_2 route probes)', () => {
+  test('each probe boots from stretch 2\'s snapshot, sorts after it, and routes to its own gateway', () => {
+    const s2 = playthrough2Scenario(stretch2());
+    const probes = stretch3Probes();
+    assert.equal(S3_BOOT, s2.snapshot);
+    assert.deepEqual(probes.map((p) => p.segment.steps.find((s) => s.route).route.to.gateway), [...S3_ROUTE_GATEWAYS]);
+    for (const { segment, scenario } of probes) {
+      assert.equal(scenario.boot.from, s2.snapshot);
+      assert.ok(scenario.name > s2.name, scenario.name);
+      assert.deepEqual(scenario.input, [{ segment: segment.name }]);
+      assert.ok(scenario.metrics.length <= 8);
+      assert.ok(!scenario.snapshot, 'probes keep no snapshot');
+    }
+  });
+
+  test('probes hold no raw button script: only the scene-driving route step and waits', () => {
+    for (const { segment } of stretch3Probes()) {
+      for (const s of segment.steps) {
+        assert.ok(!s.buttons, 'no raw press');
+        assert.ok(s.route || (s.wait && !s.wait.press), JSON.stringify(s));
+      }
+      assert.ok(segment.steps.find((s) => s.route).route.scene > 0, 'scene driving on');
     }
   });
 });

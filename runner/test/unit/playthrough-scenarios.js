@@ -407,6 +407,72 @@ export function playthrough2Scenario(segment) {
   };
 }
 
+/**
+ * Stretch 3, attempt 1 (fresh budget): probes of md1_2, booting from
+ * touch-md1-2 (kept by touch-s2-md1-2). md1_2's layout is unknown, and the
+ * validator takes at most 128 Tier 2 scenarios (126 were on main), so two
+ * probes: touch-s3r-gw<g> routes to gateway g (0 and 1) with the stretch 2
+ * limits, driving scenes, and reports the outcome, the path, locks, scene
+ * drives, the first non-field mode seen (2 would be a battle), the
+ * triangles left and the field ID S3_SETTLE frames after the route ends
+ * (where the gateway leads, if reached; 6 = no goal means an unused one).
+ * Branch-only probes: the next attempt replaces them with the stretch.
+ */
+export const S3_BOOT = 'touch-md1-2';
+export const S3_ROUTE_GATEWAYS = Object.freeze([0, 1]);
+export const S3_SETTLE = 600;
+
+function s3Base(name, description, steps, metrics) {
+  const segName = name.replace('touch-', 'touch-3-');
+  const segment = {
+    $schema: '../../schema/scenario.schema.json',
+    name: segName,
+    description,
+    steps,
+  };
+  const scenario = {
+    $schema: '../schema/scenario.schema.json',
+    format: 2,
+    tier: 2,
+    name,
+    description: `#120 stretch 3 attempt 1 (probe; may fail by design: only its metrics matter): boots from ${S3_BOOT} (kept by touch-s2-md1-2) and plays the generated segment ${segName} (runner/test/unit/playthrough-scenarios.js). ${description} The end check is field mode. Metrics: ${metrics.join(', ')}. Only those numbers leave.`,
+    boot: { from: S3_BOOT },
+    memory: {
+      game_state: MEMORY.game_state,
+      map_cur: { ...MEMORY.map_cur, description: MEMORY.map_cur.description.replace('md1_1 0x75', 'md1_1 0x75, md1_2 0x76') },
+    },
+    input: [{ segment: segName }],
+    assert: [{ expect: { mem: 'game_state', equals: 1 }, metric: 'field' }],
+    metrics,
+  };
+  return { segment, scenario };
+}
+
+/** touch-s3r-gw<g>: a scene-driving route to md1_2's gateway g. */
+export function stretch3Route(g) {
+  return s3Base(
+    `touch-s3r-gw${g}`,
+    `In md1_2 after it loads, wait 30 frames, then route to gateway ${g} over the walkmesh with drag directions, at most ${GATE_ROUTE.timeout} frames, driving scenes (Interact, FIELD_ACTIONS, through every message window that waits for Circle); then wait ${S3_SETTLE} frames and read the field ID (map_cur, raw). Route reports: out_g (1 reached, 2 stuck, 3 timeout, 4 left field mode, 5 no walkmesh, 6 no goal, 7 no path), path (triangles), locked, scenes, smode (first gameState other than field seen in a drive, 0 none), remain (triangles left to the goal).`,
+    [
+      { wait: { frames: 30 } },
+      {
+        route: {
+          to: { gateway: g },
+          ...GATE_ROUTE,
+          report: { outcome: 'out_g', path: 'path', locked: 'locked', scenes: 'scenes', smode: 'smode', remain: 'remain' },
+        },
+      },
+      { wait: { frames: S3_SETTLE } },
+    ],
+    ['out_g', 'path', 'locked', 'scenes', 'smode', 'remain', 'map_cur', 'field'],
+  );
+}
+
+/** Every stretch 3 probe, in order. */
+export function stretch3Probes() {
+  return S3_ROUTE_GATEWAYS.map(stretch3Route);
+}
+
 /** [{ file, data }] for every generated file. */
 export function playthroughFiles() {
   if (DIAGNOSTIC) {
@@ -423,6 +489,10 @@ export function playthroughFiles() {
     { file: path.join(SCENARIO_DIR, 'touch-playthrough.json'), data: playthroughScenario(segments) },
     { file: path.join(SEGMENT_DIR, `${s2.name}.json`), data: s2 },
     { file: path.join(SCENARIO_DIR, 'touch-s2-md1-2.json'), data: playthrough2Scenario(s2) },
+    ...stretch3Probes().flatMap(({ segment, scenario }) => [
+      { file: path.join(SEGMENT_DIR, `${segment.name}.json`), data: segment },
+      { file: path.join(SCENARIO_DIR, `${scenario.name}.json`), data: scenario },
+    ]),
   ];
 }
 

@@ -613,3 +613,4 @@ Stretch 1 (`touch-playthrough`) is unchanged.
 - Segment `touch-2-gate-scene` (generated): wait 30, one `route` step to gateway 1 with `scene` driving and `naming` = `NAMING_ACTIONS.useDefault` (Start, then Circle), then waits for md1_2 and its load. Limits as `touch-s2n-naming-confirm` (timeout 9000, patience 120, detour 6, nudge 300, scene 3000).
 - End checks: md1_2, field mode, fieldEventCmd ≠ 6, HP > 0, `sameState: rerun`. Keeps `touch-md1-2` for stretch 3.
 - The budget-4 probes `touch-s2s-gw-c` and `touch-s2s-gw-sc` are dropped (branch-only; never on main).
+- **Tier 2 run 1** (`cf0f9c7`, tier2-eval 45942082354): shards 0 and 1 green (shard 0: 63 pass, 0 fail). `touch-s2-md1-2` passes: `out_g` 1 (reached), `named` 929, `nleft` 179, `md1_2` 1, `field` 1, `evt_off` 1, `match` 1 (rerun from `touch-md1-1` ends in the same state). Same `named`/`nleft` as budget 4 attempt 2 and `touch-s2n-naming-confirm`. Run 2 (this notes push) checks it repeats.

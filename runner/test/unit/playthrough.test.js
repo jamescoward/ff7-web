@@ -6,9 +6,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { STRETCHES, STRETCH2_SEGMENT, playthrough2Scenario, playthroughScenario, stretch2, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
-import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS } from '../../../semantic/controls.js';
+import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS, NAMING_ACTIONS } from '../../../semantic/controls.js';
 
 describe('#120 touch playthrough', () => {
   test('committed files equal playthrough-scenarios.js (run node runner/test/unit/playthrough-scenarios.js to fix)', () => {
@@ -117,5 +117,40 @@ describe('#120 touch playthrough', () => {
     const known = new Set([...DIAG_END.assert.map((a) => a.metric).filter(Boolean), ...Object.keys(DIAG_MEMORY), ...Object.keys(MEMORY)]);
     for (const m of DIAG_END.metrics) assert.ok(known.has(m), m);
     assert.ok(DIAG_END.metrics.length <= 8);
+  });
+});
+
+describe('#120 stretch 2 (touch-s2-md1-2)', () => {
+  test('boots from stretch 1\'s snapshot and keeps touch-md1-2', () => {
+    const s1 = playthroughScenario(STRETCHES.map((f) => f()));
+    const sc = playthrough2Scenario(stretch2());
+    assert.equal(sc.boot.from, s1.snapshot);
+    assert.equal(sc.snapshot, 'touch-md1-2');
+    assert.ok(sc.name > s1.name, 'sorts after touch-playthrough, so Tier 2 runs it later');
+    assert.deepEqual(sc.input, [{ segment: STRETCH2_SEGMENT }]);
+  });
+
+  test('the naming plan is the touch layer\'s "Use default name" action, and the route drives scenes', () => {
+    const route = stretch2().steps.find((s) => s.route).route;
+    assert.deepEqual(route.naming, NAMING_ACTIONS.useDefault.sequence.map((g) => [...g]));
+    assert.ok(route.scene > 0, 'scene driving on');
+    assert.deepEqual(route.to, { gateway: 1 });
+  });
+
+  test('stretch 2 holds no raw button script: only the route step and waits', () => {
+    for (const s of stretch2().steps) {
+      assert.ok(!s.buttons, 'no raw press');
+      assert.ok(s.route || (s.wait && !s.wait.press), JSON.stringify(s));
+    }
+  });
+
+  test('stretch 2 memory matches the semantic address table (confirmed entries)', () => {
+    const sc = playthrough2Scenario(stretch2());
+    const names = { game_state: 'gameState', map_cur: 'fieldId', loading: 'fieldLoading', hp0: 'partyHp0', event_cmd: 'fieldEventCmd' };
+    for (const [mem, entry] of Object.entries(names)) {
+      const e = ADDRESS_TABLE.entries.find((x) => x.name === entry);
+      assert.equal(Number(sc.memory[mem].addr), e.address, mem);
+      assert.equal(e.status, 'confirmed', entry);
+    }
   });
 });

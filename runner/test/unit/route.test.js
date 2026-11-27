@@ -36,7 +36,7 @@ import {
   windowStates,
 } from '../../../semantic/walkmesh.js';
 import { padMask } from '../../pad.js';
-import { NAME_EVERY, NO_DIRECTION, ROUTE_OUTCOME, ROUTE_REPORT, SCENE_QUIET, emptyRoute, routeMetrics, runRoute } from '../../route.js';
+import { BATTLE_EVERY, NAME_EVERY, NO_DIRECTION, ROUTE_OUTCOME, ROUTE_REPORT, SCENE_QUIET, emptyRoute, routeMetrics, runRoute } from '../../route.js';
 import { loadScenario2, playScript } from '../../format2.js';
 
 const BASE = 0x80000000;
@@ -184,6 +184,27 @@ function toyBackend(tris, opts = {}) {
     } else if (edge) startSeen = false; // Circle first types a letter: the name is not confirmed
     return true;
   };
+  // A battle (opts.battle: { atX, presses }, stretch 3): when the player
+  // reaches x >= atX, gameState goes to battle until `presses` Circle
+  // presses have been made, then back to field.
+  const bt = opts.battle;
+  let battleState = 'idle';
+  let battleLeft = 0;
+  const battleFrame = (edge) => {
+    if (!bt || battleState === 'done') return false;
+    if (battleState === 'idle') {
+      if (pos()[0] < bt.atX) return false;
+      f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.battleMode, true);
+      battleLeft = bt.presses;
+      battleState = 'on';
+      return true;
+    }
+    if (edge && --battleLeft <= 0) {
+      f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.fieldMode, true);
+      battleState = 'done';
+    }
+    return true;
+  };
   // A talker (opts.talker: { model, window, pages, clears }): an Interact
   // press in its talk range opens `window` at 6; each later press turns a
   // page, and the last closes it; then model `clears` (a blocker) steps away.
@@ -223,6 +244,7 @@ function toyBackend(tris, opts = {}) {
       const start = (pad & padMask(['start'])) !== 0;
       const startEdge = start && !lastStart;
       lastStart = start;
+      if (battleFrame(edge)) return; // a battle holds the player
       if (sceneFrame(edge, startEdge)) return; // a scene holds the player
       talkFrame(edge);
       if (f.dv.getInt16(f.at(ROUTE_WATCH.windows[talkWindow]), true) !== 0) return; // a message holds the player
@@ -503,6 +525,22 @@ describe('runner/route.js', () => {
     assert.equal(rc.frames, 1500);
   });
 
+  it('presses the battle groups in a battle met on the way, then re-plans and reaches the gateway (stretch 3)', () => {
+    const opts = { control: 128, battle: { atX: 60, presses: 5 }, gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 } };
+    // Without battle groups the drive presses nothing in battle: the route times out there.
+    const b0 = toyBackend(corridor(5), opts);
+    const r0 = runRoute(b0, { to: { gateway: 0 }, timeout: 1500, scene: 2000 }, frameOn(b0));
+    assert.equal(r0.outcome, ROUTE_OUTCOME.timeout);
+    assert.deepEqual([r0.smode, r0.battles], [ROUTE_WATCH.battleMode, 1]);
+    // With Circle as the battle group: five presses end the battle, and the route reaches the gateway.
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 3000, scene: 2000, battle: [['circle']] }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.deepEqual([r.smode, r.battles], [ROUTE_WATCH.battleMode, 1]);
+    assert.ok(r.frames >= 4 * BATTLE_EVERY, `frames ${r.frames}: one press every ${BATTLE_EVERY} frames`);
+    assert.equal(r.legs.reduce((n, l) => n + (l % 10000), 0), r.frames);
+  });
+
   it('presses through every Circle-waiting window state, not only 6, and reports wlast and wpress (budget 4 attempt 2)', () => {
     assert.deepEqual([...ROUTE_WATCH.windowWaitingStates], [...WINDOW_WAITING_STATES]);
     // A two-speaker scene: window 1 waits in 14 (wait next window), then 4 (wait row), then 13 (pause until ok).
@@ -572,6 +610,9 @@ describe('format 2 route step', () => {
     assert.equal(sc.steps[0].scene, 50);
     assert.deepEqual(sc.steps[0].naming, [['start'], ['circle']]);
     assert.throws(() => loadScenario2(doc({ to: { gateway: 0 }, timeout: 100, naming: [['start']] }, []), {}), /naming needs scene/);
+    const sb = loadScenario2(doc({ to: { gateway: 0 }, timeout: 100, scene: 50, battle: [['circle']], report: { battles: 'nb' } }, ['nb']), {});
+    assert.deepEqual(sb.steps[0].battle, [['circle']]);
+    assert.throws(() => loadScenario2(doc({ to: { gateway: 0 }, timeout: 100, battle: [['circle']] }, []), {}), /battle needs scene/);
   });
 
   it('refuses a metric it names that is not listed', () => {

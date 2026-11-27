@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { S3_BOOT, S3_ROUTE_GATEWAYS, stretch3Probes, STRETCHES, STRETCH2_SEGMENT, playthrough2Scenario, playthroughScenario, stretch2, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
+import { S3_BATTLE, S3_BOOT, S3_GATEWAY, playthrough3Scenario, stretch3, STRETCHES, STRETCH2_SEGMENT, playthrough2Scenario, playthroughScenario, stretch2, DIAG_END, DIAG_LEGS, DIAG_MEMORY, DIAG_MODELS, DIAG_RUN, DRAG_DIRECTIONS, FIELD_ENTITY_STRIDE, GATEWAY_FIELDS, MEMORY, stretch2Diagnostic, WIDGET_COMMAND, WIDGET_NONE, WIDGET_TARGET, battleTurn, dragButtons, playthroughFiles, serialise, stretch1 } from './playthrough-scenarios.js';
 import { ADDRESS_TABLE, FIELD_GATEWAYS, BATTLE_WIDGET_COMMAND, BATTLE_WIDGET_NONE, BATTLE_WIDGET_TARGET } from '../../../semantic/addresses.js';
 import { BATTLE_PANEL_ACTIONS, FIELD_ACTIONS, NAMING_ACTIONS } from '../../../semantic/controls.js';
 
@@ -155,28 +155,27 @@ describe('#120 stretch 2 (touch-s2-md1-2)', () => {
   });
 });
 
-describe('#120 stretch 3 attempt 1 (md1_2 route probes)', () => {
-  test('each probe boots from stretch 2\'s snapshot, sorts after it, and routes to its own gateway', () => {
+describe('#120 stretch 3 attempt 2 (touch-s3-md1-2-gw1)', () => {
+  test('boots from stretch 2\'s snapshot, sorts after it, and routes to gateway 1', () => {
     const s2 = playthrough2Scenario(stretch2());
-    const probes = stretch3Probes();
+    const seg = stretch3();
+    const sc = playthrough3Scenario(seg);
     assert.equal(S3_BOOT, s2.snapshot);
-    assert.deepEqual(probes.map((p) => p.segment.steps.find((s) => s.route).route.to.gateway), [...S3_ROUTE_GATEWAYS]);
-    for (const { segment, scenario } of probes) {
-      assert.equal(scenario.boot.from, s2.snapshot);
-      assert.ok(scenario.name > s2.name, scenario.name);
-      assert.deepEqual(scenario.input, [{ segment: segment.name }]);
-      assert.ok(scenario.metrics.length <= 8);
-      assert.ok(!scenario.snapshot, 'probes keep no snapshot');
-    }
+    assert.equal(sc.boot.from, s2.snapshot);
+    assert.ok(sc.name > s2.name, sc.name);
+    assert.deepEqual(sc.input, [{ segment: seg.name }]);
+    assert.ok(sc.metrics.length <= 8);
+    assert.deepEqual(seg.steps.find((s) => s.route).route.to, { gateway: S3_GATEWAY });
   });
 
-  test('probes hold no raw button script: only the scene-driving route step and waits', () => {
-    for (const { segment } of stretch3Probes()) {
-      for (const s of segment.steps) {
-        assert.ok(!s.buttons, 'no raw press');
-        assert.ok(s.route || (s.wait && !s.wait.press), JSON.stringify(s));
-      }
-      assert.ok(segment.steps.find((s) => s.route).route.scene > 0, 'scene driving on');
+  test('battles are driven with the battle panel\'s select and Confirm only; no raw button script', () => {
+    const route = stretch3().steps.find((s) => s.route).route;
+    assert.deepEqual(route.battle, [[BATTLE_PANEL_ACTIONS.select.button], [BATTLE_PANEL_ACTIONS.confirm.button]]);
+    assert.deepEqual([...S3_BATTLE], [BATTLE_PANEL_ACTIONS.select.button, BATTLE_PANEL_ACTIONS.confirm.button]);
+    assert.ok(route.scene > 0, 'scene driving on');
+    for (const s of stretch3().steps) {
+      assert.ok(!s.buttons, 'no raw press');
+      assert.ok(s.route || (s.wait && !s.wait.press), JSON.stringify(s));
     }
   });
 });

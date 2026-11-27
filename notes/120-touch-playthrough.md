@@ -627,3 +627,25 @@ Boots from `touch-md1-2` (kept by `touch-s2-md1-2`). md1_2's layout is unknown. 
   - `out_g` 6: the gateway is unused (fieldMapId 0x7fff), or it has no walkable triangle.
   - `smode` 2: a battle started during a drive. The route doesn't fight, so attempt 2 needs the battle panel's turns (as stretch 1).
   - `out_g` 2 or 3, with `scenes` > 0: a scene or a closed door holds Cloud. The next step is a talk (`to: { model }`) to Biggs or Jessie.
+
+### Attempt 1 results (`33fe2c9`; tier2-eval 46001970003, two shards): 127 pass, 1 fail (a probe), 0 error
+| probe | status | out_g | path | locked | scenes | smode | remain | map_cur | field |
+|---|---|---|---|---|---|---|---|---|---|
+| `touch-s3r-gw0` | pass | 1 (reached) | 1 | 0 | 0 | 0 | 1 | 117 | 1 |
+| `touch-s3r-gw1` | fail | 3 (timeout) | 36 | 0 | 3 | **2 (battle)** | 21 | 118 | 0 |
+
+The other 126 scenarios are unchanged, including `touch-s2-md1-2`: named 929, nleft 179, match 1.
+- **Gateway 0 leads back to md1_1** (117). It is in Cloud's arrival triangle, so the path is 1 triangle.
+- **Gateway 1 is the way on.** Its path is 36 triangles with none locked. A **random battle** started during a scene drive (`smode` 2). The drive presses nothing in battle mode, so the route never got out of it. It timed out 21 triangles short, still in battle (`field` 0).
+- Where gateway 1 leads is not measured yet. An unrelated scenario, `save-boot-3-player-model-nmkin-1`, shows nmkin_1 is field 120. That's a hint, not a result.
+
+### Attempt 2: the route fights battles with the battle panel's actions
+- **Route step `battle`** (runner/route.js, schema, format2.js) holds press groups for battle mode (gameState 2, the new `ROUTE_WATCH.battleMode`) inside a scene drive.
+  - Each group is held 4 frames, one group every 30 frames, in turn.
+  - New report: `battles`, the number of battles entered during drives.
+  - A toy-backend unit test checks that a battle met on the way ends with the groups, and that the route then reaches the gateway. A second check: without groups, the route times out in the battle, as attempt 1 did.
+- **Groups:** the battle panel's select, then Confirm (`BATTLE_PANEL_ACTIONS`, both Circle). That gives Attack (Command 1, the empty row-0 plan) on the first target, then Circle through the result screens. It is the fallback stretch 1's battle already won with.
+- **Scenario `touch-s3-md1-2-gw1`** replaces both probes (127 Tier 2 scenarios in all). It boots from `touch-md1-2`, then routes to gateway 1 with timeout 24000 and scene drives of up to 6000 frames, then waits 600 frames.
+  - End checks: field mode, map_cur ≠ md1_2 (`left`), HP in 1..9999 (`hp_ok`) and rerun `match`.
+  - Metrics: `out_g battles remain map_cur field left hp_ok match`.
+- It keeps no snapshot yet. Once `map_cur` shows where gateway 1 leads, the next push pins the end check to that field and keeps a snapshot for stretch 4.

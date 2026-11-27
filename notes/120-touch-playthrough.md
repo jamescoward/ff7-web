@@ -614,3 +614,66 @@ Stretch 1 (`touch-playthrough`) is unchanged.
 - End checks: md1_2, field mode, fieldEventCmd ≠ 6, HP > 0, `sameState: rerun`. Keeps `touch-md1-2` for stretch 3.
 - The budget-4 probes `touch-s2s-gw-c` and `touch-s2s-gw-sc` are dropped (branch-only; never on main).
 - **Tier 2 run 1** (`cf0f9c7`, tier2-eval 45942082354): shards 0 and 1 green (shard 0: 63 pass, 0 fail). `touch-s2-md1-2` passes: `out_g` 1 (reached), `named` 929, `nleft` 179, `md1_2` 1, `field` 1, `evt_off` 1, `match` 1 (rerun from `touch-md1-1` ends in the same state). Same `named`/`nleft` as budget 4 attempt 2 and `touch-s2n-naming-confirm`. Run 2 (this notes push) checks it repeats.
+
+## Stretch 3: md1_2 onwards (fresh 3-attempt budget, 2026-11-27)
+Boots from `touch-md1-2` (kept by `touch-s2-md1-2`). md1_2's layout is unknown. Agent research (#120, 2026-11-26) says that inside md1_2, Biggs and then Jessie open doors. That is a source claim, not a result.
+
+### Attempt 1 (route probes)
+- **Slot limit.** The validator takes at most 128 Tier 2 scenarios (`MAX_SCENARIOS`, `harness/private-eval/validate/validate.js`, protected), and main had 126. So there are two probes, not the planned four. A probe that reads gateways 0–5's `fieldMapId` was dropped. The field ID at the end of each route says where that gateway leads instead.
+- `touch-s3r-gw0` and `touch-s3r-gw1`: wait 30 frames, then a scene-driving `route` to gateway g with stretch 2's limits (timeout 9000, patience 120, detour 6, nudge 300, scene 3000), then wait 600 frames.
+- Metrics: `out_g path locked scenes smode remain map_cur field`.
+- What each result means:
+  - `out_g` 1 with `map_cur` ≠ 118: the gateway leads to that field. If it isn't md1_1 (117), it is the way forward.
+  - `out_g` 6: the gateway is unused (fieldMapId 0x7fff), or it has no walkable triangle.
+  - `smode` 2: a battle started during a drive. The route doesn't fight, so attempt 2 needs the battle panel's turns (as stretch 1).
+  - `out_g` 2 or 3, with `scenes` > 0: a scene or a closed door holds Cloud. The next step is a talk (`to: { model }`) to Biggs or Jessie.
+
+### Attempt 1 results (`33fe2c9`; tier2-eval 46001970003, two shards): 127 pass, 1 fail (a probe), 0 error
+| probe | status | out_g | path | locked | scenes | smode | remain | map_cur | field |
+|---|---|---|---|---|---|---|---|---|---|
+| `touch-s3r-gw0` | pass | 1 (reached) | 1 | 0 | 0 | 0 | 1 | 117 | 1 |
+| `touch-s3r-gw1` | fail | 3 (timeout) | 36 | 0 | 3 | **2 (battle)** | 21 | 118 | 0 |
+
+The other 126 scenarios are unchanged, including `touch-s2-md1-2`: named 929, nleft 179, match 1.
+- **Gateway 0 leads back to md1_1** (117). It is in Cloud's arrival triangle, so the path is 1 triangle.
+- **Gateway 1 is the way on.** Its path is 36 triangles with none locked. A **random battle** started during a scene drive (`smode` 2). The drive presses nothing in battle mode, so the route never got out of it. It timed out 21 triangles short, still in battle (`field` 0).
+- Where gateway 1 leads is not measured yet. An unrelated scenario, `save-boot-3-player-model-nmkin-1`, shows nmkin_1 is field 120. That's a hint, not a result.
+
+### Attempt 2: the route fights battles with the battle panel's actions
+- **Route step `battle`** (runner/route.js, schema, format2.js) holds press groups for battle mode (gameState 2, the new `ROUTE_WATCH.battleMode`) inside a scene drive.
+  - Each group is held 4 frames, one group every 30 frames, in turn.
+  - New report: `battles`, the number of battles entered during drives.
+  - A toy-backend unit test checks that a battle met on the way ends with the groups, and that the route then reaches the gateway. A second check: without groups, the route times out in the battle, as attempt 1 did.
+- **Groups:** the battle panel's select, then Confirm (`BATTLE_PANEL_ACTIONS`, both Circle). That gives Attack (Command 1, the empty row-0 plan) on the first target, then Circle through the result screens. It is the fallback stretch 1's battle already won with.
+- **Scenario `touch-s3-md1-2-gw1`** replaces both probes (127 Tier 2 scenarios in all). It boots from `touch-md1-2`, then routes to gateway 1 with timeout 24000 and scene drives of up to 6000 frames, then waits 600 frames.
+  - End checks: field mode, map_cur ≠ md1_2 (`left`), HP in 1..9999 (`hp_ok`) and rerun `match`.
+  - Metrics: `out_g battles remain map_cur field left hp_ok match`.
+- It keeps no snapshot yet. Once `map_cur` shows where gateway 1 leads, the next push pins the end check to that field and keeps a snapshot for stretch 4.
+
+### Attempt 2 results (`5b459a1`; tier2-eval 46004064090): 126 pass, 1 fail (`touch-s3-md1-2-gw1`)
+| out_g | battles | remain | map_cur | field | left | hp_ok | match |
+|---|---|---|---|---|---|---|---|
+| **5 (no walkmesh)** | 1 | 21 | 118 | 1 | 0 | 1 | 1 |
+
+- **The battle was won with the panel's select / Confirm loop.** Back in field mode, Cloud's HP is above 0, and the rerun matched, so it is deterministic. All other scenarios are unchanged.
+- **Then the re-plan read no valid walkmesh** (outcome 5) at the same point, 21 triangles short. The drive ended after 90 field-mode frames with all windows closed. After a battle, though, md1_2 reloads: `reactor-mode-5` measured 588 still frames after the first battle. So the walkmesh or Cloud's triangle index was read mid-reload. This is a reading, not a measurement.
+
+### Attempt 3 (last of this budget): a drive is quiet only in a settled field
+- A scene drive counts a frame as quiet only when `fieldLoading` (`ROUTE_WATCH.fieldLoading` 0x800965E8, confirmed #77) reads 2, a settled field. It still needs 90 quiet frames before it ends and the route re-reads the walkmesh.
+- New unit test: a toy battle followed by a 400-frame reload, where the player can't move. The route waits it out in one drive and reaches the gateway. A mutation that drops the settle check fails this test.
+- The scenario is unchanged (`touch-s3-md1-2-gw1`). If `left` is 1, the next push pins the end field and keeps a snapshot. If not, the budget is spent and the blocker goes on #120.
+
+### Attempt 3 results (`a343de4`; tier2-eval 46005660156): 126 pass, 1 fail. Budget spent (3 of 3).
+| out_g | battles | remain | map_cur | field | left | hp_ok | match |
+|---|---|---|---|---|---|---|---|
+| 5 (no walkmesh) | 1 | 21 | 118 | 1 | 0 | 1 | 1 |
+
+- These are exactly attempt 2's numbers. So the settle check isn't the cause, or `fieldLoading` was already 2 when the drive ended.
+- What is known:
+  - The battle is won with the touch layer's actions, deterministically.
+  - md1_2 is still loaded (map_cur 118, field mode).
+  - The route's re-plan after the drive fails one of three checks in `runRoute`: `readWalkmesh(...).error`, `readPlayer(...)` null, or `posI >= mesh.count`. A single metric can't say which.
+- **Suggested next step (needs a new budget, so an owner decision):**
+  - A diagnostic report: which of the three checks failed, and the walkmesh's error code.
+  - Possibly the walkmesh or trigger pointer before and after the battle, compared as equal or unequal only.
+  - If the battle moves the field's data and the pointer stays stale, the fix would be to re-read the pointer after the battle. If Cloud's triangle index is invalid after a battle, wait until it is valid.

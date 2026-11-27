@@ -319,6 +319,11 @@ export const ROUTE_WATCH = Object.freeze({
   fieldId: 0x8009a05c,
   gameState: 0x8009c560,
   fieldMode: 1,
+  /** gameState in battle (confirmed #76): a scene drive presses the route's `battle` groups then. */
+  battleMode: 2,
+  /** fieldLoading (s16, g_IsFieldLoading; confirmed #77): 2 in a settled field. A scene drive is quiet only then (stretch 3: after a battle the field reloads). */
+  fieldLoading: 0x800965e8,
+  fieldSettled: 2,
   /** fieldModelCount (s16): models 0 .. this - 1 are in use. */
   modelCount: 0x8009ac1c,
   /** dialogState, dialogState1-3 (s16): message windows 0-3; 0 closed, 6 text done and waiting for Circle. */

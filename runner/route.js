@@ -62,8 +62,10 @@ export const ROUTE_OUTCOME = Object.freeze({ reached: 1, stuck: 2, timeout: 3, l
  * Budget 4 attempt 2: wlast: the windows' states when the last scene drive
  * ended (windowStates: window i's state in bits 4i..4i+3; 0 no drive or all
  * closed); wpress: Interact presses the drives made on waiting windows.
+ * #120 stretch 3: battles: battles entered during scene drives (in each,
+ * the `battle` press groups are pressed in turn, as BATTLE_EVERY below).
  */
-export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'wlast', 'wpress']);
+export const ROUTE_REPORT = Object.freeze(['outcome', 'path', 'free', 'locked', 'frames', 'legs', 'talk', 'talked', 'window', 'detours', 'block', 'opened', 'wstall', 'remain', 'near', 'scenes', 'wmask', 'named', 'nleft', 'smode', 'evt', 'wlast', 'wpress', 'battles']);
 /** Frames without moving before a route counts as stuck (a step's `patience` overrides it). */
 export const ROUTE_STUCK_FRAMES = 60;
 /** Most legs one step may report (metrics are 8 a scenario; more go to later scenarios with legFrom). */
@@ -86,9 +88,12 @@ export const SCENE_QUIET = 90;
 /** Naming screen: each press group of `naming` is held this many frames, one group every NAME_EVERY frames, in turn. */
 export const NAME_HOLD = 4;
 export const NAME_EVERY = 30;
+/** Battle (stretch 3): each press group of `battle` is held this many frames, one group every BATTLE_EVERY frames, in turn. */
+export const BATTLE_HOLD = 4;
+export const BATTLE_EVERY = 30;
 
 /** A result with nothing done: every report 0, no legs. */
-export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0, wlast: 0, wpress: 0 });
+export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, frames: 0, legs: [], talk: 0, talked: 0, window: 0, detours: 0, block: 0, opened: 0, wstall: 0, remain: 0, near: 0, scenes: 0, wmask: 0, named: 0, nleft: 0, smode: 0, evt: 0, wlast: 0, wpress: 0, battles: 0 });
 
 /**
  * Run a route step on a backend. step: { to: { gateway } | { model },
@@ -112,6 +117,8 @@ export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, fram
  *   every window has been closed in field mode for SCENE_QUIET frames. Then
  *   the walkmesh is read again and the route re-planned.
  * - naming: press groups (arrays of pad button names) for the naming screen.
+ * - battle (stretch 3): press groups for battle mode (gameState 2) inside a
+ *   scene drive, held BATTLE_HOLD frames, one every BATTLE_EVERY, in turn.
  * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
@@ -176,7 +183,7 @@ export function runRoute(backend, step, frame) {
         frame(padMask(buttons));
         codes.push(-1);
       };
-      driveScene(readMem, Math.min(scene, step.timeout - codes.length), pressButtons, step.naming ?? [], res, () => codes.length);
+      driveScene(readMem, Math.min(scene, step.timeout - codes.length), pressButtons, { naming: step.naming ?? [], battle: step.battle ?? [] }, res, () => codes.length);
       if (goalReached(readMem, goal, startField)) continue;
       if (readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) continue; // still out: the timeout or the next drive ends it
       // A menu or a scene may have reloaded the field: read the walkmesh again and re-plan.
@@ -305,18 +312,22 @@ function inScene(readMem) {
 /**
  * A scene drive (budget 4), for at most `limit` frames: no direction held;
  * Interact pressed whenever a window waits for Circle; on the naming screen
- * the `naming` press groups in turn; out of field mode otherwise, nothing.
- * Ends once every window has been closed in field mode for SCENE_QUIET
- * frames. Fills res.wmask, res.named, res.nleft, res.smode and res.evt;
+ * the `naming` press groups in turn; in battle the `battle` groups in turn;
+ * out of field mode otherwise, nothing.
+ * Ends once every window has been closed in a settled field (fieldLoading
+ * 2) for SCENE_QUIET frames. Fills res.wmask, res.named, res.nleft, res.smode, res.evt and
+ * res.battles;
  * at() gives the route frame count so far.
  */
-function driveScene(readMem, limit, pressButtons, naming, res, at) {
-  driveSceneFrames(readMem, limit, pressButtons, naming, res, at);
+function driveScene(readMem, limit, pressButtons, groups, res, at) {
+  driveSceneFrames(readMem, limit, pressButtons, groups, res, at);
   res.wlast = windowStates(readMem);
 }
 
-function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
+function driveSceneFrames(readMem, limit, pressButtons, { naming, battle }, res, at) {
   let closed = 0;
+  let batN = 0;
+  let inBattle = false;
   let hold = 0;
   let rest = 0;
   let nameN = 0;
@@ -335,10 +346,22 @@ function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
         res.smode = gs ?? 0;
         res.evt = readEventCmd(readMem) ?? 0;
       }
-      pressButtons([]);
+      if (gs === ROUTE_WATCH.battleMode) {
+        if (!inBattle) {
+          inBattle = true;
+          res.battles += 1;
+          batN = 0;
+        }
+        const group = battle.length ? battle[Math.floor(batN / BATTLE_EVERY) % battle.length] : [];
+        pressButtons(batN % BATTLE_EVERY < BATTLE_HOLD ? group : []);
+        batN += 1;
+      } else {
+        pressButtons([]);
+      }
       closed = 0;
       continue;
     }
+    inBattle = false;
     if (res.named && !res.nleft) res.nleft = Math.max(nameN, 1);
     let open = false;
     ROUTE_WATCH.windows.forEach((a, i) => {
@@ -348,7 +371,9 @@ function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
         res.wmask |= 1 << i;
       }
     });
-    closed = open ? 0 : closed + 1;
+    // Stretch 3: after a battle the field reloads; the walkmesh is valid only once it has settled.
+    const settled = readS16(readMem, ROUTE_WATCH.fieldLoading) === ROUTE_WATCH.fieldSettled;
+    closed = open || !settled ? 0 : closed + 1;
     if (closed >= SCENE_QUIET) return;
     if (hold === 0 && rest === 0 && windowWaiting(readMem)) {
       hold = ROUTE_TALK_HOLD;

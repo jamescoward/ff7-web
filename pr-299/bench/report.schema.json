@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jamescoward/ff7-web/web/bench/report.schema.json",
+  "title": "ff7-web benchmark report, format 1",
+  "description": "What web/bench/ produces and puts in the Report results link. Times are milliseconds unless named otherwise. It holds measurements of a homebrew program only, never game data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "kind", "status", "short", "build", "program", "device", "params", "startup", "unthrottled", "realtime", "audio", "memory", "wakeLock", "checks", "verdict"],
+  "properties": {
+    "format": { "const": 1 },
+    "kind": { "const": "ff7-web-bench" },
+    "status": { "enum": ["complete", "interrupted", "lost"] },
+    "short": { "type": "boolean", "description": "Some duration was below the experiment's full length." },
+    "note": { "type": "string", "maxLength": 120 },
+    "build": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slot", "sha", "repo", "core", "wasm"],
+          "properties": {
+            "slot": { "type": "string", "pattern": "^(main|pr-[1-9][0-9]{0,6}|local)$" },
+            "sha": { "$ref": "#/$defs/hexOrNull" },
+            "repo": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }] },
+            "core": { "$ref": "#/$defs/hexOrNull" },
+            "wasm": { "$ref": "#/$defs/hexOrNull" }
+          }
+        }
+      ]
+    },
+    "program": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "v", "tris", "sha"],
+          "properties": {
+            "name": { "const": "gte-gpu-stress" },
+            "v": { "type": "integer", "minimum": 1 },
+            "tris": { "type": "integer", "minimum": 1, "maximum": 32767 },
+            "sha": { "$ref": "#/$defs/hexOrNull" }
+          }
+        }
+      ]
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "os", "safari", "mode", "screen", "dpr", "cores", "ua"],
+      "properties": {
+        "model": { "$ref": "#/$defs/shortText" },
+        "os": { "$ref": "#/$defs/shortText" },
+        "safari": { "$ref": "#/$defs/shortText" },
+        "mode": { "enum": ["tab", "home-screen"] },
+        "screen": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9]{1,5}x[0-9]{1,5}$" }] },
+        "dpr": { "$ref": "#/$defs/numOrNull" },
+        "cores": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "ua": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "seconds", "audio", "window", "tris"],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 10, "maximum": 100000 },
+        "seconds": { "type": "integer", "minimum": 1, "maximum": 7200 },
+        "audio": { "type": "integer", "minimum": 1, "maximum": 7200 },
+        "window": { "type": "integer", "minimum": 1, "maximum": 600 },
+        "tris": { "type": "integer", "minimum": 1, "maximum": 32767 }
+      }
+    },
+    "startup": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["coreMs", "firstFrameMs", "frameMs"],
+          "properties": {
+            "coreMs": { "type": "number", "minimum": 0, "description": "Page load to the core being ready." },
+            "firstFrameMs": { "type": "number", "minimum": 0, "description": "Page load to the first emulated frame." },
+            "frameMs": { "type": "number", "minimum": 0, "description": "Host time of that first frame." }
+          }
+        }
+      ]
+    },
+    "unthrottled": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frames", "ms", "fps", "speed"],
+          "properties": {
+            "frames": { "type": "integer", "minimum": 0 },
+            "ms": { "type": "number", "minimum": 0 },
+            "fps": { "type": "number", "minimum": 0 },
+            "speed": { "type": "number", "minimum": 0, "description": "fps over the core's real-time fps (59.94 for NTSC)." }
+          }
+        }
+      ]
+    },
+    "realtime": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seconds", "frames", "expected", "late", "p50", "p95", "p99", "max", "first", "last"],
+          "properties": {
+            "seconds": { "type": "number", "minimum": 0 },
+            "frames": { "type": "integer", "minimum": 0 },
+            "expected": { "type": "integer", "minimum": 0, "description": "Frames real time called for." },
+            "late": { "type": "integer", "minimum": 0, "description": "Times the loop fell more than 4 frames behind and re-anchored." },
+            "p50": { "$ref": "#/$defs/numOrNull" },
+            "p95": { "$ref": "#/$defs/numOrNull" },
+            "p99": { "$ref": "#/$defs/numOrNull" },
+            "max": { "$ref": "#/$defs/numOrNull" },
+            "first": { "$ref": "#/$defs/window" },
+            "last": { "$ref": "#/$defs/window" }
+          }
+        }
+      ]
+    },
+    "audio": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "rate", "window", "underruns", "overflows", "total"],
+          "properties": {
+            "state": { "type": "string", "maxLength": 20 },
+            "rate": { "$ref": "#/$defs/numOrNull" },
+            "window": { "type": "integer", "minimum": 1 },
+            "underruns": { "$ref": "#/$defs/intOrNull" },
+            "overflows": { "$ref": "#/$defs/intOrNull" },
+            "total": { "$ref": "#/$defs/intOrNull" }
+          }
+        }
+      ]
+    },
+    "memory": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["peakHeapMB", "jsHeapMB", "lostRun"],
+          "properties": {
+            "peakHeapMB": { "$ref": "#/$defs/numOrNull" },
+            "jsHeapMB": { "$ref": "#/$defs/numOrNull" },
+            "lostRun": { "oneOf": [{ "type": "null" }, { "enum": ["unthrottled", "realtime"] }] }
+          }
+        }
+      ]
+    },
+    "wakeLock": { "oneOf": [{ "type": "null" }, { "type": "boolean" }] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["speed", "p99", "audio", "heap", "reload"],
+      "properties": {
+        "speed": { "$ref": "#/$defs/check" },
+        "p99": { "$ref": "#/$defs/check" },
+        "audio": { "$ref": "#/$defs/check" },
+        "heap": { "$ref": "#/$defs/check" },
+        "reload": { "$ref": "#/$defs/check" }
+      }
+    },
+    "verdict": { "enum": ["pass", "pass-short", "fail", "incomplete"] }
+  },
+  "$defs": {
+    "check": { "enum": ["pass", "fail", "n/a"] },
+    "numOrNull": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+    "intOrNull": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+    "hexOrNull": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{7,64}$" }] },
+    "shortText": { "oneOf": [{ "type": "null" }, { "type": "string", "maxLength": 40 }] },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p50", "p99"],
+      "properties": { "p50": { "$ref": "#/$defs/numOrNull" }, "p99": { "$ref": "#/$defs/numOrNull" } }
+    }
+  }
+}

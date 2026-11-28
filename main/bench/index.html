@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="color-scheme" content="dark">
+  <title>ff7-web benchmark</title>
+  <link rel="stylesheet" href="bench.css">
+  <script type="module" src="bench.js"></script>
+</head>
+<body>
+  <!-- ff7-web benchmark page (issue #8). GPL-2.0-or-later.
+       It runs an original homebrew stress program (stress.js), built in the
+       browser. No game data is loaded, measured or reported. -->
+  <main>
+    <h1>Emulator benchmark</h1>
+    <p class="muted" id="plan">Runs the Experiment 01 measurements on a homebrew GTE/GPU stress program.</p>
+
+    <section class="card" id="lost" hidden>
+      <p><strong>The last run did not finish.</strong> <span id="lost-text"></span></p>
+      <div class="row">
+        <a class="btn primary" id="lost-report" target="_blank" rel="noopener">Report the lost run</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <label class="field">
+        <span>Device model (kept on this device)</span>
+        <input id="model" type="text" maxlength="40" placeholder="e.g. iPhone 14 Pro" autocomplete="off">
+      </label>
+      <p class="muted">Before starting: set Auto-Lock to Never (Settings → Display &amp; Brightness), keep this page in front, and leave the sound on. The page asks the screen to stay on, but iOS doesn't always allow it.</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="start" disabled>Loading…</button>
+        <button type="button" class="btn" id="stop" hidden>Stop</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <p id="status" role="status">Starting the emulator core…</p>
+      <progress id="progress" max="1" value="0" hidden></progress>
+      <canvas id="screen" width="320" height="240" aria-label="Stress program picture"></canvas>
+    </section>
+
+    <section class="card" id="results" hidden>
+      <h2>Results: <span id="verdict"></span></h2>
+      <table id="checks"></table>
+      <div class="row">
+        <a class="btn primary" id="report" target="_blank" rel="noopener">Report results</a>
+        <button type="button" class="btn" id="copy">Copy JSON</button>
+        <button type="button" class="btn" id="download">Download JSON</button>
+      </div>
+      <p class="muted">“Report results” opens a pre-filled GitHub issue; add 👍/👎 and any notes, then submit. If the link doesn't fill in, use Copy JSON and paste it into a comment on the PR.</p>
+      <pre id="json"></pre>
+    </section>
+  </main>
+</body>
+</html>

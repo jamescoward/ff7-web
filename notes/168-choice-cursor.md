@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-28): **fourth budget in progress** (owner, 2026-11-26), attempt 2 of 3; see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
+Status (2026-11-28): **fourth budget in progress** (owner, 2026-11-26), attempt 3 of 3 (the last); see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -376,3 +376,23 @@ What decides attempt 3 (the last in this budget):
 - o<k> 6 (no goal) or 7 (no path), or r<k> 0: the model goal is wrong (model index, or its triangle); fix `routeGoal` for models in Tier 1 first.
 - o<k> 3 (timeout) with r<k> > 1: the walk stalls; raise `detour`/`patience` or add `nudge`.
 - control o7 1/2 with t7 0: the talk phase never opens window 1 for model 7 (facing or tap timing); compare with #224's walk-down-then-Circle.
+
+### Attempt 2 results (`e2316fa`, tier2-eval run 46109230496: 128 pass, 0 fail)
+| probe | o | r | t | a | o | r | t | a |
+|---|---|---|---|---|---|---|---|---|
+| `32a` mds7st1 (7, then 5) | o7 **4** (left) | r7 6 | t7 0 | a7 0 | o5 **7** (no path) | r5 0 | t5 0 | a5 0 |
+| `32b` nmkin_1 (2, then 3) | o2 **3** (timeout) | r2 6 | t2 0 | a2 0 | o3 **3** (timeout) | r3 9 | t3 0 | a3 0 |
+
+Every other scenario passed unchanged. The `web` job failed once on the webkit speed test (2x ratio 1.65, a wall-clock check, no `web/` file changed since `05b1ffa`, where it passed); its one re-run passed.
+
+Reading:
+- **The control did not talk.** The route to model 7 ended `left`: gameState left field mode mid-walk with 6 triangles still to go (a scene, a menu or an event; which one is unknown). The probe's final check (still field 144) passed, so the game came back to the same field. Then model 5 had no path from where the player stood (r5 0). A route without `scene` stops at the first non-field frame, so routed talks in mds7st1 never got as far as the talk phase.
+- **nmkin_1: the walks never arrive.** Both routes used all 1800 frames with 6 and 9 triangles left, without a stall long enough to count as `stuck` (patience 90). So the player kept moving without reaching the goal: slow progress, or going back and forth.
+
+### Attempt 3 plan (the last in this budget; one push, the same 2 slots)
+- **Scene drives:** every route step gets `scene: 1200` (#120 budget 4: press Interact through waiting windows, wait out other game modes, re-read the walkmesh and re-plan). A route no longer ends `left`.
+- **Choice windows in drives:** `runner/route.js` now notes a choice window (`askWindow`) during a scene drive when the step has `ask`, so a choice met on the way is not missed. Tier 1: `route.test.js`, "notes a choice window met in a scene drive" (fails with the change removed).
+- **Nudges and a longer walk:** `nudge: 300` (on a stall, tap Interact facing the way), timeout 3600 (was 1800).
+- Metrics: 32a o7 **s7** (smode: the first other game mode a drive saw, in place of r7) t7 a7 o5 r5 t5 a5; 32b unchanged (o r t a for 2 and 3).
+
+Pass for #168 needs an ask *and* the acceptance chain (Down, Up, Circle; pointerY moves one line and back; rerun), which these probes don't run. So attempt 3 can at best find an ask: some a<k> > 0 names the route for the acceptance, which then needs a new budget or a follow-up issue. If no a<k> > 0, the budget ends: record the blockers on #168 and leave it `status:blocked`, keeping no probe (the two slots go back).

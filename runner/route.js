@@ -120,6 +120,8 @@ export const emptyRoute = () => ({ outcome: 0, path: 0, free: 0, locked: 0, fram
  *   through it, which picks the option under the pointer; 'stop' records it
  *   and ends the talk phase there, leaving the choice open for the script's
  *   next steps.
+ *   With `scene`, a scene drive also records the first choice window it
+ *   meets (attempt 3), and always presses on through it.
  * Returns emptyRoute()'s fields, filled in.
  */
 export function runRoute(backend, step, frame) {
@@ -184,7 +186,7 @@ export function runRoute(backend, step, frame) {
         frame(padMask(buttons));
         codes.push(-1);
       };
-      driveScene(readMem, Math.min(scene, step.timeout - codes.length), pressButtons, step.naming ?? [], res, () => codes.length);
+      driveScene(readMem, Math.min(scene, step.timeout - codes.length), pressButtons, step.naming ?? [], res, () => codes.length, step.ask);
       if (goalReached(readMem, goal, startField)) continue;
       if (readS16(readMem, ROUTE_WATCH.gameState) !== ROUTE_WATCH.fieldMode) continue; // still out: the timeout or the next drive ends it
       // A menu or a scene may have reloaded the field: read the walkmesh again and re-plan.
@@ -318,12 +320,12 @@ function inScene(readMem) {
  * frames. Fills res.wmask, res.named, res.nleft, res.smode and res.evt;
  * at() gives the route frame count so far.
  */
-function driveScene(readMem, limit, pressButtons, naming, res, at) {
-  driveSceneFrames(readMem, limit, pressButtons, naming, res, at);
+function driveScene(readMem, limit, pressButtons, naming, res, at, ask) {
+  driveSceneFrames(readMem, limit, pressButtons, naming, res, at, ask);
   res.wlast = windowStates(readMem);
 }
 
-function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
+function driveSceneFrames(readMem, limit, pressButtons, naming, res, at, ask) {
   let closed = 0;
   let hold = 0;
   let rest = 0;
@@ -358,6 +360,8 @@ function driveSceneFrames(readMem, limit, pressButtons, naming, res, at) {
     });
     closed = open ? 0 : closed + 1;
     if (closed >= SCENE_QUIET) return;
+    // #168: with step.ask, a choice window met in a drive is noted too (and pressed on, as 'note').
+    if (ask && !res.ask && hold === 0) res.ask = askWindow(readMem);
     if (hold === 0 && rest === 0 && windowWaiting(readMem)) {
       hold = ROUTE_TALK_HOLD;
       res.wpress += 1;

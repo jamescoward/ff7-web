@@ -160,6 +160,8 @@ function toyBackend(tris, opts = {}) {
     if (sceneState === 'idle') {
       if (pos()[0] < sc.atX) return false;
       f.dv.setInt16(wa, sc.states?.[0] ?? 6, true);
+      // sc.ask: the scene's window is a choice, its pointer enabled (#168).
+      if (sc.ask) f.ram[f.at(ROUTE_WATCH.pointers[sc.window])] = 1;
       scenePages = sc.pages;
       sceneState = 'msg';
       return true;
@@ -169,6 +171,7 @@ function toyBackend(tris, opts = {}) {
       if (edge && scenePages > 1 && sc.states) f.dv.setInt16(wa, sc.states[sc.pages - scenePages + 1] ?? 6, true);
       if (edge && --scenePages <= 0) {
         f.dv.setInt16(wa, 0, true);
+        f.ram[f.at(ROUTE_WATCH.pointers[sc.window])] = 0;
         if (sc.naming) {
           f.dv.setInt16(f.at(ROUTE_WATCH.gameState), ROUTE_WATCH.menuMode, true);
           f.ram[f.at(ROUTE_WATCH.eventCmd)] = ROUTE_WATCH.nameEntry;
@@ -530,6 +533,26 @@ describe('runner/route.js', () => {
     assert.ok(rc.named > 0);
     assert.equal(rc.nleft, 0);
     assert.equal(rc.frames, 1500);
+  });
+
+  it('notes a choice window met in a scene drive when ask is set (#168 attempt 3)', () => {
+    const opts = {
+      control: 128,
+      models: [{ x: 110, y: 16, solid: 8, block: true }],
+      scene: { atX: 90, window: 2, pages: 2, clears: 1, ask: true },
+      gateway: { x1: 150, y1: 0, x2: 150, y2: 32, to: 0x76 },
+    };
+    const b = toyBackend(corridor(5), opts);
+    const r = runRoute(b, { to: { gateway: 0 }, timeout: 3000, scene: 2000, ask: 'note' }, frameOn(b));
+    assert.equal(r.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r.ask, 3);
+    // Without ask nothing is recorded; a plain scene message (pointer 0) is no ask.
+    const b2 = toyBackend(corridor(5), opts);
+    assert.equal(runRoute(b2, { to: { gateway: 0 }, timeout: 3000, scene: 2000 }, frameOn(b2)).ask, 0);
+    const b3 = toyBackend(corridor(5), { ...opts, scene: { ...opts.scene, ask: false } });
+    const r3 = runRoute(b3, { to: { gateway: 0 }, timeout: 3000, scene: 2000, ask: 'note' }, frameOn(b3));
+    assert.equal(r3.outcome, ROUTE_OUTCOME.reached);
+    assert.equal(r3.ask, 0);
   });
 
   it('presses through every Circle-waiting window state, not only 6, and reports wlast and wpress (budget 4 attempt 2)', () => {

@@ -39,7 +39,11 @@ describe('#168 choice-route probes', () => {
       for (const { route } of routes) {
         assert.equal(route.ask, 'note');
         assert.ok(route.talk > 0);
-        assert.deepEqual(Object.values(route.report).sort(), [`a${route.to.model}`, `o${route.to.model}`, `r${route.to.model}`, `t${route.to.model}`]);
+        const k = route.to.model;
+        assert.equal(route.report.outcome, `o${k}`);
+        assert.equal(route.report.talk, `t${k}`);
+        assert.equal(route.report.ask, `a${k}`);
+        assert.ok(route.scene > 0, 'scene drives handle leaving field mode (attempt 2: outcome 4)');
       }
     }
   });

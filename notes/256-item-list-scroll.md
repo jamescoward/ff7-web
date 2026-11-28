@@ -46,3 +46,13 @@ What this shows:
 ## Part 2 notes
 - Call `itemSlotPlan` with the read `{ row: itemListRow, offset: itemListOffset }`. `itemListStep` alone doesn't stop at the list ends.
 - Not run: Up at row 0 (scroll back) and the list end.
+
+## Part 2: `native-item` past page 1 (2026-11-28)
+Labs flag `native-item` (off by default), Tier 3 deferred (#123).
+
+- **Pages over the non-empty slots** (agent default): the panel keeps its ten item rows, but they now show `itemListEntries(inventory)` (every slot with a count above 0, in slot order), ten at a time, with Prev / page number / Next. Empty slots are skipped, so a full inventory takes a few pages instead of 32. The panel opens on the page holding the game's list cursor (`itemEntryPageOf`); afterwards only Prev/Next change it. Paging presses nothing.
+- **A tap** runs `itemSlotPlan({ row, offset }, slot)` from the read `itemListRow` / `itemListOffset`. The executor's cursor is `itemSlotCursor(plan, read)`: the list index while the read pair is the one the plan expects at that index, else -1. So a game that scrolls earlier or later than row 9 stops the plan even though offset + row agrees. A stop releases everything and sends no Circle.
+- `itemSlotPlan` now also returns `start` (the `from` pair); nothing else in its output changed.
+- Not covered: Up at row 0 (scroll back) is still not run in Tier 2, so a tap on a slot above the game's current offset relies on `itemListStep`'s Up rule, a hypothesis. The cursor check stops the plan if the game disagrees.
+
+Tests: `runner/test/unit/item-entries.test.js` (pages, page-of, the cursor check, an executor run that finishes and one that stops); `web/test/native-item-scroll-browser.test.js` (page-2 tap with 25 Downs, opening on the cursor's page, stop on mismatch with no Circle). The existing `native-item-browser.test.js` passes unchanged. Mutation check: with the plain index as the cursor, the stop test fails.

@@ -87,7 +87,8 @@ export function itemListStep({ row, offset }, button) {
  * page 1 when needed and never wrapping. A planCursorMove plan over the list
  * index (rows = ITEM_INVENTORY_SLOTS; an executor reads itemListSlot(row,
  * offset) as its cursor), where each step also carries the { row, offset }
- * it should leave, so checks can read both cursors. Bad input throws
+ * it should leave, so checks can read both cursors, and `start` holds
+ * `from`'s { row, offset } (itemSlotCursor uses both). Bad input throws
  * RangeError. itemListPlan (one page, no scroll) is unchanged.
  */
 export function itemSlotPlan(from, toSlot, timing) {
@@ -99,7 +100,7 @@ export function itemSlotPlan(from, toSlot, timing) {
     pos = itemListStep(pos, s.button);
     return Object.freeze({ ...s, row: pos.row, offset: pos.offset });
   });
-  return Object.freeze({ ...plan, steps: Object.freeze(steps) });
+  return Object.freeze({ ...plan, start: Object.freeze({ row: from.row, offset: from.offset }), steps: Object.freeze(steps) });
 }
 
 /** The party-cursor plan for a tap on party slot `to` with the cursor at `from` (never wraps). */
@@ -117,4 +118,68 @@ export function itemUseOutcome(before, after) {
   const used = Number.isInteger(before?.quantity) && Number.isInteger(after?.quantity) && after.quantity === before.quantity - 1;
   const hpRose = Number.isInteger(before?.hp) && Number.isInteger(after?.hp) ? after.hp > before.hp : null;
   return { used, hpRose };
+}
+
+/**
+ * Every non-empty inventory slot, in slot order (#256 part 2): the entries
+ * of inventory() with a quantity above zero, as { slot, item } where item is
+ * { index, quantity, kind, number }. Empty slots are left out, so a native
+ * list can offer the whole inventory in a few pages.
+ */
+export function itemListEntries(inventory) {
+  return (inventory ?? [])
+    .filter((it) => Number.isInteger(it?.slot) && it.slot >= 0 && it.slot < ITEM_INVENTORY_SLOTS && Number.isInteger(it.quantity) && it.quantity > 0)
+    .sort((a, b) => a.slot - b.slot)
+    .map((it) => Object.freeze({ slot: it.slot, item: Object.freeze({ index: it.index, quantity: it.quantity, kind: it.kind, number: it.number }) }));
+}
+
+/** Pages of ITEM_PAGE_ROWS entries that itemListEntries() needs (at least 1). */
+export function itemEntryPages(entries) {
+  return Math.max(1, Math.ceil((entries?.length ?? 0) / ITEM_PAGE_ROWS));
+}
+
+/**
+ * One native page of itemListEntries(): [{ row, slot, item }] for rows
+ * 0 .. ITEM_PAGE_ROWS-1, with slot and item null past the last entry. The
+ * page is clamped to 0 .. itemEntryPages(entries) - 1.
+ */
+export function itemEntryPage(entries, page) {
+  const list = entries ?? [];
+  const p = Math.min(Math.max(Number.isInteger(page) ? page : 0, 0), itemEntryPages(list) - 1);
+  const rows = [];
+  for (let row = 0; row < ITEM_PAGE_ROWS; row++) {
+    const e = list[p * ITEM_PAGE_ROWS + row];
+    rows.push(Object.freeze({ row, slot: e ? e.slot : null, item: e ? e.item : null }));
+  }
+  return rows;
+}
+
+/**
+ * The native page that shows inventory slot `slot` (or the first entry after
+ * it, when that slot is empty); 0 when unknown or past the last entry's page.
+ */
+export function itemEntryPageOf(entries, slot) {
+  const list = entries ?? [];
+  if (!Number.isInteger(slot)) return 0;
+  const i = list.findIndex((e) => e.slot >= slot);
+  return i < 0 ? itemEntryPages(list) - 1 : Math.floor(i / ITEM_PAGE_ROWS);
+}
+
+/**
+ * The cursor an itemSlotPlan() executor should see for a read { row, offset }
+ * (#256 part 2): the list index offset + row while the pair is the one the
+ * plan expects at that index (its start or a step's { row, offset }), and -1
+ * when the index is on the plan's path but the pair is not, so the executor
+ * stops on a mismatch even when the sum agrees. null when either is unread.
+ */
+export function itemSlotCursor(plan, read) {
+  const index = itemListSlot(read?.row, read?.offset);
+  if (index === null) return null;
+  const want = new Map();
+  const start = plan?.start;
+  if (start) want.set(plan.from, start);
+  for (const s of plan?.steps ?? []) want.set(s.expect, { row: s.row, offset: s.offset });
+  const w = want.get(index);
+  if (w && (w.row !== read.row || w.offset !== read.offset)) return -1;
+  return index;
 }

@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-28): **fourth budget in progress** (owner, 2026-11-26), attempt 3 of 3 (the last); see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
+Status (2026-11-28): **fourth budget spent (3/3), no ask reached; `status:blocked`**. The `ask` route tooling is kept (PR #298); the probes are removed. See "Fourth budget" and "Blockers after the fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -396,3 +396,25 @@ Reading:
 - Metrics: 32a o7 **s7** (smode: the first other game mode a drive saw, in place of r7) t7 a7 o5 r5 t5 a5; 32b unchanged (o r t a for 2 and 3).
 
 Pass for #168 needs an ask *and* the acceptance chain (Down, Up, Circle; pointerY moves one line and back; rerun), which these probes don't run. So attempt 3 can at best find an ask: some a<k> > 0 names the route for the acceptance, which then needs a new budget or a follow-up issue. If no a<k> > 0, the budget ends: record the blockers on #168 and leave it `status:blocked`, keeping no probe (the two slots go back).
+
+### Attempt 3 results (`154c798`, tier2-eval run 46110672255: 128 pass, 0 fail)
+| probe | | | | | | | | |
+|---|---|---|---|---|---|---|---|---|
+| `32a` mds7st1 (7, then 5) | o7 **3** (timeout) | s7 **2** (battle) | t7 0 | a7 0 | o5 **5** (no mesh) | r5 0 | t5 0 | a5 0 |
+| `32b` nmkin_1 (2, then 3) | o2 3 | r2 6 | t2 0 | a2 0 | o3 3 | r3 9 | t3 0 | a3 0 |
+
+Every other scenario passed unchanged; CI green (the `web` job passed first time).
+
+Reading:
+- **mds7st1: a random battle.** The first other game mode a scene drive saw on the way to model 7 was gameState 2 (battle). A drive only waits out other modes, so nothing fought the battle, and the route used its 3600 frames in it; model 5's route then found no field walkmesh (still in battle). This also explains attempt 2's `left` (o7 4): the walk was interrupted by an encounter, not by a scene.
+- **nmkin_1: no change at all.** o, r and t are identical to attempt 2, so neither nudges nor the doubled timeout moved the walk any closer: the player is held somewhere along the path (r2 6, r3 9) without stalling long enough to count as stuck, or keeps re-entering the same triangles.
+- **No ask was seen in any attempt of this budget.**
+
+The two probes are removed (definitions in `154c798`, generator `runner/test/unit/choice-route-scenarios.js` in the same commit), so the two Tier 2 slots go back. The tooling stays: `askWindow()` / `ROUTE_WATCH.pointers` (`semantic/walkmesh.js`), the route option `ask` and the scene-drive ask note (`runner/route.js`), with their Tier 1 tests in `route.test.js`.
+
+## Blockers after the fourth budget (2026-11-28)
+1. **mds7st1 has random encounters on the routes to its talkable models.** A route needs to win (or flee) a battle and resume. #297 (#120 stretch 3, open) adds a `battle` route option; once it is on main, a mds7st1 route with `battle` plus `scene` can try models 7 and 5 again.
+2. **nmkin_1's routes to models 2 and 3 don't progress** with the current steering (identical outcomes at 1800 and 3600 frames, with or without nudges). Diagnosing it needs per-leg reports (`legs`, `block`, `near`) on one route, not a talk probe.
+3. **Still no known ask location.** All four budgets tried NPC talks at arbitrary progress values. What would unblock it fastest: a documented field + progress value + NPC for an ask (e.g. an innkeeper or a story choice), from the owner's play memory or a source.
+
+Next step for whoever picks #168 up (it needs a new attempt budget, which is the owner's call: the third and fourth budgets were owner-granted): rerun the mds7st1 probe once #297's `battle` option lands, using the generator in `154c798` with `battle` added and the two slots it needs.

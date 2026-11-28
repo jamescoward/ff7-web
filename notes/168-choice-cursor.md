@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-13): **blocked.** All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
+Status (2026-11-28): **fourth budget spent (3/3), no ask reached; `status:blocked`**. The `ask` route tooling is kept (PR #298); the probes are removed. See "Fourth budget" and "Blockers after the fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -327,3 +327,94 @@ What could unblock it (each a new attempt budget, which needs the owner; rule 11
 - **A known ask from the owner's play memory** (a field, an NPC and a progress value), as #120's route hint did.
 
 The diagnostics (generator `runner/test/unit/choice-cursor-scenarios.js`, its test and the 28* scenarios) are not merged; their definitions are in `de91358`, `2b32561` and `6512c27` on branch `issue-168-choice-cursor-3`.
+
+## Fourth budget (owner, 2026-11-26): routed walks
+The third budget's blocker was that pad walks stall short of every talkable model. The route tooling from #120 (PR #282: walkmesh reader, format 2 `route` step with `talk`, `detour`, `patience`) steers along the walkmesh instead, so routed walks come first.
+
+Address note: window i's pointerEnabled is g_WindowData 0x80083274 + 0x30·i + 0x1A (window 1: 0x800832BE, as `save-boot-19a` reads it), and pointerY is + 0x26. The 0x800832BA in two issue comments was a 0x2C-stride slip in the comments.
+
+### Attempt 1 plan (one push, 2 scenarios; Tier 2 at 128 of 128)
+New route option `ask` (with `talk`): the talk phase checks, before each press on a waiting window, whether a window is in state 6 with pointerEnabled 1 (`askWindow`, `semantic/walkmesh.js`). `'note'` records the first such window as the `ask` report (index + 1) and presses on, which picks the pointed option; `'stop'` records it and ends the talk there, leaving the choice open for the acceptance steps. Tier 1: `route.test.js` (toy talker with a choice window).
+
+Probes (generator `runner/test/unit/choice-route-scenarios.js`), each chaining routes to its field's talkable models with `talk: 600, ask: 'note'`:
+
+| probe | save (field) | models, in order | metrics |
+|---|---|---|---|
+| `save-boot-32a-choice-route-mds7st1` | disc1-mds7st1 (144) | 5, 8, 4, 6 | t5 a5 t8 a8 t4 a4 t6 a6 |
+| `save-boot-32b-choice-route-nmkin1` | disc1-nmkin-1 (120) | 2, 3, 4, 5 | t2 a2 t3 a3 t4 a4 t5 a5 |
+
+t<k>: frames until a window opened in model k's talk (0: none). a<k>: the window that showed a choice (index + 1; 0: none). Model 7 in mds7st1 is #224's plain message; model 9 is the farthest and is left out.
+
+What decides attempt 2:
+- some a<k> > 0: an ask. Attempt 2 is the acceptance on that route: `ask: 'stop'`, then Down, Up, Circle, reading that window's pointerEnabled and pointerY (pointerY + 16, then back; the window closes), with a rerun.
+- t<k> > 0 and a<k> 0 everywhere: plain messages only. Try the remaining models (mds7st1 9, nmkin_1 6, md1_2 1-3, mds7 1).
+- t<k> 0 everywhere: no talk opened; add `outcome` reports to see whether the routes reach the models.
+
+### Attempt 1 results (`05b1ffa`, tier2-eval run 46066373496: 128 pass, 0 fail)
+| probe | metrics |
+|---|---|
+| `save-boot-32a-choice-route-mds7st1` | t5 a5 t8 a8 t4 a4 t6 a6 = all 0 |
+| `save-boot-32b-choice-route-nmkin1` | t2 a2 t3 a3 t4 a4 t5 a5 = all 0 |
+
+Every other scenario passed unchanged.
+
+Reading: no routed talk opened any window, so no ask was seen. The talk phase runs only when a route ends `reached` or `stuck` (`runner/route.js`), so either every route ended another way (timeout, no goal, no path, left the field) or the talk taps never opened a window. Which one is unknown: the probes reported no `outcome`. No Tier 2 scenario has routed to a **model** goal before (#120's routes use gateway goals), so the model goal itself is untested in Tier 2.
+
+### Attempt 2 plan (one push, the same 2 slots)
+Following attempt 1's decision list ("t<k> 0 everywhere: add `outcome` reports"). Each route step now reports o<k> (`outcome`), r<k> (`remain`: triangles left on the path, 1 in a goal triangle, 0 no path), t<k> and a<k>, so 8 metrics fit two models per probe:
+
+| probe | models, in order | metrics |
+|---|---|---|
+| `save-boot-32a-choice-route-mds7st1` | **7 (control)**, 5 | o7 r7 t7 a7 o5 r5 t5 a5 |
+| `save-boot-32b-choice-route-nmkin1` | 2, 3 | o2 r2 t2 a2 o3 r3 t3 a3 |
+
+Model 7 is the control: #224 opened its plain message (window 1) by walking down and pressing Circle, so a working model route plus talk phase must give o7 1 or 2 and t7 > 0.
+
+What decides attempt 3 (the last in this budget):
+- some a<k> > 0: the acceptance on that route (`ask: 'stop'`, then Down, Up, Circle; pointerY + 16 and back; the window closes; rerun).
+- control t7 > 0, the others reached with t 0: those models don't talk at this progress; try mds7st1 9, nmkin_1 4-6.
+- o<k> 6 (no goal) or 7 (no path), or r<k> 0: the model goal is wrong (model index, or its triangle); fix `routeGoal` for models in Tier 1 first.
+- o<k> 3 (timeout) with r<k> > 1: the walk stalls; raise `detour`/`patience` or add `nudge`.
+- control o7 1/2 with t7 0: the talk phase never opens window 1 for model 7 (facing or tap timing); compare with #224's walk-down-then-Circle.
+
+### Attempt 2 results (`e2316fa`, tier2-eval run 46109230496: 128 pass, 0 fail)
+| probe | o | r | t | a | o | r | t | a |
+|---|---|---|---|---|---|---|---|---|
+| `32a` mds7st1 (7, then 5) | o7 **4** (left) | r7 6 | t7 0 | a7 0 | o5 **7** (no path) | r5 0 | t5 0 | a5 0 |
+| `32b` nmkin_1 (2, then 3) | o2 **3** (timeout) | r2 6 | t2 0 | a2 0 | o3 **3** (timeout) | r3 9 | t3 0 | a3 0 |
+
+Every other scenario passed unchanged. The `web` job failed once on the webkit speed test (2x ratio 1.65, a wall-clock check, no `web/` file changed since `05b1ffa`, where it passed); its one re-run passed.
+
+Reading:
+- **The control did not talk.** The route to model 7 ended `left`: gameState left field mode mid-walk with 6 triangles still to go (a scene, a menu or an event; which one is unknown). The probe's final check (still field 144) passed, so the game came back to the same field. Then model 5 had no path from where the player stood (r5 0). A route without `scene` stops at the first non-field frame, so routed talks in mds7st1 never got as far as the talk phase.
+- **nmkin_1: the walks never arrive.** Both routes used all 1800 frames with 6 and 9 triangles left, without a stall long enough to count as `stuck` (patience 90). So the player kept moving without reaching the goal: slow progress, or going back and forth.
+
+### Attempt 3 plan (the last in this budget; one push, the same 2 slots)
+- **Scene drives:** every route step gets `scene: 1200` (#120 budget 4: press Interact through waiting windows, wait out other game modes, re-read the walkmesh and re-plan). A route no longer ends `left`.
+- **Choice windows in drives:** `runner/route.js` now notes a choice window (`askWindow`) during a scene drive when the step has `ask`, so a choice met on the way is not missed. Tier 1: `route.test.js`, "notes a choice window met in a scene drive" (fails with the change removed).
+- **Nudges and a longer walk:** `nudge: 300` (on a stall, tap Interact facing the way), timeout 3600 (was 1800).
+- Metrics: 32a o7 **s7** (smode: the first other game mode a drive saw, in place of r7) t7 a7 o5 r5 t5 a5; 32b unchanged (o r t a for 2 and 3).
+
+Pass for #168 needs an ask *and* the acceptance chain (Down, Up, Circle; pointerY moves one line and back; rerun), which these probes don't run. So attempt 3 can at best find an ask: some a<k> > 0 names the route for the acceptance, which then needs a new budget or a follow-up issue. If no a<k> > 0, the budget ends: record the blockers on #168 and leave it `status:blocked`, keeping no probe (the two slots go back).
+
+### Attempt 3 results (`154c798`, tier2-eval run 46110672255: 128 pass, 0 fail)
+| probe | | | | | | | | |
+|---|---|---|---|---|---|---|---|---|
+| `32a` mds7st1 (7, then 5) | o7 **3** (timeout) | s7 **2** (battle) | t7 0 | a7 0 | o5 **5** (no mesh) | r5 0 | t5 0 | a5 0 |
+| `32b` nmkin_1 (2, then 3) | o2 3 | r2 6 | t2 0 | a2 0 | o3 3 | r3 9 | t3 0 | a3 0 |
+
+Every other scenario passed unchanged; CI green (the `web` job passed first time).
+
+Reading:
+- **mds7st1: a random battle.** The first other game mode a scene drive saw on the way to model 7 was gameState 2 (battle). A drive only waits out other modes, so nothing fought the battle, and the route used its 3600 frames in it; model 5's route then found no field walkmesh (still in battle). This also explains attempt 2's `left` (o7 4): the walk was interrupted by an encounter, not by a scene.
+- **nmkin_1: no change at all.** o, r and t are identical to attempt 2, so neither nudges nor the doubled timeout moved the walk any closer: the player is held somewhere along the path (r2 6, r3 9) without stalling long enough to count as stuck, or keeps re-entering the same triangles.
+- **No ask was seen in any attempt of this budget.**
+
+The two probes are removed (definitions in `154c798`, generator `runner/test/unit/choice-route-scenarios.js` in the same commit), so the two Tier 2 slots go back. The tooling stays: `askWindow()` / `ROUTE_WATCH.pointers` (`semantic/walkmesh.js`), the route option `ask` and the scene-drive ask note (`runner/route.js`), with their Tier 1 tests in `route.test.js`.
+
+## Blockers after the fourth budget (2026-11-28)
+1. **mds7st1 has random encounters on the routes to its talkable models.** A route needs to win (or flee) a battle and resume. #297 (#120 stretch 3, open) adds a `battle` route option; once it is on main, a mds7st1 route with `battle` plus `scene` can try models 7 and 5 again.
+2. **nmkin_1's routes to models 2 and 3 don't progress** with the current steering (identical outcomes at 1800 and 3600 frames, with or without nudges). Diagnosing it needs per-leg reports (`legs`, `block`, `near`) on one route, not a talk probe.
+3. **Still no known ask location.** All four budgets tried NPC talks at arbitrary progress values. What would unblock it fastest: a documented field + progress value + NPC for an ask (e.g. an innkeeper or a story choice), from the owner's play memory or a source.
+
+Next step for whoever picks #168 up (it needs a new attempt budget, which is the owner's call: the third and fourth budgets were owner-granted): rerun the mds7st1 probe once #297's `battle` option lands, using the generator in `154c798` with `battle` added and the two slots it needs.

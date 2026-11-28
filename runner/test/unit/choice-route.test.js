@@ -39,7 +39,7 @@ describe('#168 choice-route probes', () => {
       for (const { route } of routes) {
         assert.equal(route.ask, 'note');
         assert.ok(route.talk > 0);
-        assert.deepEqual(Object.values(route.report).sort(), [`a${route.to.model}`, `t${route.to.model}`]);
+        assert.deepEqual(Object.values(route.report).sort(), [`a${route.to.model}`, `o${route.to.model}`, `r${route.to.model}`, `t${route.to.model}`]);
       }
     }
   });

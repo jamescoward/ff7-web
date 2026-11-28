@@ -1,6 +1,6 @@
 # #168: the dialogue choice cursor (dialogPointer, dialogPointerY)
 
-Status (2026-11-27): **fourth budget in progress** (owner, 2026-11-26), attempt 1 of 3; see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
+Status (2026-11-28): **fourth budget in progress** (owner, 2026-11-26), attempt 2 of 3; see "Fourth budget" at the end. (2026-11-13 status of the first budget follows.) All three attempts are used and none reached a choice window, or any window at all, in mktinn. The scenarios and the mktinn save are removed; their definitions are in this branch's history (`f8c5b7c`, `f2f9903`, `f780865`).
 
 ## The problem
 #108 confirmed window 0's state but reached no choice window (field opcode `ask`). To confirm `dialogPointer` (pointerEnabled, +0x1A) and `dialogPointerY` (pointerY, +0x26) a scenario has to reach one. No route is known.
@@ -349,3 +349,30 @@ What decides attempt 2:
 - some a<k> > 0: an ask. Attempt 2 is the acceptance on that route: `ask: 'stop'`, then Down, Up, Circle, reading that window's pointerEnabled and pointerY (pointerY + 16, then back; the window closes), with a rerun.
 - t<k> > 0 and a<k> 0 everywhere: plain messages only. Try the remaining models (mds7st1 9, nmkin_1 6, md1_2 1-3, mds7 1).
 - t<k> 0 everywhere: no talk opened; add `outcome` reports to see whether the routes reach the models.
+
+### Attempt 1 results (`05b1ffa`, tier2-eval run 46066373496: 128 pass, 0 fail)
+| probe | metrics |
+|---|---|
+| `save-boot-32a-choice-route-mds7st1` | t5 a5 t8 a8 t4 a4 t6 a6 = all 0 |
+| `save-boot-32b-choice-route-nmkin1` | t2 a2 t3 a3 t4 a4 t5 a5 = all 0 |
+
+Every other scenario passed unchanged.
+
+Reading: no routed talk opened any window, so no ask was seen. The talk phase runs only when a route ends `reached` or `stuck` (`runner/route.js`), so either every route ended another way (timeout, no goal, no path, left the field) or the talk taps never opened a window. Which one is unknown: the probes reported no `outcome`. No Tier 2 scenario has routed to a **model** goal before (#120's routes use gateway goals), so the model goal itself is untested in Tier 2.
+
+### Attempt 2 plan (one push, the same 2 slots)
+Following attempt 1's decision list ("t<k> 0 everywhere: add `outcome` reports"). Each route step now reports o<k> (`outcome`), r<k> (`remain`: triangles left on the path, 1 in a goal triangle, 0 no path), t<k> and a<k>, so 8 metrics fit two models per probe:
+
+| probe | models, in order | metrics |
+|---|---|---|
+| `save-boot-32a-choice-route-mds7st1` | **7 (control)**, 5 | o7 r7 t7 a7 o5 r5 t5 a5 |
+| `save-boot-32b-choice-route-nmkin1` | 2, 3 | o2 r2 t2 a2 o3 r3 t3 a3 |
+
+Model 7 is the control: #224 opened its plain message (window 1) by walking down and pressing Circle, so a working model route plus talk phase must give o7 1 or 2 and t7 > 0.
+
+What decides attempt 3 (the last in this budget):
+- some a<k> > 0: the acceptance on that route (`ask: 'stop'`, then Down, Up, Circle; pointerY + 16 and back; the window closes; rerun).
+- control t7 > 0, the others reached with t 0: those models don't talk at this progress; try mds7st1 9, nmkin_1 4-6.
+- o<k> 6 (no goal) or 7 (no path), or r<k> 0: the model goal is wrong (model index, or its triangle); fix `routeGoal` for models in Tier 1 first.
+- o<k> 3 (timeout) with r<k> > 1: the walk stalls; raise `detour`/`patience` or add `nudge`.
+- control o7 1/2 with t7 0: the talk phase never opens window 1 for model 7 (facing or tap timing); compare with #224's walk-down-then-Circle.

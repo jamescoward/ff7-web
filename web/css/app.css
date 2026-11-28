@@ -547,7 +547,7 @@ body {
    that covers the picture while the game's Item screen is open (js/native-item.js,
    <html data-native-item-on>). It sits inside .screen, so it takes the
    picture's size in portrait and landscape and never moves the pad. Ten item
-   rows in two columns, three party rows, then Back and Hide; every button is
+   rows in two columns (pages of the non-empty slots), Prev/Next, three party rows, then Back and Hide; every button is
    at least 44 px tall, and the panel scrolls inside itself when the picture
    is too short. Disabled buttons (empty rows, the page not in use) are greyed. */
 .native-item {
@@ -571,6 +571,11 @@ body {
 .ni-msg, .ne-msg { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ni-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .ni-party { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+/* #256 part 2: Prev / page number / Next under the item rows, which show every
+   non-empty inventory slot ten at a time. */
+.ni-pager { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 4px; }
+.ni-pager .btn { text-align: center; background: var(--panel); border: 1px solid #ffffff33; }
+.ni-page { color: var(--muted); font-size: 13px; padding: 0 8px; }
 .ni-nav, .ne-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .native-item .btn { flex: none; min-height: 44px; min-width: 44px; font-size: 14px; padding: 0 8px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .native-item .btn:disabled { opacity: 0.4; }

@@ -4,9 +4,13 @@
 // panel covers the picture: the game's visible item page (IDs and counts
 // from inventory(), no names) and the party's HP/MP (partyStatus()).
 //
-// On the list page, a tap on an item runs the menu planner from the game's
-// list cursor to that row, one game frame at a time, then presses Circle
-// (the game moves to the target page). On the target page, a tap on a party
+// The ten item rows show every non-empty inventory slot, ten at a time
+// (#256 part 2): Prev and Next page through them, and the panel opens on the
+// page holding the game's list cursor. On the list page, a tap on an item
+// runs itemSlotPlan from the game's list cursor (row and offset) to that
+// slot, scrolling the game's list past page 1 when needed, one game frame
+// at a time; every step checks both the row and the offset, and a mismatch
+// stops the plan. Then it presses Circle (the game moves to the target page). On the target page, a tap on a party
 // slot does the same with the party cursor; before its Circle the item's
 // count and the slot's HP are read, and afterwards the panel reads them
 // again to confirm the use (the count fell by one) or to say no change was
@@ -22,7 +26,7 @@
 
 import { ADDRESS_TABLE } from './semantic/addresses.js';
 import { ITEM_SCREEN_ACTIONS } from './semantic/controls.js';
-import { ITEM_PAGE_ROWS, ITEM_TARGET_ROWS, itemListPlan, itemPageRows, itemRowLabel, itemTargetPlan, itemUseOutcome } from './semantic/item-screen.js';
+import { ITEM_PAGE_ROWS, ITEM_TARGET_ROWS, itemEntryPage, itemEntryPageOf, itemEntryPages, itemListEntries, itemListSlot, itemRowLabel, itemSlotCursor, itemSlotPlan, itemTargetPlan, itemUseOutcome } from './semantic/item-screen.js';
 import { createSemantic } from './semantic/layer.js';
 import { createPlanExecutor } from './semantic/planner.js';
 import { PAD } from './pad.js';
@@ -38,7 +42,7 @@ const SOURCE = 'native-item';
 
 const confirmedInt = (r, key) => (r?.confirmed === true && Number.isInteger(r.value?.[key]) ? r.value[key] : null);
 
-/** Build the panel's fixed parts once: a header, ten item rows, three party rows, Back and Hide. */
+/** Build the panel's fixed parts once: a header, ten item rows, Prev/Next, three party rows, Back and Hide. */
 export function buildItemScreen(root) {
   const doc = root.ownerDocument;
   if (root.querySelector('.ni-items')) return;
@@ -57,6 +61,15 @@ export function buildItemScreen(root) {
     b.dataset.row = String(row);
     items.append(b);
   }
+  const pager = el('div', 'ni-pager');
+  const prev = el('button', 'btn ni-prev', 'Prev');
+  prev.type = 'button';
+  prev.dataset.action = 'prev';
+  const pageNo = el('span', 'ni-page', '1/1');
+  const next = el('button', 'btn ni-next', 'Next');
+  next.type = 'button';
+  next.dataset.action = 'next';
+  pager.append(prev, pageNo, next);
   const party = el('div', 'ni-party');
   for (let slot = 0; slot < ITEM_TARGET_ROWS; slot++) {
     const b = el('button', 'btn ni-member', '');
@@ -72,7 +85,7 @@ export function buildItemScreen(root) {
   hide.type = 'button';
   hide.dataset.action = 'hide';
   nav.append(back, hide);
-  root.append(head, items, party, nav);
+  root.append(head, items, pager, party, nav);
 }
 
 /** A party row's text from a partyStatus() value: confirmed numbers only. */
@@ -92,7 +105,9 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
   let handle = null; // poll
   let busy = false;
   let view = null; // the last confirmed itemScreen() value with a page, or null
-  let rows = []; // itemPageRows() of the last render
+  let entries = []; // itemListEntries() of the last confirmed inventory read
+  let rows = []; // itemEntryPage() of the last render
+  let pageNo = null; // the native page shown; null until the Item screen opens
   let party = [null, null, null]; // partyStatus values of the last render
   let peek = false; // Hide: uncovered until the Item screen closes
   let run = null; // { exec, loop, kind, ... } while a plan runs
@@ -141,13 +156,22 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     // needs idle()), so the rows say so instead of looking tappable (#25 CI).
     const ready = idle();
     root.dataset.page = page ?? '';
+    const cursorSlot = page === 'list' ? itemListSlot(view.listRow, view.listOffset) : null;
     for (const b of root.querySelectorAll('.ni-item')) {
       const r = rows[Number(b.dataset.row)];
       b.textContent = r ? itemRowLabel(r.item, names()) : '—';
       b.disabled = !(ready && page === 'list' && r?.item);
-      b.toggleAttribute('data-cursor', page === 'list' && view.listRow === Number(b.dataset.row));
+      b.toggleAttribute('data-cursor', cursorSlot !== null && r?.slot === cursorSlot);
       b.toggleAttribute('data-chosen', page === 'target' && chosen !== null && r?.slot === chosen.slot);
     }
+    const pages = itemEntryPages(entries);
+    const p = pageNo ?? 0;
+    const pn = root.querySelector('.ni-page');
+    if (pn) pn.textContent = `${p + 1}/${pages}`;
+    const prevB = root.querySelector('.ni-prev');
+    const nextB = root.querySelector('.ni-next');
+    if (prevB) prevB.disabled = !(view && p > 0);
+    if (nextB) nextB.disabled = !(view && p < pages - 1);
     for (const b of root.querySelectorAll('.ni-member')) {
       const slot = Number(b.dataset.slot);
       b.textContent = memberLabel(slot, party[slot]);
@@ -211,13 +235,17 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
         peek = false;
         chosen = null;
         check = null;
+        pageNo = null;
         show(false);
         return;
       }
       view = s.value;
       const inv = await readInventory(sem);
-      if (inv) rows = itemPageRows(view.listOffset, inv);
-      else if (!Number.isInteger(view.listOffset)) rows = [];
+      if (inv) entries = itemListEntries(inv);
+      // Open on the page with the game's list cursor; afterwards Prev/Next decide.
+      if (pageNo === null && inv) pageNo = itemEntryPageOf(entries, itemListSlot(view.listRow, view.listOffset));
+      pageNo = Math.min(pageNo ?? 0, itemEntryPages(entries) - 1);
+      rows = itemEntryPage(entries, pageNo);
       party = await readParty(sem);
       if (check) await confirmUse(sem);
       render();
@@ -227,12 +255,16 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     }
   }
 
-  /** Fresh cursor for a plan of `kind`: the confirmed list row or party slot, or null. */
+  /**
+   * Fresh cursor for a plan of `kind`: the confirmed party slot, or for the
+   * list the confirmed { row, offset } (either may be null), or null.
+   */
   async function cursorFor(kind) {
     let s;
     try { s = await reader()?.itemScreen(); } catch { s = null; }
     if (s?.confirmed !== true || s.value?.page !== kind) return null;
-    return confirmedInt(s, kind === 'list' ? 'listRow' : 'targetSlot');
+    if (kind === 'list') return { row: confirmedInt(s, 'listRow'), offset: confirmedInt(s, 'listOffset') };
+    return confirmedInt(s, 'targetSlot');
   }
 
   /** One turn of the plan loop: read frame and cursor, step the executor, hold its mask. */
@@ -242,10 +274,12 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     const frame = frameNow();
     if (frame === r.lastFrame) return;
     r.busy = true;
-    const cursor = await cursorFor(r.kind);
+    const read = await cursorFor(r.kind);
     r.busy = false;
     if (run !== r) return;
     r.lastFrame = frame;
+    // The list plan checks the row and the offset: a pair off the plan reads as -1.
+    const cursor = r.kind === 'list' ? itemSlotCursor(r.plan, read) : read;
     const out = r.exec.step(frame, cursor);
     mixer.set(SOURCE, out.mask);
     if (out.state === 'running') return;
@@ -281,22 +315,22 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     const from = await cursorFor(kind);
     starting = false;
     if (!shouldRun() || !view || view.page !== kind || !idle()) return;
-    if (from === null) { last = { ok: false, kind, to, error: { reason: 'unread' } }; return; }
+    if (from === null || (kind === 'list' && (from.row === null || from.offset === null))) { last = { ok: false, kind, to, error: { reason: 'unread' } }; return; }
     let plan;
-    try { plan = kind === 'list' ? itemListPlan(from, to) : itemTargetPlan(from, to); } catch { last = { ok: false, kind, to, error: { reason: 'range' } }; return; }
+    try { plan = kind === 'list' ? itemSlotPlan(from, to) : itemTargetPlan(from, to); } catch { last = { ok: false, kind, to, error: { reason: 'range' } }; return; }
     last = null;
     check = null;
-    run = { exec: createPlanExecutor(plan), kind, to, ...extra, busy: false, lastFrame: null, loop: null };
+    run = { exec: createPlanExecutor(plan), plan, kind, to, ...extra, busy: false, lastFrame: null, loop: null };
     run.loop = timers.setInterval(turn, LOOP_MS);
     render();
     turn();
   }
 
-  /** A tap on item page row `row` (list page only, non-empty rows only). */
+  /** A tap on panel row `row` (list page only, non-empty rows only): plan to its inventory slot. */
   function tapItem(row) {
     const r = rows[row];
     if (!r?.item) return Promise.resolve();
-    return startPlan('list', row, { chosen: { slot: r.slot, quantity: r.item.quantity } });
+    return startPlan('list', r.slot, { chosen: { slot: r.slot, quantity: r.item.quantity } });
   }
   /** A tap on party slot `slot` (target page only). */
   function tapMember(slot) {
@@ -304,6 +338,14 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     return startPlan('target', slot, { chosen });
   }
   function tapAction(id) {
+    if (id === 'prev' || id === 'next') {
+      if (!view) return;
+      const p = (pageNo ?? 0) + (id === 'next' ? 1 : -1);
+      pageNo = Math.min(Math.max(p, 0), itemEntryPages(entries) - 1);
+      rows = itemEntryPage(entries, pageNo);
+      render();
+      return;
+    }
     if (id === 'hide') {
       if (!view) return;
       peek = true;
@@ -325,6 +367,7 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     peek = false;
     chosen = null;
     check = null;
+    pageNo = null;
     show(false);
   }
   function sync() {
@@ -362,6 +405,8 @@ export function createItemScreen({ root, mixer, labs, timers = globalThis, hz = 
     get running() { return handle !== null; },
     get planning() { return run !== null; },
     get page() { return view?.page ?? null; },
+    /** The native list page shown (0-based), or null while closed. */
+    get listPage() { return pageNo; },
     get last() { return last; },
   };
 }
